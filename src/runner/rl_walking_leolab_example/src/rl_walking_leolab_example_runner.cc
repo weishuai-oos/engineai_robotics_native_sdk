@@ -89,9 +89,21 @@ bool RlWalkingLeolabExampleRunner::Enter() {
   action_scale_ = param_->action_scale;
 
   imu_install_bias_ = param_->imu_install_bias.value_or(Eigen::Vector3d::Zero());
-  lpf_command_ = std::make_unique<math::FirstOrderLowPassFilter<Eigen::Vector3d>>(
-      param_->remote_command_sampling_frequency, param_->remote_command_cut_off_frequency);
-  lpf_command_->Reset();
+  remote_command_shaper_.Configure({
+      .speed_pos = param_->command_scale_pos,
+      .speed_neg = param_->command_scale_neg,
+      .activation_threshold = param_->remote_command_activation_threshold,
+      .release_threshold = param_->remote_command_release_threshold,
+      .translation_axis_switch_margin = param_->remote_command_translation_axis_switch_margin,
+      .reversal_pause_sec = param_->remote_command_reversal_pause_sec,
+      .control_dt = param_->control_dt,
+  });
+  lpf_command_.reset();
+  if (param_->enable_remote_command_lpf) {
+    lpf_command_ = std::make_unique<math::FirstOrderLowPassFilter<Eigen::Vector3d>>(
+        param_->remote_command_sampling_frequency, param_->remote_command_cut_off_frequency);
+    lpf_command_->Reset();
+  }
 
   time_ = 0.0;
   is_first_time_ = true;
@@ -152,14 +164,32 @@ bool RlWalkingLeolabExampleRunner::ValidateParam() const {
     LOG(ERROR) << "[RlWalkingLeolabExampleRunner] clip values and control_dt must be finite and > 0";
     return false;
   }
-  if (!std::isfinite(param_->remote_command_sampling_frequency) ||
-      !std::isfinite(param_->remote_command_cut_off_frequency) ||
-      param_->remote_command_sampling_frequency <= 0.0 || param_->remote_command_cut_off_frequency <= 0.0) {
+  if (param_->enable_remote_command_lpf &&
+      (!std::isfinite(param_->remote_command_sampling_frequency) ||
+       !std::isfinite(param_->remote_command_cut_off_frequency) ||
+       param_->remote_command_sampling_frequency <= 0.0 || param_->remote_command_cut_off_frequency <= 0.0)) {
     LOG(ERROR) << "[RlWalkingLeolabExampleRunner] remote command filter parameters must be finite and > 0";
     return false;
   }
-  if (!param_->command_scale_pos.allFinite() || !param_->command_scale_neg.allFinite()) {
-    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] command scales contain non-finite values";
+  if (!std::isfinite(param_->remote_command_activation_threshold) ||
+      !std::isfinite(param_->remote_command_release_threshold) ||
+      param_->remote_command_activation_threshold <= 0.0 || param_->remote_command_activation_threshold > 1.0 ||
+      param_->remote_command_release_threshold < 0.0 ||
+      param_->remote_command_release_threshold >= param_->remote_command_activation_threshold) {
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] command thresholds require 0 <= release < activation <= 1";
+    return false;
+  }
+  if (!std::isfinite(param_->remote_command_translation_axis_switch_margin) ||
+      param_->remote_command_translation_axis_switch_margin < 0.0 ||
+      param_->remote_command_translation_axis_switch_margin > 1.0 ||
+      !std::isfinite(param_->remote_command_reversal_pause_sec) ||
+      param_->remote_command_reversal_pause_sec < 0.0) {
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] command switch margin and reversal pause are invalid";
+    return false;
+  }
+  if (!param_->command_scale_pos.allFinite() || !param_->command_scale_neg.allFinite() ||
+      (param_->command_scale_pos.array() <= 0.0).any() || (param_->command_scale_neg.array() <= 0.0).any()) {
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] fixed command speeds must be finite and > 0";
     return false;
   }
   if (!std::isfinite(param_->remote_command_tactical_front_offset_deg)) {
@@ -310,16 +340,8 @@ void RlWalkingLeolabExampleRunner::End() {}
 
 void RlWalkingLeolabExampleRunner::UpdateRemoteCommand() {
   const auto& gamepad = data_store_->gamepad_info.Get();
-  Eigen::Vector3d tactical_command;
-  tactical_command.x() = (gamepad->LeftStick_X >= 0.0)
-                             ? gamepad->LeftStick_X * param_->command_scale_pos.x()
-                             : gamepad->LeftStick_X * param_->command_scale_neg.x();
-  tactical_command.y() = (gamepad->LeftStick_Y >= 0.0)
-                             ? gamepad->LeftStick_Y * param_->command_scale_pos.y()
-                             : gamepad->LeftStick_Y * param_->command_scale_neg.y();
-  tactical_command.z() = (gamepad->RightStick_Y >= 0.0)
-                             ? gamepad->RightStick_Y * param_->command_scale_pos.z()
-                             : gamepad->RightStick_Y * param_->command_scale_neg.z();
+  const Eigen::Vector3d raw_command(gamepad->LeftStick_X, gamepad->LeftStick_Y, gamepad->RightStick_Y);
+  const Eigen::Vector3d tactical_command = remote_command_shaper_.Update(raw_command);
 
   // leo_lab samples/teleoperates in a tactical frame, while the policy
   // observation consumes root-yaw-frame velocity. Match its +37 deg rotation.
@@ -329,7 +351,7 @@ void RlWalkingLeolabExampleRunner::UpdateRemoteCommand() {
   command_.x() = cosine * tactical_command.x() - sine * tactical_command.y();
   command_.y() = sine * tactical_command.x() + cosine * tactical_command.y();
   command_.z() = tactical_command.z();
-  if (param_->enable_remote_command_lpf) {
+  if (param_->enable_remote_command_lpf && lpf_command_) {
     command_ = lpf_command_->Update(command_);
   }
 }

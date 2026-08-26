@@ -10,6 +10,7 @@
 #include "math/first_order_low_pass_filter.h"
 #include "math/mnn_model.h"
 #include "parameter/global_config_initializer.h"
+#include "rl_walking_leolab_example/fixed_remote_command_shaper.h"
 #include "rl_walking_leolab_example/mnn_recurrent_model.h"
 #include "rl_walking_leolab_example_param/rl_walking_leolab_example_param.h"
 
@@ -69,6 +70,7 @@ class RlWalkingLeolabExampleRunner : public MotionRunner {
 
   Eigen::Vector3d imu_install_bias_ = Eigen::Vector3d::Zero();
   Eigen::Vector3d command_ = Eigen::Vector3d::Zero();
+  FixedRemoteCommandShaper remote_command_shaper_;
   std::unique_ptr<math::FirstOrderLowPassFilter<Eigen::Vector3d>> lpf_command_;
 };
 

@@ -200,15 +200,28 @@ action_clip: 100.0
 observation_clip: 100.0
 control_dt: 0.02
 
-enable_remote_command_lpf: true
+# Keep LPF disabled for fixed-command test 1 so startup, stop, and reversal
+# behavior can be evaluated without filter lag or command tails.
+enable_remote_command_lpf: false
 remote_command_sampling_frequency: 50.0
 remote_command_cut_off_frequency: 0.6
+
+# Fixed-command intent thresholds on normalized stick values. A command starts
+# at activation_threshold and returns to exact zero below release_threshold.
+remote_command_activation_threshold: 0.20
+remote_command_release_threshold: 0.12
+# Keep the selected forward/lateral axis until the other axis is clearly larger.
+remote_command_translation_axis_switch_margin: 0.10
+# A direct sign reversal must remain at zero for this duration. Natural neutral
+# time counts toward the pause; translation and yaw are guarded independently.
+remote_command_reversal_pause_sec: 0.10
 
 # Raw gamepad x/y are tactical-frame commands; the runner rotates them into
 # the root-yaw observation frame used by the policy, matching leo_lab Play.
 remote_command_tactical_front_offset_deg: 37.0
-# MN narrow command envelope shared by StdTarget and StdOffset-Target (m/s, m/s, rad/s).
-command_scale_pos: [1.35, 1.35, 2.65]
-command_scale_neg: [1.35, 1.35, 2.65]
+# Fixed tactical speeds: [forward/backward, left/right, yaw] in
+# [m/s, m/s, rad/s]. Positive and negative directions can be tuned separately.
+command_scale_pos: [0.80, 0.80, 1.00]
+command_scale_neg: [0.80, 0.80, 1.00]
 
 imu_install_bias: [0.0, 0.0, 0.0]

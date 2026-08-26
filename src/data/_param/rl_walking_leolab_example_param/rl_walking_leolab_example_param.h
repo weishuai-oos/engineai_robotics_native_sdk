@@ -47,6 +47,10 @@ class RlWalkingLeolabExampleParam : public BasicParam {
   bool LOAD_PARAM(enable_remote_command_lpf);
   double LOAD_PARAM(remote_command_sampling_frequency);
   double LOAD_PARAM(remote_command_cut_off_frequency);
+  double LOAD_PARAM(remote_command_activation_threshold);
+  double LOAD_PARAM(remote_command_release_threshold);
+  double LOAD_PARAM(remote_command_translation_axis_switch_margin);
+  double LOAD_PARAM(remote_command_reversal_pause_sec);
   double LOAD_PARAM(remote_command_tactical_front_offset_deg);
   Eigen::Vector3d LOAD_PARAM(command_scale_pos);
   Eigen::Vector3d LOAD_PARAM(command_scale_neg);
@@ -59,6 +63,10 @@ class RlWalkingLeolabExampleParam : public BasicParam {
     LOAD_PARAM(action_scale);
     LOAD_PARAM(enable_remote_command_lpf);
     LOAD_PARAM(remote_command_cut_off_frequency);
+    LOAD_PARAM(remote_command_activation_threshold);
+    LOAD_PARAM(remote_command_release_threshold);
+    LOAD_PARAM(remote_command_translation_axis_switch_margin);
+    LOAD_PARAM(remote_command_reversal_pause_sec);
     LOAD_PARAM(remote_command_tactical_front_offset_deg);
     LOAD_PARAM(command_scale_pos);
     LOAD_PARAM(command_scale_neg);
