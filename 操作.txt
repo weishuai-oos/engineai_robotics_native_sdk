@@ -1,0 +1,119 @@
+EngineAI Native SDK（T800 功能合并版）操作说明
+
+一、适用范围
+
+- 仅说明 T800；本次未修改 pm01_edu、t800pro 的状态配置。
+- 机器人模型、URDF、MuJoCo XML、mesh 和关节映射统一使用本 SDK 仓库的 T800 资源，不混用 engineai_robotics_new 的机器人 XML。
+- 新增 Runner 会被 src/runner/CMakeLists.txt 自动发现，构建和运行命令仍与官方 SDK 相同，不需要额外的功能注册命令。
+
+二、构建与运行命令
+
+启用 GPU 直通将 docker/generate.sh 中的 NVIDIA_GPU_AVAILABLE 改为 y
+
+
+开发容器：
+
+  ./docker/generate.sh
+  engineai_robotics_env
+
+x86_64 编译：
+
+  ./build.sh
+
+aarch64 交叉编译（在宿主机执行，需要 Docker）：
+
+  ./build.sh -a aarch64
+
+产物目录分别为：
+
+  build/x86_64/_install
+  build/aarch64/_install
+
+MuJoCo 编译和运行：
+
+  ./scripts/build_mujoco.sh
+  ./scripts/run_mujoco.sh t800
+
+仿真时还需在同一容器的另一个终端运行 `./run.sh t800`：run_mujoco.sh 负责 MuJoCo/LCM，run.sh 负责 executor、状态机、遥控输入和策略 Runner。assets/config/t800/mode.yaml 的 active_mode 应为 sim。吊绳默认开启；MuJoCo 窗口中按 7 或方向键上缩短吊绳，按 8 或方向键下加长吊绳，按 9 开关吊绳。
+
+本机运行 SDK：
+
+  ./run.sh t800
+
+虚拟遥控器：
+
+  python3 tools/virtual_gamepad/virtual_gamepad.py
+
+真机部署前，在 install.sh 顶部设置 remote_user、remote_host、remote_dir。部署命令：
+
+  ./install.sh t800 robot x86_64
+
+或：
+
+  ./install.sh t800 robot aarch64
+
+机器人端运行：
+
+  sudo ./run_robot.sh t800
+
+install.sh 会把远端 assets/config/t800/mode.yaml 的 active_mode 改为 robot。
+
+三、T800 状态和按键
+
+YAML 中使用的是统一逻辑键。CROSS_X_UP/DOWN 表示十字键上/下，CROSS_Y_LEFT/RIGHT 表示十字键左/右。
+
+  LB + START              idle
+  LB + RB                 passive（软急停；所有状态均可进入）
+  LB + A                  pd_stand
+  LB + B                  walk（SDK 普通步态）
+  LB + X                  walk_custom（new 普通步态，上半身锁定和平滑插值）
+  LB + Y                  walk_leo（Leo Lab 步态）
+  RB + B                  dance（SDK 动作追踪）
+  RB + Y                  victory
+  RB + 十字键上           punch
+  RB + 十字键下           zhiquan_combo
+  RB + 十字键右           kick_540cut
+  RB + 十字键左           zhiquan_base
+  START + 十字键上        supine_to_stance（SDK 起身）
+  RB + START              getup（new/HoST 起身）
+  START + 十字键下        stance_to_supine（SDK 主动倒地）
+
+三套步态的摇杆控制相同：左摇杆前后控制前后速度，左摇杆左右控制横向速度，右摇杆左右控制转向角速度。
+
+四、状态切换关系
+
+按键只在当前状态允许目标状态时生效。状态关系如下：
+
+- idle：可切 passive；进入后也会自动转 passive。
+- passive：可切 idle、pd_stand、supine_to_stance、getup。
+- pd_stand：可切 passive、三套步态、全部追踪动作、SDK 起身、new 起身。
+- walk（SDK）：可切 passive、pd_stand、walk_custom、walk_leo、getup、主动倒地和全部追踪动作。
+- walk_custom：可切 passive、pd_stand、walk、walk_leo、getup、主动倒地和全部追踪动作。
+- walk_leo：可切 passive、pd_stand、walk、walk_custom、getup、主动倒地和全部追踪动作。
+- dance、victory、punch、zhiquan_combo、kick_540cut、zhiquan_base：执行中可切 passive、pd_stand 或任一步态；轨迹正常结束后自动回 walk_custom。
+- supine_to_stance（SDK 起身）：执行中只允许人工切 passive 或 pd_stand；正常完成后自动回 walk_custom。
+- getup（new/HoST 起身）：可由 walk、walk_custom、walk_leo 切入；进入时仍执行安全检查，已基本直立（投影重力 z ≤ -0.8）或角速度范数 > 6.0 时会拒绝进入。当投影重力 z ≤ -0.9 且角速度范数 ≤ 2.0 连续保持 0.3 秒后，判定起身成功并自动切入 walk_custom。人工从 getup 切换时，随时都可以切入 walk、walk_custom 或 walk_leo，不受起身成功与否限制。若 8 秒超时仍未满足站稳条件，会停止推进策略、保持最后一帧有效目标并自动切入 passive。
+- stance_to_supine（主动倒地）：可切 passive 或 pd_stand；完成后自动回 passive。
+- 所有状态均保留 LB + RB 到 passive 的软急停路径。
+
+pd_stand 在本工程中是固定姿势入口，不假设机器人已经站立。因此机器人躺平时也可以先进入 pd_stand，再选择两套起身中的任意一套。
+
+五、遥控器兼容性
+
+RC02、Logitech F710/F310（Xbox/XInput 键位模式）和虚拟遥控器都会转换成同一套 GamepadInfo，以上状态键位对三类输入源共用。
+
+逻辑键与实体键：
+
+  逻辑键             F710/Xbox 式键位       RC02
+  LB                 LB                    L1
+  RB                 RB                    R1
+  A/B/X/Y            A/B/X/Y               A/B/X/Y
+  START              Start                 START
+  CROSS_X_UP/DOWN    十字键上/下           CROSS_UP/DOWN
+  CROSS_Y_LEFT/RIGHT 十字键左/右           CROSS_LEFT/RIGHT
+
+虚拟遥控器键盘：
+
+  LB=Q，RB=E，A=J，B=K，X=U，Y=I，START=F2，十字键上=W、下=S、左=A、右=D。
+
+注意：源码明确适配的是 F710/F310，并固定读取 /dev/input/js0；应使用驱动注释所述的非黄灯 Mode，黄灯 Mode 会交换十字键与左摇杆。普通 Xbox 手柄只有在 Linux joystick 事件编号与该布局一致时才可直接使用，不能仅凭外观为 Xbox 布局就保证兼容。项目逻辑轴把 X 定义为前后、Y 定义为左右，因此 F710 驱动中会把 Linux 物理轴转换到这套命名。RC02 使用 /dev/ttyJS。启动或实体输入掉线后重新选源时按 RC02、F710 的顺序尝试；实体源一旦锁定且在线，不会被后来接入的另一实体源动态抢占。虚拟遥控器激活后作为 override 输入覆盖当前实体输入。

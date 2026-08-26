@@ -1,0 +1,181 @@
+EngineAI Native SDK（T800 功能合并版）配置与调参说明
+
+一、配置入口
+
+1. 模式和配置映射
+
+  assets/config/t800/mode.yaml
+
+- active_mode: sim 使用仿真配置，robot 使用真机配置。
+- mode.robot 和 mode.sim 把 param_tag 映射到具体 YAML。
+- 本次新增的步态、起身和动作配置均已同时加入 robot、sim。
+- install.sh 部署时会在远端自动把 active_mode 改为传入的 mode。
+
+2. 状态机、按键和周期
+
+  assets/config/t800/task_motion/default.yaml
+
+- motion：状态名。
+- period：Runner 调度周期，单位秒。
+- runner.name：注册的 Runner 名称。
+- param_tag：该状态使用的参数配置标签。
+- key：统一逻辑按键组合，不是某个遥控器驱动中的原始键号。
+- manual_transition：允许人工切换到的状态。
+- auto_transition：Runner 正常结束后的目标状态。
+
+普通改按键或状态关系只改此 YAML，不需要改 src。只有增加新遥控器、改变底层按键标准化或改变输入优先级时，才修改 src/runner/input_command_arbiter 或 src/hardware。
+
+3. 常驻任务
+
+  assets/config/t800/task_resident/sim.yaml
+  assets/config/t800/task_resident/robot.yaml
+
+前者包含仿真收发，后者包含真机硬件和输入适配。此次保留 SDK 原有常驻任务、ROS2 bridge 和硬件接口。
+
+二、三套步态
+
+1. SDK 普通步态 walk
+
+  配置：assets/config/t800/rl_walking_example/default.yaml
+  模型：assets/config/t800/rl_walking_example/policy/
+  代码：src/runner/rl_walking_example/
+
+该模块保持官方 SDK 版本，没有加入 new 的上半身锁定逻辑。
+
+- policy_file：相对 assets/config/t800 的 MNN 路径。
+- active_joint_names：策略动作关节及顺序，必须与训练/导出一致。
+- num_observations、num_include_obs_steps：观测维度和历史帧数，不能脱离模型单独修改。
+- default_joint_q：动作零点姿势。
+- joint_kp、joint_kd：位置刚度和阻尼。增大 kp 会更硬、更紧跟目标，也更容易冲击/振荡；增大 kd 可增加阻尼，但过大会迟钝和发热。
+- action_scale：策略输出到关节目标的幅值。增大后动作更大，风险也更高。
+- command_scale_pos/neg：前进、横移、转向的正/负最大指令比例。
+- enable_remote_command_lpf：是否过滤遥控指令。
+- remote_command_cut_off_frequency：越低越平滑但延迟越大；越高响应越快但更容易突变。
+- imu_install_bias：IMU 安装角补偿，顺序为 roll、pitch、yaw。
+- transition_time：SDK 步态自身的启动过渡时间。
+- disable_transition_joints：不参与 SDK 启动过渡的关节。
+
+2. new 普通步态 walk_custom
+
+  配置：assets/config/t800/rl_walking_custom_example/default.yaml
+  模型：assets/config/t800/rl_walking_custom_example/policies/
+  代码：src/runner/rl_walking_custom_example/
+
+基础参数含义与 walk 相同。new 的上半身锁定和平滑插值仅存在于此 Runner：
+
+- upper_body_lock_enabled：开关上半身锁定。
+- upper_body_lock_joint_q：J13～J17 左臂、J18～J22 右臂的 10 个目标角，单位 rad，顺序不能改变。
+- upper_body_lock_interpolation_duration：从进入状态时实测关节角平滑过渡到锁定姿势的时长。增大更柔和但到位更慢；设 0 立即到目标。
+
+3. Leo Lab 步态 walk_leo
+
+  配置：assets/config/t800/rl_walking_leolab_example/default.yaml
+  模型：assets/config/t800/rl_walking_leolab_example/policies/
+  代码：src/runner/rl_walking_leolab_example/
+
+该 Runner 直接使用官方 SDK 环境 `/opt/engineai_robotics_third_party` 中同一套 MNN 头文件和动态库；请在官方开发/交叉编译容器内构建，不要混接系统中的另一版本 MNN。
+
+- policy_recurrent：true 使用带 hidden/cell 的循环策略；false 使用普通 MLP。
+- observation_input_name、hidden_input_name、cell_input_name、action_output_name、hidden_output_name、cell_output_name：MNN 张量名，必须与导出模型一致。
+- num_one_step_observations、num_observations、num_actions、num_include_obs_steps：模型 ABI；当前循环策略固定为 84 输入、25 输出、1 帧历史。
+- host_joint_names 与 joint_names：训练端到 T800 的逐项关节映射。两组数组必须等长、无重复，不能只改其中一组。
+- override_action_joint_names：需要强制覆盖的训练端关节；当前为空，策略控制全部 25 个关节。
+- remote_command_tactical_front_offset_deg：Leo 训练坐标系到机器人根坐标系的平面旋转补偿，当前 37 度。
+- command_scale_pos/neg：Leo 前后、横移、转向指令范围。
+
+三、两套起身和主动倒地
+
+1. SDK 起身 supine_to_stance
+
+  配置：assets/config/t800/rl_supine_to_stance/default.yaml
+  策略：assets/config/t800/rl_supine_to_stance/policy/
+  轨迹：assets/config/t800/rl_supine_to_stance/trajectory/
+
+2. new/HoST 起身 getup
+
+  配置：assets/config/t800/rl_getup_example/default.yaml
+  模型：assets/config/t800/rl_getup_example/policies/policy.mnn
+  模型记录：assets/config/t800/rl_getup_example/policies/policy_manifest.json
+  代码：src/runner/rl_getup_example/
+
+- 当前模型 ABI 固定为单帧 76、6 帧历史、总输入 456、输出 23；这些维度和 first_frame_history_mode 不可随意改。
+- host_joint_names/joint_names：HoST 到 T800 的关节映射。
+- default_joint_pos：为模型契约记录保留，当前 Runner 不用它生成目标。
+- joint_stiffness/joint_damping：起身 PD 参数，当前数值明显高于步态；降低可减小冲击但可能没有足够支撑力，必须小幅调整并重新验证。
+- action_rescale：全局动作幅值；最终增量为 raw_action × action_rescale × action_scale。增大时动作更强、更危险。
+- clamp_joint_targets：true 时把目标限制在机器人关节上下限内，应保持开启。
+- entry_max_upright_projected_gravity_z：机器人已经接近直立时拒绝进入该起身。直立时 projected_gravity.z 约为 -1；数值调得更大（如 -0.7）会更严格地拒绝半直立姿势。
+- entry_max_angular_velocity_norm：进入起身允许的最大机身角速度。
+- success_upright_projected_gravity_z：完成所需的直立阈值；越接近 -1 越严格。
+- success_max_angular_velocity_norm：完成所需的稳定阈值；越小越严格。
+- success_hold_duration：直立且稳定条件连续保持多久才判定完成。
+- timeout_duration：最长执行时间。超时后不会自动进入步态，只允许切 passive 或 pd_stand。
+
+3. SDK 主动倒地 stance_to_supine
+
+  配置：assets/config/t800/rl_stance_to_supine/default.yaml
+  策略：assets/config/t800/rl_stance_to_supine/policy/
+  轨迹：assets/config/t800/rl_stance_to_supine/trajectory/
+
+四、动作追踪
+
+共用代码：
+
+  src/runner/rl_dance_example/
+
+各动作配置：
+
+  dance            assets/config/t800/rl_dance_example/default.yaml
+  victory          assets/config/t800/rl_victory_example/default.yaml
+  punch            assets/config/t800/rl_punch_example/default.yaml
+  zhiquan_combo    assets/config/t800/rl_zhiquan_combo_example/default.yaml
+  kick_540cut      assets/config/t800/rl_540cut_example/default.yaml
+  zhiquan_base     assets/config/t800/rl_zhiquan_base_example/default.yaml
+
+- policy_file：动作追踪 MNN 模型。
+- trajectory_file_npz：参考动作轨迹。
+- joint_names：25 个动作关节及顺序，必须和模型、轨迹一致。
+- joint_stiffness/joint_damping：动作 PD 参数。
+- action_scale：策略残差幅值。
+- resident_control=true：目标为参考轨迹角度 + 策略残差；false：目标为 default_joint_pos + 策略输出。
+- lower_body_startup_interpolation_duration：下半身从当前姿势到轨迹起点的过渡时间。
+- upper_body_startup_interpolation_duration：下半身启动过渡结束后，上半身到参考轨迹目标帧的过渡时间。
+- lower_body_policy_blend_duration：开始策略后，下半身从轨迹起点到策略命令的混合时间。
+- trajectory_body_index：body_quat_w 为 N×B×4 时选择第几个 body；当前 T800 轨迹统一取 0。若 body_quat_w 已是 N×4，该值必须为 0。
+- trajectory_end_behavior：exit 表示轨迹结束后触发状态机自动切换；hold 表示保持末帧，需人工切换。本工程各一次性动作使用 exit，完成后回 walk_custom。
+
+替换动作模型或轨迹时，可以保持文件名覆盖，也可以把新文件放入对应目录后修改 YAML 路径。NPZ 至少需要 float32、C-order 的 joint_pos、joint_vel、body_quat_w；前两项 Runner 视图必须为 N×25，四元数 Runner 视图必须为 N×4，帧数 N 一致且四元数必须归一化。Runner 进入状态时会检查这些条件，并用全零观测做一次模型输出维度/有限值校验。模型输入、输出、观测顺序、关节顺序和轨迹采样频率必须与 Runner 配置一致。
+
+五、T800 机器人资源
+
+最终统一采用 SDK 资源：
+
+  assets/config/t800/model/default.yaml
+  assets/resource/t800.xml
+  assets/resource/robot/t800/
+
+两仓库的 T800 URDF、mesh、texture、J00～J24 关节顺序和执行器绑定一致。SDK 的 serial_t800.xml 额外显式使用 MuJoCo integrator="implicitfast"，旧工程未指定并依赖默认积分器。因此不要把旧工程的 T800 XML 覆盖到 SDK。
+
+更换资源时，URDF、MJCF、mesh、执行器绑定和 model/default.yaml 必须作为同一版本整体更换；不能只替换 XML 或只改关节名字。策略配置中的 joint_names 也必须同步核对。
+
+六、MuJoCo 吊绳参数
+
+吊绳当前为代码常量，位置在：
+
+  simulation/mujoco/main.cc
+
+- kElasticBandStiffness：弹簧刚度，增大后支撑更强，也更容易引入高频振荡。
+- kElasticBandDamping：沿吊绳方向的阻尼，增大可抑制摆动，过大会让运动发黏。
+- kElasticBandAnchor：世界坐标系挂点 [x,y,z]。
+- kElasticBandInitialRestLength：初始自然长度。
+- kElasticBandBodyCandidates：按顺序查找机器人挂接 body。
+
+模型加载成功后吊绳默认开启。运行时 7/方向上每次缩短 0.1 m，8/方向下每次加长 0.1 m，9 切换开关。
+
+七、修改后是否需要重新编译
+
+- 只改 YAML、MNN、NPY/NPZ/CSV 或机器人资源：不需要重新编译 C++，但要重启程序；真机还需重新部署/同步 assets。
+- 改 src、simulation 或参数类头文件：需要重新编译。
+- 新增 Runner 目录且带 CMakeLists.txt：官方构建会自动发现，仍执行 ./build.sh；不增加新的构建指令。
+- 默认全量构建会包含全部迁移功能。若自行设置 ENGINEAI_ROBOTICS_USED_RUNNERS 并选中 walk_custom、walk_leo、new/HoST getup 中任一 T800 专属 Runner，CMake 会从 task_motion/default.yaml、task_resident/robot.yaml、task_resident/sim.yaml 自动提取完整 T800 Runner 集并检查选择列表；缺少 SDK walk、SDK 起身/倒地、基础状态或 robot/sim 常驻 Runner 中任一项都会拒绝配置。仅选择其他机型 Runner 时不触发这项 T800 检查。
+- aarch64 与 x86_64 使用同一套源码和配置，但必须部署与机载 CPU 架构相符的 build/<arch>/_install。

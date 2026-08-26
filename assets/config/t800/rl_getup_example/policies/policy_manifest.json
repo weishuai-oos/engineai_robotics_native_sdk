@@ -1,0 +1,173 @@
+{
+  "action_rescale": 0.6,
+  "action_scale": [
+    0.5,
+    0.2,
+    0.2,
+    0.5,
+    0.5,
+    0.2,
+    0.5,
+    0.2,
+    0.2,
+    0.5,
+    0.5,
+    0.2,
+    0.2,
+    0.2,
+    0.2,
+    0.05,
+    0.2,
+    0.05,
+    0.2,
+    0.2,
+    0.05,
+    0.2,
+    0.05
+  ],
+  "action_target_formula": "q_des = q_real + raw_action * action_rescale * action_scale",
+  "artifacts": {
+    "mnn_conversion": {
+      "command": [
+        "python",
+        "-m",
+        "MNN.tools.mnnconvert",
+        "-f",
+        "ONNX",
+        "--modelFile",
+        "rl_getup_example/policies/policy.onnx",
+        "--MNNModel",
+        "rl_getup_example/policies/policy.mnn",
+        "--bizCode",
+        "MNN"
+      ],
+      "converter_kind": "python-module",
+      "parity": {
+        "input_shape": [
+          1,
+          456
+        ],
+        "max_abs_error_vs_pytorch": 1.0132789611816406e-06,
+        "output_shape": [
+          1,
+          23
+        ],
+        "status": "verified"
+      },
+      "path": "rl_getup_example/policies/policy.mnn",
+      "sha256": "ab95684520e64e012651b160d55ee2b2fc37d0bcc016acd4eab18a34997a94cb",
+      "status": "converted"
+    },
+    "onnx": {
+      "opset": 13,
+      "bundled": false,
+      "note": "External provenance artifact; not bundled in this repository checkout.",
+      "parity": {
+        "max_abs_error_vs_pytorch": 1.8477439880371094e-06,
+        "output_shape": [
+          1,
+          23
+        ],
+        "status": "verified"
+      },
+      "path": "rl_getup_example/policies/policy.onnx",
+      "sha256": "d4324867411aa13a881bfc9ace40ba22ad6a97d9e03e8bbaaed05cbb88c7bc72"
+    },
+    "torchscript": {
+      "max_abs_error_vs_pytorch": 0.0,
+      "bundled": false,
+      "note": "External provenance artifact; not bundled in this repository checkout.",
+      "path": "rl_getup_example/policies/policy_1.pt",
+      "sha256": "cde7ace3347a18c77b276413b892ec3f47efe13a11dc2d25d190c4895b480aae"
+    }
+  },
+  "checkpoint_file_iteration": 25000,
+  "checkpoint_iteration": 25000,
+  "checkpoint_path": "legged_gym/logs/t800_host_ground/May24_13-38-40_slurm_4090_f500_pd18_a06_getup_4096env_30000it/model_6000.pt",
+  "checkpoint_sha256": "60c68cea06658d2ddb869de148898c01184d75e8ff9b87fb2c4ec4a04316eff3",
+  "checkpoint_state_iteration": 0,
+  "created_at": "2026-05-25T12:19:13Z",
+  "engineai_joint_names": [
+    "J00_HIP_PITCH_L",
+    "J01_HIP_ROLL_L",
+    "J02_HIP_YAW_L",
+    "J03_KNEE_PITCH_L",
+    "J04_ANKLE_PITCH_L",
+    "J05_ANKLE_ROLL_L",
+    "J06_HIP_PITCH_R",
+    "J07_HIP_ROLL_R",
+    "J08_HIP_YAW_R",
+    "J09_KNEE_PITCH_R",
+    "J10_ANKLE_PITCH_R",
+    "J11_ANKLE_ROLL_R",
+    "J12_TORSO_YAW",
+    "J13_SHOULDER_PITCH_L",
+    "J14_SHOULDER_ROLL_L",
+    "J15_SHOULDER_YAW_L",
+    "J16_ELBOW_PITCH_L",
+    "J17_ELBOW_YAW_L",
+    "J18_SHOULDER_PITCH_R",
+    "J19_SHOULDER_ROLL_R",
+    "J20_SHOULDER_YAW_R",
+    "J21_ELBOW_PITCH_R",
+    "J22_ELBOW_YAW_R"
+  ],
+  "history_length": 6,
+  "history_order": "oldest_to_newest; newest block is [380:456)",
+  "host_git": {
+    "commit": "f715c7ea88297b967419d3a36d178c711067d35b",
+    "repo": "HoST",
+    "status_short": "sanitized for portability"
+  },
+  "host_joint_names": [
+    "J00_HIP_PITCH_L",
+    "J01_HIP_ROLL_L",
+    "J02_HIP_YAW_L",
+    "J03_KNEE_PITCH_L",
+    "J04_ANKLE_PITCH_L",
+    "J05_ANKLE_ROLL_L",
+    "J06_HIP_PITCH_R",
+    "J07_HIP_ROLL_R",
+    "J08_HIP_YAW_R",
+    "J09_KNEE_PITCH_R",
+    "J10_ANKLE_PITCH_R",
+    "J11_ANKLE_ROLL_R",
+    "J12_TORSO_YAW",
+    "J13_SHOULDER_PITCH_L",
+    "J14_SHOULDER_ROLL_L",
+    "J15_SHOULDER_YAW_L",
+    "J16_ELBOW_PITCH_L",
+    "J17_ELBOW_YAW_L",
+    "J20_SHOULDER_PITCH_R",
+    "J21_SHOULDER_ROLL_R",
+    "J22_SHOULDER_YAW_R",
+    "J23_ELBOW_PITCH_R",
+    "J24_ELBOW_YAW_R"
+  ],
+  "input_dim": 456,
+  "observation_clip": 100.0,
+  "observation_order": [
+    "base_ang_vel",
+    "projected_gravity",
+    "controlled_dof_pos",
+    "controlled_dof_vel",
+    "previous_raw_actions",
+    "action_rescale"
+  ],
+  "observation_scales": {
+    "action_rescale": 1.0,
+    "ang_vel": 0.25,
+    "dof_pos": 1.0,
+    "dof_vel": 0.05,
+    "previous_actions": 1.0,
+    "projected_gravity": 1.0
+  },
+  "one_step_observation_dim": 76,
+  "output_dim": 23,
+  "output_git": {
+    "commit": "f19f396b7cf6c231750223f190e24c38c4661911",
+    "repo": "engineai_robotics",
+    "status_short": "sanitized for minimal get-up migration"
+  },
+  "task": "t800_host_ground"
+}

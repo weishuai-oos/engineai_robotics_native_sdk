@@ -32,6 +32,7 @@
 #include <mujoco/mjvisualize.h>
 #include <mujoco/mjxmacro.h>
 #include <mujoco/mujoco.h>
+#include "../elastic_band.h"
 #include "array_safety.h"
 #include "lodepng.h"
 #include "platform_ui_adapter.h"
@@ -1459,7 +1460,8 @@ void UiEvent(mjuiState* state) {
         }
         break;
 
-      case mjKEY_RIGHT:  // step forward
+      case mjKEY_RIGHT: {  // step forward
+        const mj::MutexLock lock(sim->mtx);
         if (!sim->is_passive_ && sim->m_ && !sim->run) {
           ClearTimers(sim->d_);
 
@@ -1481,8 +1483,10 @@ void UiEvent(mjuiState* state) {
           UpdateSettings(sim, sim->m_);
         }
         break;
+      }
 
-      case mjKEY_LEFT:  // step backward
+      case mjKEY_LEFT: {  // step backward
+        const mj::MutexLock lock(sim->mtx);
         if (!sim->is_passive_ && sim->m_) {
           sim->run = 0;
           ClearTimers(sim->d_);
@@ -1496,6 +1500,21 @@ void UiEvent(mjuiState* state) {
           UpdateProfiler(sim, sim->m_, sim->d_);
           UpdateSensor(sim, sim->m_, sim->d_);
         }
+        break;
+      }
+
+      case '7':
+      case mjKEY_UP:
+        AdjustElasticBandRestLength(-0.1);
+        break;
+
+      case '8':
+      case mjKEY_DOWN:
+        AdjustElasticBandRestLength(0.1);
+        break;
+
+      case '9':
+        ToggleElasticBand();
         break;
 
       case mjKEY_PAGE_UP:  // select parent body

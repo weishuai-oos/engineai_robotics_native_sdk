@@ -32,10 +32,17 @@ class RlDanceExampleRunner : public MotionRunner {
  private:
   void CalculateObservation();
   void CalculateMotorCommand();
+  bool InitializeStartupInterpolation();
+  void ApplyLowerBodyStartupInterpolation(double phase);
+  void ApplyUpperBodyStartupInterpolation(double phase);
+  void ApplyLowerBodyPolicyBlend(double phase);
+  double GetControlPeriod() const;
   void SendMotorCommand();
   void initHistoryBuffers();
   void fillObsContextConstantPart();
   void updateFirstFrameYawAlignment();
+  bool LoadAndValidateTrajectory(const std::string& trajectory_path);
+  bool ValidatePolicyContract();
 
   Eigen::MatrixXd npyFloatToMatrixXd(const cnpy::NpyArray& npy_array, int row_index = 0);
 
@@ -49,6 +56,7 @@ class RlDanceExampleRunner : public MotionRunner {
   std::shared_ptr<const Eigen::MatrixXd> ref_joint_vel_all_;
   std::shared_ptr<const Eigen::MatrixXd> ref_body_quat_w_all_;
   cnpy::npz_t trajectory_npz;
+  int trajectory_body_index_ = 0;
   int max_policy_step = 0;
 
   // --- Policy and observation ---
@@ -62,6 +70,24 @@ class RlDanceExampleRunner : public MotionRunner {
   // --- First frame ---
   bool is_first_time_ = true;
   int policy_step = 0;
+  bool exit_on_trajectory_end_ = true;
+  bool trajectory_hold_active_ = false;
+  bool startup_policy_started_ = true;
+  double lower_body_startup_interpolation_duration_ = 0.0;
+  double upper_body_startup_interpolation_duration_ = 0.0;
+  double upper_body_startup_total_duration_ = 0.0;
+  double lower_body_policy_blend_duration_ = 0.0;
+  double startup_interpolation_time_ = 0.0;
+  double lower_body_policy_blend_time_ = 0.0;
+  int upper_body_interpolation_target_step_ = 0;
+  Eigen::VectorXd startup_full_q_init_;
+  Eigen::VectorXi lower_body_startup_joint_idx_;
+  Eigen::VectorXi upper_body_startup_joint_idx_;
+  Eigen::VectorXd lower_body_q_init_;
+  Eigen::VectorXd lower_body_q_target_;
+  Eigen::VectorXd lower_body_policy_blend_start_q_;
+  Eigen::VectorXd upper_body_q_init_;
+  Eigen::VectorXd upper_body_q_target_;
 
   // --- Joint and mapping ---
   std::shared_ptr<Eigen::VectorXi> policy2deploy_joint_idx_;

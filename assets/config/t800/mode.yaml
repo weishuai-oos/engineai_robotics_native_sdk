@@ -35,8 +35,6 @@ mode:
       scope: parallel_ankle/default
     - tag: joint_motor_transform
       scope: joint_motor_transform_runner/default
-    - tag: stand_up
-      scope: multiple_motion_plan/default_stand_up
     - tag: passive
       scope: passive/default
     - tag: pd_stand
@@ -51,7 +49,23 @@ mode:
       scope: rl_stance_to_supine/default
     - tag: rl_dance_example
       scope: rl_dance_example/default
-      
+    - tag: rl_walking_custom_example
+      scope: rl_walking_custom_example/default
+    - tag: rl_walking_leolab_example
+      scope: rl_walking_leolab_example/default
+    - tag: rl_getup_example
+      scope: rl_getup_example/default
+    - tag: rl_victory_example
+      scope: rl_victory_example/default
+    - tag: rl_punch_example
+      scope: rl_punch_example/default
+    - tag: rl_zhiquan_combo_example
+      scope: rl_zhiquan_combo_example/default
+    - tag: rl_540cut_example
+      scope: rl_540cut_example/default
+    - tag: rl_zhiquan_base_example
+      scope: rl_zhiquan_base_example/default
+
   sim:
     - tag: resident_task
       scope: task_resident/sim
@@ -89,3 +103,19 @@ mode:
       scope: rl_stance_to_supine/default
     - tag: rl_dance_example
       scope: rl_dance_example/default
+    - tag: rl_walking_custom_example
+      scope: rl_walking_custom_example/default
+    - tag: rl_walking_leolab_example
+      scope: rl_walking_leolab_example/default
+    - tag: rl_getup_example
+      scope: rl_getup_example/default
+    - tag: rl_victory_example
+      scope: rl_victory_example/default
+    - tag: rl_punch_example
+      scope: rl_punch_example/default
+    - tag: rl_zhiquan_combo_example
+      scope: rl_zhiquan_combo_example/default
+    - tag: rl_540cut_example
+      scope: rl_540cut_example/default
+    - tag: rl_zhiquan_base_example
+      scope: rl_zhiquan_base_example/default

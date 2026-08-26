@@ -1,0 +1,214 @@
+# leo_lab T800 terrain_mild_mn_std_target deployment contract.
+# Policy observation layout:
+# base_ang_vel(3) + projected_gravity(3) + velocity_commands(3)
+# + joint_pos(25) + joint_vel(25) + previous_raw_actions(25)
+policy_file: "rl_walking_leolab_example/policies/boxing_policy.mnn"
+policy_recurrent: true
+observation_input_name: "observation"
+hidden_input_name: "memory_in.0"
+cell_input_name: "memory_in.1"
+action_output_name: "action"
+hidden_output_name: "memory_out.0"
+cell_output_name: "memory_out.1"
+
+num_one_step_observations: 84
+num_observations: 84
+num_actions: 25
+num_include_obs_steps: 1
+
+host_joint_names:
+  [
+    "J00_HIP_PITCH_L",
+    "J01_HIP_ROLL_L",
+    "J02_HIP_YAW_L",
+    "J03_KNEE_PITCH_L",
+    "J04_ANKLE_PITCH_L",
+    "J05_ANKLE_ROLL_L",
+    "J06_HIP_PITCH_R",
+    "J07_HIP_ROLL_R",
+    "J08_HIP_YAW_R",
+    "J09_KNEE_PITCH_R",
+    "J10_ANKLE_PITCH_R",
+    "J11_ANKLE_ROLL_R",
+    "J12_TORSO_YAW",
+    "J13_SHOULDER_PITCH_L",
+    "J14_SHOULDER_ROLL_L",
+    "J15_SHOULDER_YAW_L",
+    "J16_ELBOW_PITCH_L",
+    "J17_ELBOW_YAW_L",
+    "J20_SHOULDER_PITCH_R",
+    "J21_SHOULDER_ROLL_R",
+    "J22_SHOULDER_YAW_R",
+    "J23_ELBOW_PITCH_R",
+    "J24_ELBOW_YAW_R",
+    "J27_HEAD_PITCH",
+    "J28_HEAD_YAW",
+  ]
+
+joint_names:
+  [
+    "J00_HIP_PITCH_L",
+    "J01_HIP_ROLL_L",
+    "J02_HIP_YAW_L",
+    "J03_KNEE_PITCH_L",
+    "J04_ANKLE_PITCH_L",
+    "J05_ANKLE_ROLL_L",
+    "J06_HIP_PITCH_R",
+    "J07_HIP_ROLL_R",
+    "J08_HIP_YAW_R",
+    "J09_KNEE_PITCH_R",
+    "J10_ANKLE_PITCH_R",
+    "J11_ANKLE_ROLL_R",
+    "J12_TORSO_YAW",
+    "J13_SHOULDER_PITCH_L",
+    "J14_SHOULDER_ROLL_L",
+    "J15_SHOULDER_YAW_L",
+    "J16_ELBOW_PITCH_L",
+    "J17_ELBOW_YAW_L",
+    "J18_SHOULDER_PITCH_R",
+    "J19_SHOULDER_ROLL_R",
+    "J20_SHOULDER_YAW_R",
+    "J21_ELBOW_PITCH_R",
+    "J22_ELBOW_YAW_R",
+    "J23_HEAD_PITCH",
+    "J24_HEAD_YAW",
+  ]
+
+# The policy controls all 25 joints, including the guard pose and head.
+# Keep this list empty so the deploy path does not silently remove upper-body
+# actions learned by the policy.
+override_action_joint_names: []
+override_action_value: 0.0
+
+default_joint_pos:
+  [
+    -0.548942,
+    0.220542,
+    -0.119339,
+    0.279160,
+    -0.14,
+    0.0,
+    -0.235541,
+    -0.223292,
+    -0.102872,
+    0.257664,
+    -0.14,
+    0.0,
+    0.006373,
+    -1.006467,
+    0.540767,
+    0.313282,
+    -1.331819,
+    0.124102,
+    -1.138289,
+    -0.136425,
+    0.197952,
+    -1.815755,
+    -0.623839,
+    0.052337,
+    0.621251,
+  ]
+
+joint_stiffness:
+  [
+    180,
+    100,
+    100,
+    180,
+    40,
+    40,
+    180,
+    100,
+    100,
+    180,
+    40,
+    40,
+    100,
+    40,
+    40,
+    40,
+    40,
+    50,
+    40,
+    40,
+    40,
+    40,
+    50,
+    50,
+    50,
+  ]
+
+joint_damping:
+  [
+    5.0,
+    3.0,
+    3.0,
+    5.0,
+    0.3,
+    0.3,
+    5.0,
+    3.0,
+    3.0,
+    5.0,
+    0.3,
+    0.3,
+    3.0,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+  ]
+
+action_scale:
+  [
+    0.5,
+    0.2,
+    0.2,
+    0.5,
+    0.5,
+    0.2,
+    0.5,
+    0.2,
+    0.2,
+    0.5,
+    0.5,
+    0.2,
+    0.2,
+    0.4,
+    0.3,
+    0.3,
+    0.4,
+    0.3,
+    0.4,
+    0.3,
+    0.3,
+    0.4,
+    0.4,
+    0.2,
+    0.3,
+  ]
+
+action_clip: 100.0
+observation_clip: 100.0
+control_dt: 0.02
+
+enable_remote_command_lpf: true
+remote_command_sampling_frequency: 50.0
+remote_command_cut_off_frequency: 0.6
+
+# Raw gamepad x/y are tactical-frame commands; the runner rotates them into
+# the root-yaw observation frame used by the policy, matching leo_lab Play.
+remote_command_tactical_front_offset_deg: 37.0
+# MN narrow command envelope shared by StdTarget and StdOffset-Target (m/s, m/s, rad/s).
+command_scale_pos: [1.35, 1.35, 2.65]
+command_scale_neg: [1.35, 1.35, 2.65]
+
+imu_install_bias: [0.0, 0.0, 0.0]

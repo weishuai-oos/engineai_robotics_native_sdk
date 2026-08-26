@@ -2,12 +2,22 @@
 # 这个脚本用于自动发现和注册runners
 # 新机制：扫描 .h 文件中的 REGISTER_RUNNER 宏，生成显式注册代码
 
+function(_auto_register_resolve_runner_source_dir RUNNER_NAME OUT_DIR)
+  string(REGEX REPLACE "_runner$" "" _runner_base "${RUNNER_NAME}")
+  # The registry name predates the source directory's "_example" suffix.
+  if(RUNNER_NAME STREQUAL "rl_mimic_trajectory_runner")
+    set(_runner_base "rl_mimic_trajectory_example")
+  endif()
+  set(${OUT_DIR} "${_runner_base}" PARENT_SCOPE)
+endfunction()
+
 function(_auto_register_collect_used_runner_sources USED_RUNNERS_ENV OUT_SOURCES)
   set(_runner_sources "")
   string(REPLACE "," ";" _used_runners_list "${USED_RUNNERS_ENV}")
+  list(TRANSFORM _used_runners_list STRIP)
 
   foreach(_used_runner ${_used_runners_list})
-    string(REGEX REPLACE "_runner$" "" _runner_base "${_used_runner}")
+    _auto_register_resolve_runner_source_dir("${_used_runner}" _runner_base)
     file(GLOB_RECURSE _subdir_sources "${CMAKE_SOURCE_DIR}/src/runner/${_runner_base}/include/*.h")
     list(APPEND _runner_sources ${_subdir_sources})
     message(STATUS "AutoRegisterRunners: Including sources from ${_runner_base}")
@@ -162,10 +172,11 @@ function(_auto_register_filter_runner_dependencies RUNNER_DEPENDENCIES USED_RUNN
 
   message(STATUS "Filtering runners based on environment variable: ${USED_RUNNERS_ENV}")
   string(REPLACE "," ";" _used_runners_list "${USED_RUNNERS_ENV}")
+  list(TRANSFORM _used_runners_list STRIP)
   set(_filtered_dependencies "")
 
   foreach(_used_runner ${_used_runners_list})
-    string(REGEX REPLACE "_runner$" "" _runner_base "${_used_runner}")
+    _auto_register_resolve_runner_source_dir("${_used_runner}" _runner_base)
     set(_runner_target "src::runner::${_runner_base}")
     list(FIND RUNNER_DEPENDENCIES "${_runner_target}" _target_index)
     if(NOT _target_index EQUAL -1)
@@ -192,6 +203,24 @@ function(auto_register_runners TARGET_NAME)
 
   if(used_runners_env)
     message(STATUS "AutoRegisterRunners: Selective mode enabled")
+    # SDK framework builds still need the precompiled core factories. The
+    # environment filter only controls locally compiled runners; omitting the
+    # core registry here would make resident runners such as motor/imu absent
+    # at runtime even when their names are present in the selection list.
+    if(SDK_FRAMEWORK_MODE)
+      set(pregenerated_file "${CMAKE_SOURCE_DIR}/${SDK_CORE_DIR_NAME}/registry/auto_register_runners.cc")
+      if(NOT EXISTS "${pregenerated_file}")
+        message(FATAL_ERROR "AutoRegisterRunners: Pre-generated file not found: ${pregenerated_file}")
+      endif()
+      _auto_register_extract_core_from_pregenerated(
+        "${pregenerated_file}"
+        core_runner_classes
+        core_factory_declarations
+        core_runner_registrations
+        core_runner_targets
+      )
+      set(comment_line "Merged: pre-compiled core runners + selectively compiled local runners")
+    endif()
     _auto_register_collect_used_runner_sources("${used_runners_env}" runner_sources)
   else()
     message(STATUS "AutoRegisterRunners: Full compilation mode")

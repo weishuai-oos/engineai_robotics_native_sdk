@@ -1,0 +1,15 @@
+This directory expects boxing_policy.mnn generated from a zq_leo CusRL T800 AMP checkpoint.
+
+Model contract:
+  - raw observation input: 84 = base_ang_vel(3) + projected_gravity(3) + velocity_command(3) + joint_pos(25) + joint_vel(25) + previous_raw_action(25)
+  - deployed MNN recurrent inputs: memory_in.0 and memory_in.1, each [1, 512] for the 2-layer x 256 LSTM
+  - deployed MNN outputs: action [1, 25], memory_out.0 [1, 512], memory_out.1 [1, 512]
+  - the CusRL exporter embeds observation RMS normalization; the deployment runner sends raw observations and must not normalize them again
+  - the runner applies the configured boxing nominal pose and action_scale after receiving the raw action
+
+Conversion outline:
+  1. In zq_leo, run scripts/cusrl/export.py with the selected AMP checkpoint and --format onnx.
+  2. Inspect actor.yml and confirm the six tensor names/shapes above.
+  3. Convert actor.onnx with: python -m MNN.tools.mnnconvert -f ONNX --modelFile actor.onnx --MNNModel boxing_policy.mnn --bizCode MNN
+  4. Copy boxing_policy.mnn into this directory and keep default.yaml tensor names synchronized with actor.yml.
+  5. Compare PyTorch, ONNX, and MNN outputs over a multi-step sequence before hardware deployment; do not silently replace an LSTM with zero memory if MNN conversion fails.

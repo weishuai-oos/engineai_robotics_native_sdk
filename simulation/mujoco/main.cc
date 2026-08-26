@@ -14,8 +14,11 @@
 
 #include <glog/logging.h>
 #include <mujoco/mujoco.h>
+#include <algorithm>
+#include <array>
 #include <cerrno>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -28,6 +31,7 @@
 #include <thread>
 
 #include "array_safety.h"
+#include "elastic_band.h"
 #include "glfw_adapter.h"
 #include "simulate.h"
 
@@ -62,11 +66,152 @@ const constexpr auto kBusyWaitTime = 100us;
 const constexpr int kDofFloatingBase = 6;
 const constexpr int kNumFloatingBaseJoints = 7;
 const constexpr int kDimQuaternion = 4;
+// T800 is roughly 85 kg in the MJCF, so Unitree's 200 N/m default is too weak
+// to visibly support the upper body. These defaults provide a usable safety tether.
+const constexpr mjtNum kElasticBandStiffness = 800.0;
+const constexpr mjtNum kElasticBandDamping = 200.0;
+const std::array<mjtNum, 3> kElasticBandAnchor = {0.0, 0.0, 3.0};
+const constexpr mjtNum kElasticBandInitialRestLength = 1.0;
+const std::array<const char*, 3> kElasticBandBodyCandidates = {
+    "LINK_WAIST_YAW",
+    "LINK_TORSO_YAW",
+    "LINK_BASE",
+};
 const std::unordered_map<data::ContactType, int> single_contact_dimensions_map = {
     {data::ContactType::kPoint, 3},
     {data::ContactType::kRectangularSurface, 6},
 };
+
+struct ElasticBandState {
+  std::mutex mutex;
+  int body_id = -1;
+  const char* body_name = nullptr;
+  bool available = false;
+  bool enabled = false;
+  mjtNum rest_length = kElasticBandInitialRestLength;
+};
+
+ElasticBandState elastic_band_state;
 }  // namespace
+
+void ResolveElasticBandBody(const mjModel* m) {
+  std::lock_guard<std::mutex> lock(elastic_band_state.mutex);
+  elastic_band_state.body_id = -1;
+  elastic_band_state.body_name = nullptr;
+  elastic_band_state.available = false;
+  elastic_band_state.enabled = false;
+  elastic_band_state.rest_length = kElasticBandInitialRestLength;
+
+  if (!m) {
+    return;
+  }
+
+  int body_id = -1;
+  const char* body_name = nullptr;
+  for (const char* candidate : kElasticBandBodyCandidates) {
+    body_id = mj_name2id(m, mjOBJ_BODY, candidate);
+    if (body_id >= 0) {
+      body_name = candidate;
+      break;
+    }
+  }
+
+  if (body_id < 0) {
+    LOG(ERROR) << "Elastic band disabled: failed to find upper body attachment in current model.";
+    return;
+  }
+
+  elastic_band_state.body_id = body_id;
+  elastic_band_state.body_name = body_name;
+  elastic_band_state.available = true;
+  elastic_band_state.enabled = true;
+  LOG(INFO) << "Elastic band attached to " << body_name << " (body id " << body_id << ")."
+            << " Anchor: [0, 0, 3], rest length: " << kElasticBandInitialRestLength
+            << ", stiffness: " << kElasticBandStiffness
+            << ", damping: " << kElasticBandDamping;
+}
+
+void ElasticBandPassiveCallback(const mjModel* m, mjData* d) {
+  int body_id = -1;
+  bool enabled = false;
+  mjtNum rest_length = 0.0;
+  {
+    std::lock_guard<std::mutex> lock(elastic_band_state.mutex);
+    body_id = elastic_band_state.body_id;
+    enabled = elastic_band_state.available && elastic_band_state.enabled;
+    rest_length = elastic_band_state.rest_length;
+  }
+
+  if (!m || !d || body_id < 0 || body_id >= m->nbody) {
+    return;
+  }
+
+  if (!enabled) {
+    return;
+  }
+
+  const mjtNum* body_position = d->xpos + 3 * body_id;
+  mjtNum anchor_delta[3] = {
+      kElasticBandAnchor[0] - body_position[0],
+      kElasticBandAnchor[1] - body_position[1],
+      kElasticBandAnchor[2] - body_position[2],
+  };
+  const mjtNum distance = std::sqrt(anchor_delta[0] * anchor_delta[0] + anchor_delta[1] * anchor_delta[1] +
+                                    anchor_delta[2] * anchor_delta[2]);
+  if (distance <= mjMINVAL) {
+    return;
+  }
+
+  const mjtNum extension = distance - rest_length;
+  if (extension <= 0.0) {
+    return;
+  }
+
+  const mjtNum inverse_distance = 1.0 / distance;
+  const mjtNum direction[3] = {
+      anchor_delta[0] * inverse_distance,
+      anchor_delta[1] * inverse_distance,
+      anchor_delta[2] * inverse_distance,
+  };
+
+  mjtNum body_velocity[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  mj_objectVelocity(m, d, mjOBJ_BODY, body_id, body_velocity, 0);
+  const mjtNum velocity_toward_anchor = direction[0] * body_velocity[3] + direction[1] * body_velocity[4] +
+                                        direction[2] * body_velocity[5];
+  const mjtNum tension = std::max<mjtNum>(0.0, kElasticBandStiffness * extension -
+                                                   kElasticBandDamping * velocity_toward_anchor);
+  if (tension <= 0.0) {
+    return;
+  }
+
+  const mjtNum force[3] = {
+      tension * direction[0],
+      tension * direction[1],
+      tension * direction[2],
+  };
+  const mjtNum torque[3] = {0.0, 0.0, 0.0};
+  mj_applyFT(m, d, force, torque, body_position, body_id, d->qfrc_passive);
+}
+
+void AdjustElasticBandRestLength(const mjtNum delta) {
+  std::lock_guard<std::mutex> lock(elastic_band_state.mutex);
+  if (!elastic_band_state.available) {
+    return;
+  }
+
+  elastic_band_state.rest_length = std::max<mjtNum>(0.0, elastic_band_state.rest_length + delta);
+  LOG(INFO) << "Elastic band rest length set to " << elastic_band_state.rest_length;
+}
+
+void ToggleElasticBand() {
+  std::lock_guard<std::mutex> lock(elastic_band_state.mutex);
+  if (!elastic_band_state.available) {
+    return;
+  }
+
+  elastic_band_state.enabled = !elastic_band_state.enabled;
+  LOG(INFO) << "Elastic band " << (elastic_band_state.enabled ? "enabled" : "disabled");
+}
 
 void UpdateSimState(const mjModel* m, mjData* d) {
   bool is_floating_base = (m->nv != m->nu);
@@ -414,6 +559,7 @@ void PhysicsLoop(mj::Simulate& sim) {
 
         m = mnew;
         d = dnew;
+        ResolveElasticBandBody(m);
         mj_forward(m, d);
 
       } else {
@@ -438,6 +584,7 @@ void PhysicsLoop(mj::Simulate& sim) {
 
         m = mnew;
         d = dnew;
+        ResolveElasticBandBody(m);
         mj_forward(m, d);
 
       } else {
@@ -576,6 +723,7 @@ void PhysicsThread(mj::Simulate* sim, const char* filename) {
       // lock the sim mutex
       const std::unique_lock<std::recursive_mutex> lock(sim->mtx);
 
+      ResolveElasticBandBody(m);
       mj_forward(m, d);
 
     } else {
@@ -660,8 +808,10 @@ int main(int argc, char** argv) {
   mjvPerturb pert;
   mjv_defaultPerturb(&pert);
 
-  // install control callback
+  // Install callbacks. The tether contributes to qfrc_passive so it composes
+  // with MuJoCo UI perturbations and other xfrc_applied users.
   mjcb_control = TorqueController;
+  mjcb_passive = ElasticBandPassiveCallback;
 
   // Simulates object encapsulates the UI
   auto sim =

@@ -31,9 +31,7 @@ void IdleRunner::Run() {
   if (!param_) {
     LOG_FIRST_N(WARNING, 1) << "[IdleRunner] param_ is null, output reset to zero.";
     GetMutableOutput().Reset();
-    if (common::IsInMujoco()) {
-      SetRunnerState(runner::RunnerState::kTryExit);
-    }
+    SetRunnerState(runner::RunnerState::kTryExit);
     return;
   }
 
@@ -66,9 +64,10 @@ void IdleRunner::Run() {
     GetMutableOutput().Reset();
   }
 
-  if (common::IsInMujoco()) {
-    SetRunnerState(runner::RunnerState::kTryExit);
-  }
+  // The task graph declares idle -> passive as its automatic transition. This
+  // must also be honored on hardware because getup timeout recovery enters
+  // idle through MotionTaskManager's fault path.
+  SetRunnerState(runner::RunnerState::kTryExit);
 }
 
 TransitionState IdleRunner::TryExit() {

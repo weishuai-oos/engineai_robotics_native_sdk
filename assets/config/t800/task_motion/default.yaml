@@ -23,6 +23,7 @@ tasks:
       - idle
       - pd_stand
       - supine_to_stance
+      - getup
     key: [LB, RB]
 
   - motion: pd_stand
@@ -34,7 +35,16 @@ tasks:
     manual_transition:
       - passive
       - walk
+      - walk_custom
+      - walk_leo
       - dance
+      - victory
+      - punch
+      - zhiquan_combo
+      - kick_540cut
+      - zhiquan_base
+      - supine_to_stance
+      - getup
     key: [LB, A]
 
   - motion: walk
@@ -46,21 +56,149 @@ tasks:
     manual_transition:
       - passive
       - pd_stand
+      - walk_custom
+      - walk_leo
+      - getup
       - stance_to_supine
       - dance
+      - victory
+      - punch
+      - zhiquan_combo
+      - kick_540cut
+      - zhiquan_base
     key: [LB, B]
+
+  - motion: walk_custom
+    period: 0.01
+    runner:
+      - name: rl_walking_custom_example_runner
+        enabled: true
+        param_tag: rl_walking_custom_example
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_leo
+      - getup
+      - stance_to_supine
+      - dance
+      - victory
+      - punch
+      - zhiquan_combo
+      - kick_540cut
+      - zhiquan_base
+    key: [LB, X]
+
+  - motion: walk_leo
+    period: 0.02
+    runner:
+      - name: rl_walking_leolab_example_runner
+        enabled: true
+        param_tag: rl_walking_leolab_example
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - getup
+      - stance_to_supine
+      - dance
+      - victory
+      - punch
+      - zhiquan_combo
+      - kick_540cut
+      - zhiquan_base
+    key: [LB, Y]
 
   - motion: dance
     period: 0.02
     runner:
       - name: rl_dance_example_runner
         enabled: true
+        param_tag: rl_dance_example
     manual_transition:
       - passive
       - pd_stand
       - walk
-    auto_transition: walk
+      - walk_custom
+      - walk_leo
+    auto_transition: walk_custom
     key: [RB, B]
+
+  - motion: victory
+    period: 0.02
+    runner:
+      - name: rl_dance_example_runner
+        enabled: true
+        param_tag: rl_victory_example
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+    auto_transition: walk_custom
+    key: [RB, Y]
+
+  - motion: punch
+    period: 0.02
+    runner:
+      - name: rl_dance_example_runner
+        enabled: true
+        param_tag: rl_punch_example
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+    auto_transition: walk_custom
+    key: [RB, CROSS_X_UP]
+
+  - motion: zhiquan_combo
+    period: 0.02
+    runner:
+      - name: rl_dance_example_runner
+        enabled: true
+        param_tag: rl_zhiquan_combo_example
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+    auto_transition: walk_custom
+    key: [RB, CROSS_X_DOWN]
+
+  - motion: kick_540cut
+    period: 0.02
+    runner:
+      - name: rl_dance_example_runner
+        enabled: true
+        param_tag: rl_540cut_example
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+    auto_transition: walk_custom
+    key: [RB, CROSS_Y_RIGHT]
+
+  - motion: zhiquan_base
+    period: 0.02
+    runner:
+      - name: rl_dance_example_runner
+        enabled: true
+        param_tag: rl_zhiquan_base_example
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+    auto_transition: walk_custom
+    key: [RB, CROSS_Y_LEFT]
 
   - motion: supine_to_stance
     period: 0.01
@@ -70,8 +208,24 @@ tasks:
         param_tag: rl_supine_to_stance
     manual_transition:
       - passive
-    auto_transition: walk
+      - pd_stand
+    auto_transition: walk_custom
     key: [START, CROSS_X_UP]
+
+  - motion: getup
+    period: 0.01
+    runner:
+      - name: rl_getup_example_runner
+        enabled: true
+        param_tag: rl_getup_example
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+    auto_transition: walk_custom
+    key: [RB, START]
 
   - motion: stance_to_supine
     period: 0.01
