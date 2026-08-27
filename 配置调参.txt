@@ -142,7 +142,7 @@ EngineAI Native SDK（T800 功能合并版）配置与调参说明
 - upper_body_startup_interpolation_duration：下半身启动过渡结束后，上半身到参考轨迹目标帧的过渡时间。
 - lower_body_policy_blend_duration：开始策略后，下半身从轨迹起点到策略命令的混合时间。
 - trajectory_body_index：body_quat_w 为 N×B×4 时选择第几个 body；当前 T800 轨迹统一取 0。若 body_quat_w 已是 N×4，该值必须为 0。
-- trajectory_end_behavior：exit 表示轨迹结束后触发状态机自动切换；hold 表示保持末帧，需人工切换。本工程各一次性动作使用 exit，完成后回 walk_custom。
+- trajectory_end_behavior：exit 表示轨迹结束后触发状态机自动切换；hold 表示保持末帧，需人工切换。本工程 6 个动作轨迹和 supine_to_stance 使用 exit，正常完成后回 walk_leo；stance_to_supine 仍按任务图自动回 passive。
 
 替换动作模型或轨迹时，可以保持文件名覆盖，也可以把新文件放入对应目录后修改 YAML 路径。NPZ 至少需要 float32、C-order 的 joint_pos、joint_vel、body_quat_w；前两项 Runner 视图必须为 N×25，四元数 Runner 视图必须为 N×4，帧数 N 一致且四元数必须归一化。Runner 进入状态时会检查这些条件，并用全零观测做一次模型输出维度/有限值校验。模型输入、输出、观测顺序、关节顺序和轨迹采样频率必须与 Runner 配置一致。
 
