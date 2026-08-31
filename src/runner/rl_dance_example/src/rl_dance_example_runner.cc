@@ -39,19 +39,12 @@
 
 #include <glog/logging.h>
 
-#include "math/interpolation.h"
 #include "math/rotation_matrix.h"
 #include "rl_dance_example/wbt_obs_registry.h"
 
 namespace runner {
 
 namespace {
-
-bool IsUpperBodyJointName(const std::string& joint_name) {
-  return joint_name.find("SHOULDER") != std::string::npos ||
-         joint_name.find("ELBOW") != std::string::npos ||
-         joint_name.find("HEAD") != std::string::npos;
-}
 
 bool ValidateFloatTrajectoryArray(const cnpy::NpyArray& array, const char* key) {
   if (array.word_size != sizeof(float)) {
@@ -154,6 +147,8 @@ bool RlDanceExampleRunner::Enter() {
   // Apply PD gains and default positions only to the policy-controlled joints
   joint_kp_(*policy2deploy_joint_idx_) = param_->joint_stiffness;
   joint_kd_(*policy2deploy_joint_idx_) = param_->joint_damping;
+  joint_kp_cmd_ = joint_kp_;
+  joint_kd_cmd_ = joint_kd_;
   (*default_joint_q_)(*policy2deploy_joint_idx_) = param_->default_joint_pos;
   action_scale_ = param_->action_scale;
 
@@ -194,13 +189,12 @@ bool RlDanceExampleRunner::Enter() {
   is_first_time_ = true;
   policy_step = 0;
   trajectory_hold_active_ = false;
-  startup_interpolation_time_ = 0.0;
   GetMutableOutput().Reset();
 
   // Pre-fill observation context fields that remain constant throughout execution
   fillObsContextConstantPart();
 
-  if (!InitializeStartupInterpolation()) {
+  if (!InitializeEntryTransition()) {
     return false;
   }
 
@@ -241,57 +235,21 @@ void RlDanceExampleRunner::fillObsContextConstantPart() {
  * so the robot holds the final pose once the trajectory is fully played.
  */
 void RlDanceExampleRunner::Run() {
-  const double control_period = GetControlPeriod();
-
   if (trajectory_hold_active_) {
     SendMotorCommand();
     return;
   }
 
-  if (!startup_policy_started_) {
-    const double startup_phase =
-        std::min(startup_interpolation_time_ + control_period, lower_body_startup_interpolation_duration_);
-
-    q_des_ = startup_full_q_init_;
-    qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
-    tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
-    ApplyLowerBodyStartupInterpolation(startup_phase);
-    ApplyUpperBodyStartupInterpolation(startup_phase);
-    SendMotorCommand();
-
-    startup_interpolation_time_ = startup_phase;
-    if (startup_interpolation_time_ >= lower_body_startup_interpolation_duration_) {
-      startup_policy_started_ = true;
-      lower_body_policy_blend_time_ = 0.0;
-      lower_body_policy_blend_start_q_ = lower_body_q_target_;
-      is_first_time_ = true;
-      policy_step = 0;
-      mlp_net_action_->setZero();
-    }
-    return;
-  }
-
   CalculateObservation();   // Assemble observation from registered components
   CalculateMotorCommand();  // Run policy inference and compute target positions
-
-  if (lower_body_policy_blend_duration_ > 0.0 &&
-      lower_body_policy_blend_time_ < lower_body_policy_blend_duration_) {
-    lower_body_policy_blend_time_ =
-        std::min(lower_body_policy_blend_time_ + control_period, lower_body_policy_blend_duration_);
-    ApplyLowerBodyPolicyBlend(lower_body_policy_blend_time_);
-  }
-
-  if (startup_interpolation_time_ < upper_body_startup_total_duration_) {
-    startup_interpolation_time_ =
-        std::min(startup_interpolation_time_ + control_period, upper_body_startup_total_duration_);
-    ApplyUpperBodyStartupInterpolation(startup_interpolation_time_);
-  }
-
+  ApplyEntryTransition();    // Policy runs from cycle one; only its command is blended
   SendMotorCommand();       // Send PD commands to motors
 
-  // Advance trajectory frame and loop back to the start.
-  // policy_step = (policy_step >= max_policy_step) ? 0 : policy_step + 1;
-  policy_step = std::min(policy_step + 1, max_policy_step);
+  // Keep the reference at frame zero while the live policy warms up behind the
+  // bridge. Once the bridge is complete, advance at the normal policy rate.
+  if (!entry_transition_.IsActive()) {
+    policy_step = std::min(policy_step + 1, max_policy_step);
+  }
 }
 
 // ============================================================================
@@ -445,175 +403,81 @@ void RlDanceExampleRunner::CalculateMotorCommand() {
   }
 }
 
-bool RlDanceExampleRunner::InitializeStartupInterpolation() {
-  lower_body_startup_interpolation_duration_ =
-      param_->lower_body_startup_interpolation_duration.value_or(0.0);
-  upper_body_startup_interpolation_duration_ =
-      param_->upper_body_startup_interpolation_duration.value_or(
-          param_->startup_interpolation_duration.value_or(0.0));
-  lower_body_policy_blend_duration_ = param_->lower_body_policy_blend_duration.value_or(0.0);
-  upper_body_startup_total_duration_ =
-      lower_body_startup_interpolation_duration_ + upper_body_startup_interpolation_duration_;
-  startup_interpolation_time_ = 0.0;
-  lower_body_policy_blend_time_ = 0.0;
-  startup_policy_started_ = lower_body_startup_interpolation_duration_ <= 0.0;
-  upper_body_interpolation_target_step_ = 0;
-
-  if (lower_body_startup_interpolation_duration_ < 0.0 ||
-      upper_body_startup_interpolation_duration_ < 0.0 ||
-      lower_body_policy_blend_duration_ < 0.0) {
-    LOG(ERROR) << "Startup interpolation durations must be non-negative. lower_body="
-               << lower_body_startup_interpolation_duration_
-               << ", upper_body=" << upper_body_startup_interpolation_duration_
-               << ", lower_body_blend=" << lower_body_policy_blend_duration_;
-    return false;
-  }
-  if ((lower_body_startup_interpolation_duration_ > 0.0 ||
-       upper_body_startup_interpolation_duration_ > 0.0 ||
-       lower_body_policy_blend_duration_ > 0.0) &&
-      runner_period_ <= 0.0) {
-    LOG(WARNING) << "Runner period is not set. Startup interpolation falls back to 0.02s control period.";
-  }
+bool RlDanceExampleRunner::InitializeEntryTransition() {
   if (!ref_joint_pos_all_ || ref_joint_pos_all_->rows() == 0 ||
       ref_joint_pos_all_->cols() != param_->num_actions) {
-    LOG(ERROR) << "Invalid reference joint position trajectory for startup interpolation.";
+    LOG(ERROR) << "Invalid reference joint position trajectory for entry transition";
+    return false;
+  }
+
+  const double legacy_lower = param_->lower_body_startup_interpolation_duration.value_or(0.0) +
+                              param_->lower_body_policy_blend_duration.value_or(0.0);
+  const double legacy_upper = param_->lower_body_startup_interpolation_duration.value_or(0.0) +
+                              param_->upper_body_startup_interpolation_duration.value_or(
+                                  param_->startup_interpolation_duration.value_or(0.0));
+  const double legacy_duration = std::max(legacy_lower, legacy_upper);
+
+  motion_transition::EntryTransitionConfig config;
+  config.enabled = param_->entry_transition_enabled.value_or(legacy_duration > 0.0);
+  config.nominal_duration =
+      param_->entry_transition_duration.value_or(legacy_duration > 0.0 ? legacy_duration : 0.16);
+  config.min_duration = param_->entry_transition_min_duration.value_or(
+      std::min(0.10, config.nominal_duration));
+  config.max_duration = param_->entry_transition_max_duration.value_or(
+      std::max(0.28, config.nominal_duration));
+  config.max_joint_velocity = param_->entry_transition_max_joint_velocity.value_or(8.0);
+  config.max_joint_acceleration = param_->entry_transition_max_joint_acceleration.value_or(120.0);
+  config.reference_pose_weight = param_->entry_transition_reference_pose_weight.value_or(0.35);
+  config.source_command_tracking_error = param_->entry_transition_source_tracking_error.value_or(0.75);
+  if (!entry_transition_.Configure(config)) {
     return false;
   }
 
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
-  startup_full_q_init_ = q_real_;
-  upper_body_interpolation_target_step_ =
-      std::min(static_cast<int>(std::ceil(upper_body_startup_interpolation_duration_ / GetControlPeriod())),
-               max_policy_step);
+  data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  entry_reference_q_ = *default_joint_q_;
+  entry_reference_q_(*policy2deploy_joint_idx_) = ref_joint_pos_all_->row(0).transpose();
 
-  std::vector<int> lower_body_action_idx;
-  std::vector<int> lower_body_joint_idx;
-  std::vector<int> upper_body_action_idx;
-  std::vector<int> upper_body_joint_idx;
-  for (int action_idx = 0; action_idx < param_->num_actions; ++action_idx) {
-    if (action_idx >= static_cast<int>(param_->joint_names.size())) {
-      LOG(ERROR) << "joint_names size is smaller than num_actions.";
-      return false;
-    }
-    const int joint_idx = (*policy2deploy_joint_idx_)(action_idx);
-    if (IsUpperBodyJointName(param_->joint_names[action_idx])) {
-      upper_body_action_idx.push_back(action_idx);
-      upper_body_joint_idx.push_back(joint_idx);
-    } else {
-      lower_body_action_idx.push_back(action_idx);
-      lower_body_joint_idx.push_back(joint_idx);
-    }
-  }
+  motion_transition::JointCommand source;
+  motion_transition::CaptureJointCommand(data_store_->joint_info, model_param_->num_total_joints, &source);
 
-  if ((lower_body_startup_interpolation_duration_ > 0.0 ||
-       lower_body_policy_blend_duration_ > 0.0) &&
-      lower_body_action_idx.empty()) {
-    LOG(ERROR) << "No lower-body/torso joints found for startup interpolation.";
-    return false;
-  }
-  if (upper_body_startup_interpolation_duration_ > 0.0 && upper_body_action_idx.empty()) {
-    LOG(ERROR) << "No upper-body joints found for startup interpolation.";
-    return false;
-  }
-
-  const int num_lower_body_joints = static_cast<int>(lower_body_action_idx.size());
-  lower_body_startup_joint_idx_.resize(num_lower_body_joints);
-  lower_body_q_init_.resize(num_lower_body_joints);
-  lower_body_q_target_.resize(num_lower_body_joints);
-  lower_body_policy_blend_start_q_.resize(num_lower_body_joints);
-  for (int i = 0; i < num_lower_body_joints; ++i) {
-    const int action_idx = lower_body_action_idx[i];
-    const int joint_idx = lower_body_joint_idx[i];
-    lower_body_startup_joint_idx_(i) = joint_idx;
-    lower_body_q_init_(i) = q_real_(joint_idx);
-    lower_body_q_target_(i) = (*ref_joint_pos_all_)(0, action_idx);
-    lower_body_policy_blend_start_q_(i) = lower_body_q_init_(i);
-  }
-
-  const int num_upper_body_joints = static_cast<int>(upper_body_action_idx.size());
-  upper_body_startup_joint_idx_.resize(num_upper_body_joints);
-  upper_body_q_init_.resize(num_upper_body_joints);
-  upper_body_q_target_.resize(num_upper_body_joints);
-  for (int i = 0; i < num_upper_body_joints; ++i) {
-    const int action_idx = upper_body_action_idx[i];
-    const int joint_idx = upper_body_joint_idx[i];
-    upper_body_startup_joint_idx_(i) = joint_idx;
-    upper_body_q_init_(i) = q_real_(joint_idx);
-    upper_body_q_target_(i) = (*ref_joint_pos_all_)(upper_body_interpolation_target_step_, action_idx);
-  }
+  motion_transition::JointCommand fallback;
+  fallback.q = entry_reference_q_;
+  fallback.qd = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  fallback.kp = joint_kp_;
+  fallback.kd = joint_kd_;
+  fallback.tau_ff = Eigen::VectorXd::Zero(model_param_->num_total_joints);
 
   q_des_ = q_real_;
   qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   mlp_net_action_->setZero();
-
-  LOG(INFO) << "[WbtRunner::Enter] Startup transition: lower_body_duration="
-            << lower_body_startup_interpolation_duration_
-            << "s, upper_body_duration=" << upper_body_startup_interpolation_duration_
-            << "s, lower_body_blend=" << lower_body_policy_blend_duration_
-            << "s, upper_target_step=" << upper_body_interpolation_target_step_
-            << ", lower_joints=" << num_lower_body_joints
-            << ", upper_joints=" << num_upper_body_joints;
-  return true;
+  return entry_transition_.Start(source, q_real_, qd_real_, fallback);
 }
 
-void RlDanceExampleRunner::ApplyLowerBodyStartupInterpolation(double phase) {
-  if (lower_body_startup_interpolation_duration_ <= 0.0 || lower_body_startup_joint_idx_.size() == 0) {
+void RlDanceExampleRunner::ApplyEntryTransition() {
+  motion_transition::JointCommand target;
+  target.q = q_des_;
+  target.qd = qd_des_;
+  target.kp = joint_kp_;
+  target.kd = joint_kd_;
+  target.tau_ff = tau_ff_des_;
+
+  motion_transition::JointCommand command;
+  if (!entry_transition_.Apply(target, entry_reference_q_, q_real_, GetControlPeriod(), &command)) {
+    LOG(ERROR) << "[WbtRunner] Entry transition failed; holding measured pose";
+    q_des_ = q_real_;
+    qd_des_.setZero();
+    tau_ff_des_.setZero();
+    joint_kp_cmd_ = joint_kp_;
+    joint_kd_cmd_ = joint_kd_;
     return;
   }
-
-  const double clamped_phase = std::min(std::max(phase, 0.0), lower_body_startup_interpolation_duration_);
-  const int num_startup_joints = static_cast<int>(lower_body_startup_joint_idx_.size());
-  Eigen::VectorXd q_cmd = Eigen::VectorXd::Zero(num_startup_joints);
-  Eigen::VectorXd qd_cmd = Eigen::VectorXd::Zero(num_startup_joints);
-  math::QuinticInterpolate(lower_body_q_init_, lower_body_q_target_, lower_body_startup_interpolation_duration_,
-                           clamped_phase, q_cmd, qd_cmd);
-  for (int i = 0; i < num_startup_joints; ++i) {
-    const int joint_idx = lower_body_startup_joint_idx_(i);
-    q_des_(joint_idx) = q_cmd(i);
-    qd_des_(joint_idx) = qd_cmd(i);
-  }
-}
-
-void RlDanceExampleRunner::ApplyUpperBodyStartupInterpolation(double phase) {
-  if (upper_body_startup_interpolation_duration_ <= 0.0 || upper_body_startup_joint_idx_.size() == 0) {
-    return;
-  }
-
-  const double upper_body_phase = phase - lower_body_startup_interpolation_duration_;
-  const double clamped_phase =
-      std::min(std::max(upper_body_phase, 0.0), upper_body_startup_interpolation_duration_);
-  const int num_startup_joints = static_cast<int>(upper_body_startup_joint_idx_.size());
-  Eigen::VectorXd q_cmd = Eigen::VectorXd::Zero(num_startup_joints);
-  Eigen::VectorXd qd_cmd = Eigen::VectorXd::Zero(num_startup_joints);
-  math::QuinticInterpolate(upper_body_q_init_, upper_body_q_target_, upper_body_startup_interpolation_duration_,
-                           clamped_phase, q_cmd, qd_cmd);
-  for (int i = 0; i < num_startup_joints; ++i) {
-    const int joint_idx = upper_body_startup_joint_idx_(i);
-    q_des_(joint_idx) = q_cmd(i);
-    qd_des_(joint_idx) = qd_cmd(i);
-  }
-}
-
-void RlDanceExampleRunner::ApplyLowerBodyPolicyBlend(double phase) {
-  if (lower_body_policy_blend_duration_ <= 0.0 || lower_body_startup_joint_idx_.size() == 0) {
-    return;
-  }
-
-  const double clamped_phase = std::min(std::max(phase, 0.0), lower_body_policy_blend_duration_);
-  const int num_blend_joints = static_cast<int>(lower_body_startup_joint_idx_.size());
-  Eigen::VectorXd q_policy = Eigen::VectorXd::Zero(num_blend_joints);
-  Eigen::VectorXd q_cmd = Eigen::VectorXd::Zero(num_blend_joints);
-  for (int i = 0; i < num_blend_joints; ++i) {
-    q_policy(i) = q_des_(lower_body_startup_joint_idx_(i));
-  }
-  math::QuinticInterpolate(lower_body_policy_blend_start_q_, q_policy, lower_body_policy_blend_duration_,
-                           clamped_phase, q_cmd);
-  for (int i = 0; i < num_blend_joints; ++i) {
-    const int joint_idx = lower_body_startup_joint_idx_(i);
-    q_des_(joint_idx) = q_cmd(i);
-    qd_des_(joint_idx) = 0.0;
-  }
+  q_des_ = std::move(command.q);
+  qd_des_ = std::move(command.qd);
+  joint_kp_cmd_ = std::move(command.kp);
+  joint_kd_cmd_ = std::move(command.kd);
+  tau_ff_des_ = std::move(command.tau_ff);
 }
 
 double RlDanceExampleRunner::GetControlPeriod() const {
@@ -627,7 +491,7 @@ double RlDanceExampleRunner::GetControlPeriod() const {
  * The low-level driver computes: tau = kp*(q_des-q) + kd*(qd_des-qd) + tau_ff
  */
 void RlDanceExampleRunner::SendMotorCommand() {
-  GetMutableOutput().SetCommand(q_des_, qd_des_, joint_kp_, joint_kd_, tau_ff_des_);
+  GetMutableOutput().SetCommand(q_des_, qd_des_, joint_kp_cmd_, joint_kd_cmd_, tau_ff_des_);
 }
 
 // ============================================================================

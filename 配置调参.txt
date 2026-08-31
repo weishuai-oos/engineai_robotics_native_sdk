@@ -32,7 +32,7 @@ EngineAI Native SDK（T800 功能合并版）配置与调参说明
 
 前者包含仿真收发，后者包含真机硬件和输入适配。此次保留 SDK 原有常驻任务、ROS2 bridge 和硬件接口。
 
-二、三套步态
+二、四套步态
 
 1. SDK 普通步态 walk
 
@@ -82,6 +82,21 @@ EngineAI Native SDK（T800 功能合并版）配置与调参说明
 - override_action_joint_names：需要强制覆盖的训练端关节；当前为空，策略控制全部 25 个关节。
 - remote_command_tactical_front_offset_deg：Leo 训练坐标系到机器人根坐标系的平面旋转补偿，当前 37 度。
 - command_scale_pos/neg：Leo 前后、横移、转向指令范围。
+
+4. Leo Lab 地形步态 walk_leo_terrain
+
+  配置：assets/config/t800/rl_walking_leolab_terrain_example/default.yaml
+  模型：assets/config/t800/rl_walking_leolab_terrain_example/policies/boxing_policy.mnn
+  代码：src/runner/rl_walking_leolab_example/（复用 Leo runner）
+  状态：assets/config/t800/task_motion/default.yaml 中的 walk_leo_terrain。
+
+该部署入口用于无感知 LowCylinders-MN-StdTarget-Plus 与 LowCylinders-MN-StdOffset-Target-Plus 盲走模型。将对应导出的 MNN 复制为上述 policies/boxing_policy.mnn；模型部署时通过 task_motion 的 LB+十字键上（虚拟键盘 Q+W）进入。不要把 Mild 或其他地形任务的 MNN 当作 LowCylinders 模型使用。
+
+StdTarget 与 StdOffset 使用同一套观测、动作维度、关节映射和 Leo runner，但 default_joint_pos 不同：StdTarget 保留训练中的原始 boxing-guard nominal 动作零点；StdOffset 把标准姿势文件中的上肢和头部作为动作零点，下肢与躯干仍保留 boxing-guard nominal。切换模型时必须同步切换这套动作零点，不能只替换 MNN；更不能把标准姿势 NPZ 的完整 25 维直接覆盖到部署配置。NoArmAMP 只改变训练时 AMP 判别器使用的状态，部署 actor 仍归 StdOffset 配置族。
+
+terrain example 默认启用根目录中的 StdTarget 配置：mode.yaml 中 robot、sim 的 scope 都是 rl_walking_leolab_terrain_example/default。部署 StdOffset 时，将这两处 scope 同步改成 rl_walking_leolab_terrain_example/profiles/std_offset/default；切回 StdTarget 时改回根 default。根 Target 配置与 Offset profile 共用 policies/boxing_policy.mnn，所以 scope 与 MNN 必须成对切换，并且 robot、sim 不要只改一处。
+
+Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、entry_transition_duration、entry_transition_min_duration、entry_transition_max_duration、entry_transition_max_joint_velocity、entry_transition_max_joint_acceleration、entry_transition_reference_pose_weight、entry_transition_source_tracking_error 的含义和行为一致：进入步态时捕获来源状态最后实际下发的命令，并结合切换瞬间的实测关节状态生成短时过渡，减少从动作或其他步态切入时的突变。max_joint_velocity 与 max_joint_acceleration 共同用于估算自适应时长，其中速度还会用于 qd 裁剪；当前 acceleration 不是逐周期硬 qdd 限制。若某个 terrain profile 不包含这些字段，runner 使用代码中的安全默认值；建议实际使用的 profile 显式保留它们并与已验证的 Leo 配置一致。
 
 三、两套起身和主动倒地
 

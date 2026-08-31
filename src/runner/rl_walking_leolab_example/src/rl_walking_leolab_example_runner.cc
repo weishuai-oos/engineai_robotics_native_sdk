@@ -86,6 +86,8 @@ bool RlWalkingLeolabExampleRunner::Enter() {
   default_joint_q_(policy2deploy_joint_idx_) = param_->default_joint_pos;
   joint_kp_(policy2deploy_joint_idx_) = param_->joint_stiffness;
   joint_kd_(policy2deploy_joint_idx_) = param_->joint_damping;
+  joint_kp_cmd_ = joint_kp_;
+  joint_kd_cmd_ = joint_kd_;
   action_scale_ = param_->action_scale;
 
   imu_install_bias_ = param_->imu_install_bias.value_or(Eigen::Vector3d::Zero());
@@ -112,8 +114,12 @@ bool RlWalkingLeolabExampleRunner::Enter() {
   GetMutableOutput().Reset();
 
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
+  data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
   q_des_ = q_real_;
-  return ValidatePolicyContract();
+  if (!ValidatePolicyContract()) {
+    return false;
+  }
+  return InitializeEntryTransition();
 }
 
 bool RlWalkingLeolabExampleRunner::ValidateParam() const {
@@ -315,6 +321,7 @@ void RlWalkingLeolabExampleRunner::Run() {
   UpdateRemoteCommand();
   CalculateObservation();
   CalculateMotorCommand();
+  ApplyEntryTransition();
   SendMotorCommand();
 
   time_ += param_->control_dt;
@@ -434,6 +441,58 @@ void RlWalkingLeolabExampleRunner::CalculateMotorCommand() {
   tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
 }
 
+bool RlWalkingLeolabExampleRunner::InitializeEntryTransition() {
+  motion_transition::EntryTransitionConfig config;
+  config.enabled = param_->entry_transition_enabled.value_or(false);
+  config.nominal_duration = param_->entry_transition_duration.value_or(0.16);
+  config.min_duration = param_->entry_transition_min_duration.value_or(0.10);
+  config.max_duration = param_->entry_transition_max_duration.value_or(0.28);
+  config.max_joint_velocity = param_->entry_transition_max_joint_velocity.value_or(8.0);
+  config.max_joint_acceleration = param_->entry_transition_max_joint_acceleration.value_or(120.0);
+  config.reference_pose_weight = param_->entry_transition_reference_pose_weight.value_or(0.25);
+  config.source_command_tracking_error = param_->entry_transition_source_tracking_error.value_or(0.75);
+  if (!entry_transition_.Configure(config)) {
+    return false;
+  }
+
+  motion_transition::JointCommand source;
+  motion_transition::CaptureJointCommand(data_store_->joint_info, model_param_->num_total_joints, &source);
+
+  motion_transition::JointCommand fallback;
+  fallback.q = default_joint_q_;
+  fallback.qd = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  fallback.kp = joint_kp_;
+  fallback.kd = joint_kd_;
+  fallback.tau_ff = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  entry_reference_q_ = default_joint_q_;
+  return entry_transition_.Start(source, q_real_, qd_real_, fallback);
+}
+
+void RlWalkingLeolabExampleRunner::ApplyEntryTransition() {
+  motion_transition::JointCommand target;
+  target.q = q_des_;
+  target.qd = qd_des_;
+  target.kp = joint_kp_;
+  target.kd = joint_kd_;
+  target.tau_ff = tau_ff_des_;
+
+  motion_transition::JointCommand command;
+  if (!entry_transition_.Apply(target, entry_reference_q_, q_real_, param_->control_dt, &command)) {
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] Entry transition failed; holding measured pose";
+    q_des_ = q_real_;
+    qd_des_.setZero();
+    tau_ff_des_.setZero();
+    joint_kp_cmd_ = joint_kp_;
+    joint_kd_cmd_ = joint_kd_;
+    return;
+  }
+  q_des_ = std::move(command.q);
+  qd_des_ = std::move(command.qd);
+  joint_kp_cmd_ = std::move(command.kp);
+  joint_kd_cmd_ = std::move(command.kd);
+  tau_ff_des_ = std::move(command.tau_ff);
+}
+
 void RlWalkingLeolabExampleRunner::HoldCurrentPose() {
   q_des_ = q_real_;
   qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
@@ -442,7 +501,7 @@ void RlWalkingLeolabExampleRunner::HoldCurrentPose() {
 }
 
 void RlWalkingLeolabExampleRunner::SendMotorCommand() {
-  GetMutableOutput().SetCommand(q_des_, qd_des_, joint_kp_, joint_kd_, tau_ff_des_);
+  GetMutableOutput().SetCommand(q_des_, qd_des_, joint_kp_cmd_, joint_kd_cmd_, tau_ff_des_);
 }
 
 }  // namespace runner

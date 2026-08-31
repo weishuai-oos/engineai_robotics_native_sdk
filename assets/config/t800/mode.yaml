@@ -53,6 +53,8 @@ mode:
       scope: rl_walking_custom_example/default
     - tag: rl_walking_leolab_example
       scope: rl_walking_leolab_example/default
+    - tag: rl_walking_leolab_terrain_example
+      scope: rl_walking_leolab_terrain_example/default
     - tag: rl_getup_example
       scope: rl_getup_example/default
     - tag: rl_victory_example
@@ -107,6 +109,8 @@ mode:
       scope: rl_walking_custom_example/default
     - tag: rl_walking_leolab_example
       scope: rl_walking_leolab_example/default
+    - tag: rl_walking_leolab_terrain_example
+      scope: rl_walking_leolab_terrain_example/default
     - tag: rl_getup_example
       scope: rl_getup_example/default
     - tag: rl_victory_example

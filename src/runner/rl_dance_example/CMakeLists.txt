@@ -40,6 +40,7 @@ target_link_libraries(${CURRENT_TARGET_NAME}
     fmt::fmt
     Eigen3::Eigen
     src::runner::basic
+    src::runner::motion_transition
     cnpy
 )
 

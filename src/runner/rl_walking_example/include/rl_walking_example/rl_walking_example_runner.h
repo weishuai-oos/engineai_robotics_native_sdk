@@ -4,6 +4,7 @@
 #include "basic/runner_registry.h"
 #include "math/first_order_low_pass_filter.h"
 #include "math/mnn_model.h"
+#include "motion_transition/entry_command_transition.h"
 #include "parameter/global_config_initializer.h"
 #include "rl_walking_example_param/rl_walking_example_param.h"
 #include "tool/string_join.h"
@@ -31,13 +32,14 @@ private:
   void UpdateRemoteCommand();
   void CalculateObservation();
   void CalculateMotorCommand();
+  bool InitializeEntryTransition();
+  void ApplyEntryTransition();
   void SendMotorCommand();
 
   std::shared_ptr<data::RlWalkingExampleParam> param_;
   std::string last_param_tag_ = "";
   float time_ = 0.0;
   bool is_first_time_ = true;
-  bool enable_startup_transition_ = false;
 
   std::unique_ptr<math::MNNModel> mlp_net_;
   Eigen::MatrixXd mlp_net_observation_;
@@ -50,9 +52,6 @@ private:
   Eigen::VectorXd tau_ff_des_;
   Eigen::VectorXi active_joint_idx_;
   Eigen::VectorXi disable_transition_joint_idx_;
-  Eigen::VectorXd initial_joint_q_;
-  Eigen::VectorXd initial_joint_kp_;
-  Eigen::VectorXd initial_joint_kd_;
 
   Eigen::VectorXd default_joint_q_;
   Eigen::VectorXd joint_kp_;
@@ -60,6 +59,8 @@ private:
   Eigen::VectorXd joint_kp_des_;
   Eigen::VectorXd joint_kd_des_;
   Eigen::VectorXd action_scale_;
+  Eigen::VectorXd entry_reference_q_;
+  motion_transition::EntryCommandTransition entry_transition_;
 
   Eigen::Vector3d imu_install_bias_ = Eigen::Vector3d::Zero();
   Eigen::Vector3d command_ = Eigen::Vector3d::Zero();

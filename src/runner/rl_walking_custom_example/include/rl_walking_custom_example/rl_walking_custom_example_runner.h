@@ -4,6 +4,7 @@
 #include "basic/runner_registry.h"
 #include "math/first_order_low_pass_filter.h"
 #include "math/mnn_model.h"
+#include "motion_transition/entry_command_transition.h"
 #include "parameter/global_config_initializer.h"
 #include "rl_walking_custom_example_param/rl_walking_custom_example_param.h"
 #include "tool/string_join.h"
@@ -29,6 +30,8 @@ class RlWalkingCustomExampleRunner : public MotionRunner {
   void UpdateRemoteCommand();
   void CalculateObservation();
   void CalculateMotorCommand();
+  bool InitializeEntryTransition();
+  void ApplyEntryTransition();
   bool InitializeUpperBodyLock();
   void ApplyUpperBodyLock();
   void SendMotorCommand();
@@ -48,11 +51,9 @@ class RlWalkingCustomExampleRunner : public MotionRunner {
   Eigen::VectorXd qd_des_;
   Eigen::VectorXd tau_ff_des_;
   Eigen::VectorXi active_joint_idx_;
-  Eigen::VectorXd initial_joint_q_;
 
   bool upper_body_lock_enabled_ = false;
   bool upper_body_lock_initialized_ = false;
-  double upper_body_lock_interpolation_duration_ = 0.0;
   Eigen::VectorXi upper_body_lock_joint_idx_;
   Eigen::VectorXi upper_body_lock_action_idx_;
   Eigen::VectorXd upper_body_lock_target_q_;
@@ -60,7 +61,11 @@ class RlWalkingCustomExampleRunner : public MotionRunner {
   Eigen::VectorXd default_joint_q_;
   Eigen::VectorXd joint_kp_;
   Eigen::VectorXd joint_kd_;
+  Eigen::VectorXd joint_kp_cmd_;
+  Eigen::VectorXd joint_kd_cmd_;
   Eigen::VectorXd action_scale_;
+  Eigen::VectorXd entry_reference_q_;
+  motion_transition::EntryCommandTransition entry_transition_;
 
   Eigen::Vector3d imu_install_bias_ = Eigen::Vector3d::Zero();
   Eigen::Vector3d command_ = Eigen::Vector3d::Zero();

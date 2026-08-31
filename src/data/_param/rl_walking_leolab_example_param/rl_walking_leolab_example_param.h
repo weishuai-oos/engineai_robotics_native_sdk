@@ -44,6 +44,15 @@ class RlWalkingLeolabExampleParam : public BasicParam {
   double LOAD_PARAM(observation_clip);
   double LOAD_PARAM(control_dt);
 
+  std::optional<bool> LOAD_PARAM(entry_transition_enabled);
+  std::optional<double> LOAD_PARAM(entry_transition_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_min_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_max_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_max_joint_velocity);
+  std::optional<double> LOAD_PARAM(entry_transition_max_joint_acceleration);
+  std::optional<double> LOAD_PARAM(entry_transition_reference_pose_weight);
+  std::optional<double> LOAD_PARAM(entry_transition_source_tracking_error);
+
   bool LOAD_PARAM(enable_remote_command_lpf);
   double LOAD_PARAM(remote_command_sampling_frequency);
   double LOAD_PARAM(remote_command_cut_off_frequency);
@@ -61,6 +70,14 @@ class RlWalkingLeolabExampleParam : public BasicParam {
     LOAD_PARAM(joint_stiffness);
     LOAD_PARAM(joint_damping);
     LOAD_PARAM(action_scale);
+    LOAD_PARAM(entry_transition_enabled);
+    LOAD_PARAM(entry_transition_duration);
+    LOAD_PARAM(entry_transition_min_duration);
+    LOAD_PARAM(entry_transition_max_duration);
+    LOAD_PARAM(entry_transition_max_joint_velocity);
+    LOAD_PARAM(entry_transition_max_joint_acceleration);
+    LOAD_PARAM(entry_transition_reference_pose_weight);
+    LOAD_PARAM(entry_transition_source_tracking_error);
     LOAD_PARAM(enable_remote_command_lpf);
     LOAD_PARAM(remote_command_cut_off_frequency);
     LOAD_PARAM(remote_command_activation_threshold);

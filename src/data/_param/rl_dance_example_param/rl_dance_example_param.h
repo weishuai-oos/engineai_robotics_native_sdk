@@ -31,6 +31,14 @@ class RlDanceExampleParam : public BasicParam {
   std::optional<double> LOAD_PARAM(lower_body_startup_interpolation_duration);
   std::optional<double> LOAD_PARAM(upper_body_startup_interpolation_duration);
   std::optional<double> LOAD_PARAM(lower_body_policy_blend_duration);
+  std::optional<bool> LOAD_PARAM(entry_transition_enabled);
+  std::optional<double> LOAD_PARAM(entry_transition_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_min_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_max_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_max_joint_velocity);
+  std::optional<double> LOAD_PARAM(entry_transition_max_joint_acceleration);
+  std::optional<double> LOAD_PARAM(entry_transition_reference_pose_weight);
+  std::optional<double> LOAD_PARAM(entry_transition_source_tracking_error);
   std::optional<int> LOAD_PARAM(trajectory_body_index);
   std::optional<std::string> LOAD_PARAM(trajectory_end_behavior);
 

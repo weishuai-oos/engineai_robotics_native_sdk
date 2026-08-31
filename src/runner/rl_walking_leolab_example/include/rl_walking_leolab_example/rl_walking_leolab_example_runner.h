@@ -9,6 +9,7 @@
 #include "basic/runner_registry.h"
 #include "math/first_order_low_pass_filter.h"
 #include "math/mnn_model.h"
+#include "motion_transition/entry_command_transition.h"
 #include "parameter/global_config_initializer.h"
 #include "rl_walking_leolab_example/fixed_remote_command_shaper.h"
 #include "rl_walking_leolab_example/mnn_recurrent_model.h"
@@ -38,6 +39,8 @@ class RlWalkingLeolabExampleRunner : public MotionRunner {
   void UpdateRemoteCommand();
   void CalculateObservation();
   void CalculateMotorCommand();
+  bool InitializeEntryTransition();
+  void ApplyEntryTransition();
   void HoldCurrentPose();
   void SendMotorCommand();
 
@@ -66,7 +69,11 @@ class RlWalkingLeolabExampleRunner : public MotionRunner {
   Eigen::VectorXd default_joint_q_;
   Eigen::VectorXd joint_kp_;
   Eigen::VectorXd joint_kd_;
+  Eigen::VectorXd joint_kp_cmd_;
+  Eigen::VectorXd joint_kd_cmd_;
   Eigen::VectorXd action_scale_;
+  Eigen::VectorXd entry_reference_q_;
+  motion_transition::EntryCommandTransition entry_transition_;
 
   Eigen::Vector3d imu_install_bias_ = Eigen::Vector3d::Zero();
   Eigen::Vector3d command_ = Eigen::Vector3d::Zero();

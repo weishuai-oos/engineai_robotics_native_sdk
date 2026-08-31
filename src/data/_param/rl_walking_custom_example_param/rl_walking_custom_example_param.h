@@ -55,6 +55,15 @@ class RlWalkingCustomExampleParam : public BasicParam {
 
   float LOAD_PARAM(control_dt);
 
+  std::optional<bool> LOAD_PARAM(entry_transition_enabled);
+  std::optional<double> LOAD_PARAM(entry_transition_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_min_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_max_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_max_joint_velocity);
+  std::optional<double> LOAD_PARAM(entry_transition_max_joint_acceleration);
+  std::optional<double> LOAD_PARAM(entry_transition_reference_pose_weight);
+  std::optional<double> LOAD_PARAM(entry_transition_source_tracking_error);
+
   // Sets sim to real fine tune parameters
   bool LOAD_PARAM(enable_remote_command_lpf);
   float LOAD_PARAM(remote_command_sampling_frequency);
@@ -70,6 +79,14 @@ class RlWalkingCustomExampleParam : public BasicParam {
     LOAD_PARAM(upper_body_lock_enabled);
     LOAD_PARAM(upper_body_lock_joint_q);
     LOAD_PARAM(upper_body_lock_interpolation_duration);
+    LOAD_PARAM(entry_transition_enabled);
+    LOAD_PARAM(entry_transition_duration);
+    LOAD_PARAM(entry_transition_min_duration);
+    LOAD_PARAM(entry_transition_max_duration);
+    LOAD_PARAM(entry_transition_max_joint_velocity);
+    LOAD_PARAM(entry_transition_max_joint_acceleration);
+    LOAD_PARAM(entry_transition_reference_pose_weight);
+    LOAD_PARAM(entry_transition_source_tracking_error);
     LOAD_PARAM(enable_remote_command_lpf);
     LOAD_PARAM(remote_command_cut_off_frequency);
     LOAD_PARAM(command_scale_pos);

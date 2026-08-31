@@ -62,6 +62,14 @@ class RlWalkingExampleParam : public BasicParam {
   std::optional<float> LOAD_PARAM(transition_time);
   // Joints that skip startup transition blending (use policy target immediately).
   std::optional<std::vector<std::string>> LOAD_PARAM(disable_transition_joints);
+  std::optional<bool> LOAD_PARAM(entry_transition_enabled);
+  std::optional<double> LOAD_PARAM(entry_transition_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_min_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_max_duration);
+  std::optional<double> LOAD_PARAM(entry_transition_max_joint_velocity);
+  std::optional<double> LOAD_PARAM(entry_transition_max_joint_acceleration);
+  std::optional<double> LOAD_PARAM(entry_transition_reference_pose_weight);
+  std::optional<double> LOAD_PARAM(entry_transition_source_tracking_error);
 
   void Update() {
     LOAD_PARAM(default_joint_q);
@@ -71,6 +79,14 @@ class RlWalkingExampleParam : public BasicParam {
     LOAD_PARAM(remote_command_cut_off_frequency);
     LOAD_PARAM(command_scale_pos);
     LOAD_PARAM(command_scale_neg);
+    LOAD_PARAM(entry_transition_enabled);
+    LOAD_PARAM(entry_transition_duration);
+    LOAD_PARAM(entry_transition_min_duration);
+    LOAD_PARAM(entry_transition_max_duration);
+    LOAD_PARAM(entry_transition_max_joint_velocity);
+    LOAD_PARAM(entry_transition_max_joint_acceleration);
+    LOAD_PARAM(entry_transition_reference_pose_weight);
+    LOAD_PARAM(entry_transition_source_tracking_error);
   }
 };
 }  // namespace data

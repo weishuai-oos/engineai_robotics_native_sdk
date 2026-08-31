@@ -272,7 +272,7 @@ void RlGetupExampleRunner::Run() {
 
   // Once the safety timeout expires, stop advancing the policy. Keep the last
   // finite command until the task manager performs its fault recovery. A
-  // successful getup exits through the task graph's walk_custom transition.
+  // successful getup exits through the task graph's walk_leo transition.
   if (timed_out_) {
     SendMotorCommand();
     return;
@@ -358,14 +358,14 @@ void RlGetupExampleRunner::UpdateCompletionState() {
     completed_by_posture_ = success_hold_time_ >= param_->success_hold_duration;
   }
   if (completed_by_posture_) {
-    // The getup task's normal automatic transition is walk_custom. Keep this
+    // The getup task's normal automatic transition is walk_leo. Keep this
     // separate from the timeout fault path so success and timeout have
     // different automatic destinations.
     timed_out_ = false;
     if (!was_completed) {
       SetRunnerState(RunnerState::kTryExit);
       LOG(INFO) << "[RlGetupExampleRunner] Completion criteria met after " << time_
-                << " s; requesting automatic walk_custom transition. gravity_z="
+                << " s; requesting automatic walk_leo transition. gravity_z="
                 << last_projected_gravity_.z() << ", ang_vel_norm=" << last_base_ang_vel_norm_;
     }
     return;
@@ -440,7 +440,7 @@ TransitionState RlGetupExampleRunner::TryExit() {
 
 bool RlGetupExampleRunner::IsTransitionAllowed(std::string_view target_motion) const {
   // Manual recovery and all three manual gait selections are always
-  // available. Automatic success still uses the task graph's walk_custom
+  // available. Automatic success still uses the task graph's walk_leo
   // transition, while timeout is handled separately through kFault.
   const bool is_recovery = target_motion == "passive" || target_motion == "pd_stand";
   const bool is_allowed_walk = target_motion == "walk" || target_motion == "walk_custom" ||

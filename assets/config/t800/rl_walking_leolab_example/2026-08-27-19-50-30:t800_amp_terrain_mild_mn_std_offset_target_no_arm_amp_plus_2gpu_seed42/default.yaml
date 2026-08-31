@@ -1,9 +1,9 @@
-# leo_lab T800 Mild-MN-StdTarget deployment contract.
-# Action-offset family: StdTarget (original boxing-guard nominal offset).
+# leo_lab T800 Mild-MN-StdOffset-Target-NoArmAMP-Plus deployment contract.
+# Action-offset family: StdOffset (standard upper-pose action offset).
 # Policy observation layout:
 # base_ang_vel(3) + projected_gravity(3) + velocity_commands(3)
 # + joint_pos(25) + joint_vel(25) + previous_raw_actions(25)
-policy_file: "rl_walking_leolab_example/2026-08-22-22-11-24:t800_amp_terrain_mild_mn_std_target_seed42/boxing_policy.mnn"
+policy_file: "rl_walking_leolab_example/2026-08-27-19-50-30:t800_amp_terrain_mild_mn_std_offset_target_no_arm_amp_plus_2gpu_seed42/boxing_policy.mnn"
 policy_recurrent: true
 observation_input_name: "observation"
 hidden_input_name: "memory_in.0"
@@ -96,18 +96,18 @@ default_joint_pos:
     -0.14,
     0.0,
     0.006373,
-    -1.006467,
-    0.540767,
-    0.313282,
-    -1.331819,
-    0.124102,
-    -1.138289,
-    -0.136425,
-    0.197952,
-    -1.815755,
-    -0.623839,
-    0.052337,
-    0.621251,
+    -1.102601647,
+    0.624912918,
+    -0.099979371,
+    -1.827545285,
+    0.449009985,
+    -1.103196025,
+    0.100985736,
+    0.535527885,
+    -1.722064018,
+    -0.234793335,
+    0.097562753,
+    0.667520046,
   ]
 
 joint_stiffness:

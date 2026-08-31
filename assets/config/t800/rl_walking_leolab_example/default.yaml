@@ -1,4 +1,5 @@
-# leo_lab T800 terrain_mild_mn_std_target deployment contract.
+# leo_lab T800 active Mild-MN-StdTarget deployment contract.
+# Action-offset family: StdTarget (original boxing-guard nominal offset).
 # Policy observation layout:
 # base_ang_vel(3) + projected_gravity(3) + velocity_commands(3)
 # + joint_pos(25) + joint_vel(25) + previous_raw_actions(25)
@@ -199,6 +200,17 @@ action_scale:
 action_clip: 100.0
 observation_clip: 100.0
 control_dt: 0.02
+
+# No-gap entry bridge. The recurrent policy runs from the first cycle while
+# these parameters shape the command sent to the motors.
+entry_transition_enabled: true
+entry_transition_duration: 0.16
+entry_transition_min_duration: 0.10
+entry_transition_max_duration: 0.28
+entry_transition_max_joint_velocity: 8.0
+entry_transition_max_joint_acceleration: 120.0
+entry_transition_reference_pose_weight: 0.25
+entry_transition_source_tracking_error: 0.75
 
 # Keep LPF disabled for fixed-command test 1 so startup, stop, and reversal
 # behavior can be evaluated without filter lag or command tails.

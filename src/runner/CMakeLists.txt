@@ -68,7 +68,7 @@ if(used_runners_env)
     
     # 从runner名称推导子目录名称
     # 始终包含basic目录（基础依赖）
-    set(allowed_subdirs "basic")
+    set(allowed_subdirs "basic" "motion_transition")
     
     foreach(used_runner ${used_runners_list})
         # runner名称格式: xxx_runner -> 子目录: xxx

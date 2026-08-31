@@ -27,10 +27,10 @@
 #include <array>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include <glog/logging.h>
 
-#include "math/interpolation.h"
 #include "math/rotation_matrix.h"
 #include "tool/concatenate_vector.h"
 
@@ -152,6 +152,8 @@ bool RlWalkingCustomExampleRunner::Enter() {
   default_joint_q_ = common::ConcatenateVectors(param_->default_joint_q);  // Default standing pose [rad]
   joint_kp_ = common::ConcatenateVectors(param_->joint_kp);                // PD controller proportional gain
   joint_kd_ = common::ConcatenateVectors(param_->joint_kd);                // PD controller derivative gain
+  joint_kp_cmd_ = joint_kp_;
+  joint_kd_cmd_ = joint_kd_;
   action_scale_ = common::ConcatenateVectors(param_->action_scale);        // Action scaling coefficients
 
   // --- Step 7: Reset runtime state ---
@@ -166,15 +168,14 @@ bool RlWalkingCustomExampleRunner::Enter() {
   // Zero out all motor commands (safety measure to avoid inheriting residual commands)
   GetMutableOutput().Reset();
 
-  // Record the actual joint positions at entry, can be used for smooth startup interpolation
+  // Record measured state for policy feedback and stale-command validation.
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
-  initial_joint_q_ = q_real_;
+  data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
 
   if (!InitializeUpperBodyLock()) {
     return false;
   }
-
-  return true;
+  return InitializeEntryTransition();
 }
 
 // ============================================================================
@@ -205,7 +206,8 @@ void RlWalkingCustomExampleRunner::Run() {
   CalculateObservation();   // Step 3: Assemble the observation vector
   CalculateMotorCommand();  // Step 4: Run policy inference + compute target joint positions
   ApplyUpperBodyLock();     // Step 5: Keep arm joints at the configured pose if enabled
-  SendMotorCommand();       // Step 6: Send motor commands to actuators
+  ApplyEntryTransition();   // Step 6: Blend the outgoing command into the live policy command
+  SendMotorCommand();       // Step 7: Send motor commands to actuators
 
   time_ += param_->control_dt;  // Accumulate elapsed runtime
 }
@@ -423,6 +425,67 @@ void RlWalkingCustomExampleRunner::CalculateMotorCommand() {
   tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
 }
 
+bool RlWalkingCustomExampleRunner::InitializeEntryTransition() {
+  const double legacy_duration = param_->upper_body_lock_interpolation_duration.value_or(0.16);
+  motion_transition::EntryTransitionConfig config;
+  config.enabled = param_->entry_transition_enabled.value_or(false);
+  config.nominal_duration = param_->entry_transition_duration.value_or(legacy_duration);
+  config.min_duration = param_->entry_transition_min_duration.value_or(
+      std::min(0.10, config.nominal_duration));
+  config.max_duration = param_->entry_transition_max_duration.value_or(
+      std::max(0.28, config.nominal_duration));
+  config.max_joint_velocity = param_->entry_transition_max_joint_velocity.value_or(8.0);
+  config.max_joint_acceleration = param_->entry_transition_max_joint_acceleration.value_or(120.0);
+  config.reference_pose_weight = param_->entry_transition_reference_pose_weight.value_or(0.25);
+  config.source_command_tracking_error = param_->entry_transition_source_tracking_error.value_or(0.75);
+  if (!entry_transition_.Configure(config)) {
+    return false;
+  }
+
+  entry_reference_q_ = default_joint_q_;
+  if (upper_body_lock_enabled_) {
+    for (int i = 0; i < upper_body_lock_joint_idx_.size(); ++i) {
+      entry_reference_q_(upper_body_lock_joint_idx_(i)) = upper_body_lock_target_q_(i);
+    }
+  }
+
+  motion_transition::JointCommand source;
+  motion_transition::CaptureJointCommand(data_store_->joint_info, model_param_->num_total_joints, &source);
+
+  motion_transition::JointCommand fallback;
+  fallback.q = entry_reference_q_;
+  fallback.qd = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  fallback.kp = joint_kp_;
+  fallback.kd = joint_kd_;
+  fallback.tau_ff = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  return entry_transition_.Start(source, q_real_, qd_real_, fallback);
+}
+
+void RlWalkingCustomExampleRunner::ApplyEntryTransition() {
+  motion_transition::JointCommand target;
+  target.q = q_des_;
+  target.qd = qd_des_;
+  target.kp = joint_kp_;
+  target.kd = joint_kd_;
+  target.tau_ff = tau_ff_des_;
+
+  motion_transition::JointCommand command;
+  if (!entry_transition_.Apply(target, entry_reference_q_, q_real_, param_->control_dt, &command)) {
+    LOG(ERROR) << "[RlWalkingCustomExampleRunner] Entry transition failed; holding measured pose";
+    q_des_ = q_real_;
+    qd_des_.setZero();
+    tau_ff_des_.setZero();
+    joint_kp_cmd_ = joint_kp_;
+    joint_kd_cmd_ = joint_kd_;
+    return;
+  }
+  q_des_ = std::move(command.q);
+  qd_des_ = std::move(command.qd);
+  joint_kp_cmd_ = std::move(command.kp);
+  joint_kd_cmd_ = std::move(command.kd);
+  tau_ff_des_ = std::move(command.tau_ff);
+}
+
 /**
  * @brief Builds and validates the upper-body lock mapping.
  *
@@ -434,7 +497,6 @@ bool RlWalkingCustomExampleRunner::InitializeUpperBodyLock() {
   upper_body_lock_initialized_ = false;
 
   if (!upper_body_lock_enabled_) {
-    upper_body_lock_interpolation_duration_ = 0.0;
     upper_body_lock_joint_idx_.resize(0);
     upper_body_lock_action_idx_.resize(0);
     upper_body_lock_target_q_.resize(0);
@@ -446,21 +508,15 @@ bool RlWalkingCustomExampleRunner::InitializeUpperBodyLock() {
     LOG(ERROR) << "Upper-body lock is enabled, but upper_body_lock_joint_q is missing.";
     return false;
   }
-  if (!param_->upper_body_lock_interpolation_duration.has_value()) {
-    LOG(ERROR) << "Upper-body lock is enabled, but upper_body_lock_interpolation_duration is missing.";
-    return false;
-  }
-
   upper_body_lock_target_q_ = param_->upper_body_lock_joint_q.value();
-  upper_body_lock_interpolation_duration_ = param_->upper_body_lock_interpolation_duration.value();
   if (upper_body_lock_target_q_.size() != static_cast<int>(kUpperBodyLockJointNames.size())) {
     LOG(ERROR) << "upper_body_lock_joint_q size mismatch: expected " << kUpperBodyLockJointNames.size()
                << ", got " << upper_body_lock_target_q_.size();
     return false;
   }
-  if (upper_body_lock_interpolation_duration_ < 0.0) {
+  if (param_->upper_body_lock_interpolation_duration.value_or(0.0) < 0.0) {
     LOG(ERROR) << "upper_body_lock_interpolation_duration must be non-negative, got "
-               << upper_body_lock_interpolation_duration_;
+               << param_->upper_body_lock_interpolation_duration.value();
     return false;
   }
 
@@ -491,44 +547,28 @@ bool RlWalkingCustomExampleRunner::InitializeUpperBodyLock() {
   }
 
   upper_body_lock_initialized_ = true;
-  LOG(INFO) << "Upper-body lock enabled. duration=" << upper_body_lock_interpolation_duration_ << "s";
+  LOG(INFO) << "Upper-body lock enabled; smoothing is owned by the shared entry transition";
   return true;
 }
 
 /**
  * @brief Applies the configured upper-body lock on top of the policy output.
  *
- * The lock uses quintic interpolation from the joint state captured in Enter()
- * to the configured target pose. The interpolated velocity is preserved in qd_des_
- * so the low-level controller sees a smooth transition. It deliberately does not
- * rewrite mlp_net_action_, because that value is part of the policy observation
- * and should remain the policy's own previous output.
+ * The lock defines the live destination target. The shared entry transition then
+ * blends the outgoing command into this target together with the lower body. It
+ * deliberately does not rewrite mlp_net_action_, because that value is part of
+ * the policy observation and must remain the policy's own previous output.
  */
 void RlWalkingCustomExampleRunner::ApplyUpperBodyLock() {
   if (!upper_body_lock_enabled_ || !upper_body_lock_initialized_) {
     return;
   }
 
-  if (upper_body_lock_interpolation_duration_ <= 0.0) {
-    const int num_locked_joints = static_cast<int>(upper_body_lock_joint_idx_.size());
-    for (int i = 0; i < num_locked_joints; ++i) {
-      const int joint_idx = upper_body_lock_joint_idx_(i);
-      q_des_(joint_idx) = upper_body_lock_target_q_(i);
-      qd_des_(joint_idx) = 0.0;
-    }
-    return;
-  }
-
-  const double phase = std::min(static_cast<double>(time_), upper_body_lock_interpolation_duration_);
   const int num_locked_joints = static_cast<int>(upper_body_lock_joint_idx_.size());
   for (int i = 0; i < num_locked_joints; ++i) {
     const int joint_idx = upper_body_lock_joint_idx_(i);
-    double q_cmd = 0.0;
-    double qd_cmd = 0.0;
-    math::QuinticInterpolate(initial_joint_q_(joint_idx), upper_body_lock_target_q_(i),
-                             upper_body_lock_interpolation_duration_, phase, q_cmd, qd_cmd);
-    q_des_(joint_idx) = q_cmd;
-    qd_des_(joint_idx) = qd_cmd;
+    q_des_(joint_idx) = upper_body_lock_target_q_(i);
+    qd_des_(joint_idx) = 0.0;
   }
 }
 
@@ -554,7 +594,7 @@ void RlWalkingCustomExampleRunner::ApplyUpperBodyLock() {
  */
 void RlWalkingCustomExampleRunner::SendMotorCommand() {
   // Write control commands to the output buffer for dispatch to motor drivers
-  GetMutableOutput().SetCommand(q_des_, qd_des_, joint_kp_, joint_kd_, tau_ff_des_);
+  GetMutableOutput().SetCommand(q_des_, qd_des_, joint_kp_cmd_, joint_kd_cmd_, tau_ff_des_);
 }
 
 }  // namespace runner

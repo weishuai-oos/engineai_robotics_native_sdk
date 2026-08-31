@@ -37,6 +37,7 @@ tasks:
       - walk
       - walk_custom
       - walk_leo
+      - walk_leo_terrain
       - dance
       - victory
       - punch
@@ -58,6 +59,7 @@ tasks:
       - pd_stand
       - walk_custom
       - walk_leo
+      - walk_leo_terrain
       - getup
       - stance_to_supine
       - dance
@@ -79,6 +81,7 @@ tasks:
       - pd_stand
       - walk
       - walk_leo
+      - walk_leo_terrain
       - getup
       - stance_to_supine
       - dance
@@ -100,6 +103,7 @@ tasks:
       - pd_stand
       - walk
       - walk_custom
+      - walk_leo_terrain
       - getup
       - stance_to_supine
       - dance
@@ -109,6 +113,28 @@ tasks:
       - kick_540cut
       - zhiquan_base
     key: [LB, Y]
+
+  - motion: walk_leo_terrain
+    period: 0.02
+    runner:
+      - name: rl_walking_leolab_example_runner
+        enabled: true
+        param_tag: rl_walking_leolab_terrain_example
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+      - getup
+      - stance_to_supine
+      - dance
+      - victory
+      - punch
+      - zhiquan_combo
+      - kick_540cut
+      - zhiquan_base
+    key: [LB, CROSS_X_UP]
 
   - motion: dance
     period: 0.02
@@ -122,6 +148,7 @@ tasks:
       - walk
       - walk_custom
       - walk_leo
+      - walk_leo_terrain
     auto_transition: walk_leo
     key: [RB, B]
 
@@ -137,6 +164,7 @@ tasks:
       - walk
       - walk_custom
       - walk_leo
+      - walk_leo_terrain
     auto_transition: walk_leo
     key: [RB, Y]
 
@@ -152,6 +180,7 @@ tasks:
       - walk
       - walk_custom
       - walk_leo
+      - walk_leo_terrain
     auto_transition: walk_leo
     key: [RB, CROSS_X_UP]
 
@@ -167,6 +196,7 @@ tasks:
       - walk
       - walk_custom
       - walk_leo
+      - walk_leo_terrain
     auto_transition: walk_leo
     key: [RB, CROSS_X_DOWN]
 
@@ -182,6 +212,7 @@ tasks:
       - walk
       - walk_custom
       - walk_leo
+      - walk_leo_terrain
     auto_transition: walk_leo
     key: [RB, CROSS_Y_RIGHT]
 
@@ -197,6 +228,7 @@ tasks:
       - walk
       - walk_custom
       - walk_leo
+      - walk_leo_terrain
     auto_transition: walk_leo
     key: [RB, CROSS_Y_LEFT]
 
@@ -224,6 +256,7 @@ tasks:
       - walk
       - walk_custom
       - walk_leo
+      - walk_leo_terrain
     auto_transition: walk_leo
     key: [RB, START]
 

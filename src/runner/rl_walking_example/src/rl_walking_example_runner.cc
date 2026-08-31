@@ -30,6 +30,9 @@
 
 #include "rl_walking_example/rl_walking_example_runner.h"
 
+#include <algorithm>
+#include <utility>
+
 #include <glog/logging.h>
 
 #include "math/rotation_matrix.h"
@@ -170,6 +173,8 @@ bool RlWalkingExamplePm01Runner::Enter() {
       param_->joint_kp); // PD controller proportional gain
   joint_kd_ = common::ConcatenateVectors(
       param_->joint_kd); // PD controller derivative gain
+  joint_kp_des_ = joint_kp_;
+  joint_kd_des_ = joint_kd_;
   action_scale_ = common::ConcatenateVectors(
       param_->action_scale); // Action scaling coefficients
 
@@ -182,28 +187,13 @@ bool RlWalkingExamplePm01Runner::Enter() {
 
   lpf_command_->Reset();
 
-  // Record the last joint command (position and PD gains) at entry, used for
-  // smooth startup interpolation
-  Eigen::VectorXd last_joint_q_cmd;
-  data_store_->joint_info.GetCommand(data::JointInfoType::kPosition,
-                                     last_joint_q_cmd);
-  data_store_->joint_info.GetCommand(data::JointInfoType::kStiffness,
-                                     initial_joint_kp_);
-  data_store_->joint_info.GetCommand(data::JointInfoType::kDamping,
-                                     initial_joint_kd_);
-
-  // Enable startup transition
-  enable_startup_transition_ =
-      param_->transition_time.has_value() &&
-      param_->transition_time.value() > param_->control_dt;
-
   // Zero out all motor commands (safety measure to avoid inheriting residual
   // commands)
   GetMutableOutput().Reset();
 
-  initial_joint_q_ = last_joint_q_cmd;
-
-  return true;
+  data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
+  data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  return InitializeEntryTransition();
 }
 
 // ============================================================================
@@ -233,7 +223,8 @@ void RlWalkingExamplePm01Runner::Run() {
   CalculateObservation();  // Step 3: Assemble the observation vector
   CalculateMotorCommand(); // Step 4: Run policy inference + compute target
                            // joint positions
-  SendMotorCommand();      // Step 5: Send motor commands to actuators
+  ApplyEntryTransition();  // Step 5: Blend from the outgoing full command
+  SendMotorCommand();      // Step 6: Send motor commands to actuators
 
   time_ += param_->control_dt; // Accumulate elapsed runtime
 }
@@ -472,29 +463,80 @@ void RlWalkingExamplePm01Runner::CalculateMotorCommand() {
   q_des_ = default_joint_q_;
   q_des_(active_joint_idx_) += mlp_net_action_.cwiseProduct(action_scale_);
 
-  // Default to configured PD gains; during transition, interpolate from the
-  // last command recorded at Enter to avoid abrupt stiffness/damping changes.
+  // Default to configured PD gains. The shared entry transition shapes all
+  // command channels after the live policy target has been calculated.
   joint_kp_des_ = joint_kp_;
   joint_kd_des_ = joint_kd_;
-  if (enable_startup_transition_ && time_ < param_->transition_time.value()) {
-    // Linear blend: ratio goes from 0 (initial) to 1 (policy target) over
-    // transition_time. Joints in disable_transition_joints keep policy targets.
-    const Eigen::VectorXd q_policy = q_des_;
-    const Eigen::VectorXd kp_policy = joint_kp_;
-    const Eigen::VectorXd kd_policy = joint_kd_;
-    float ratio = time_ / param_->transition_time.value();
-    q_des_ = ratio * q_des_ + (1.0f - ratio) * initial_joint_q_;
-    joint_kp_des_ = ratio * joint_kp_ + (1.0f - ratio) * initial_joint_kp_;
-    joint_kd_des_ = ratio * joint_kd_ + (1.0f - ratio) * initial_joint_kd_;
-    if (disable_transition_joint_idx_.size() > 0) {
-      q_des_(disable_transition_joint_idx_) =
-          q_policy(disable_transition_joint_idx_);
-      joint_kp_des_(disable_transition_joint_idx_) =
-          kp_policy(disable_transition_joint_idx_);
-      joint_kd_des_(disable_transition_joint_idx_) =
-          kd_policy(disable_transition_joint_idx_);
-    }
+  qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+}
+
+bool RlWalkingExamplePm01Runner::InitializeEntryTransition() {
+  const double legacy_duration = param_->transition_time.value_or(0.16F);
+  motion_transition::EntryTransitionConfig config;
+  const bool legacy_enabled =
+      param_->transition_time.has_value() && param_->transition_time.value() > param_->control_dt;
+  config.enabled = param_->entry_transition_enabled.value_or(legacy_enabled);
+  config.nominal_duration = param_->entry_transition_duration.value_or(legacy_duration);
+  config.min_duration = param_->entry_transition_min_duration.value_or(
+      std::min(0.10, config.nominal_duration));
+  config.max_duration = param_->entry_transition_max_duration.value_or(
+      std::max(0.28, config.nominal_duration));
+  config.max_joint_velocity = param_->entry_transition_max_joint_velocity.value_or(8.0);
+  config.max_joint_acceleration = param_->entry_transition_max_joint_acceleration.value_or(120.0);
+  config.reference_pose_weight = param_->entry_transition_reference_pose_weight.value_or(0.25);
+  config.source_command_tracking_error = param_->entry_transition_source_tracking_error.value_or(0.75);
+  if (!entry_transition_.Configure(config)) {
+    return false;
   }
+
+  motion_transition::JointCommand source;
+  motion_transition::CaptureJointCommand(data_store_->joint_info, model_param_->num_total_joints, &source);
+
+  motion_transition::JointCommand fallback;
+  fallback.q = default_joint_q_;
+  fallback.qd = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  fallback.kp = joint_kp_;
+  fallback.kd = joint_kd_;
+  fallback.tau_ff = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  entry_reference_q_ = default_joint_q_;
+  return entry_transition_.Start(source, q_real_, qd_real_, fallback);
+}
+
+void RlWalkingExamplePm01Runner::ApplyEntryTransition() {
+  motion_transition::JointCommand target;
+  target.q = q_des_;
+  target.qd = qd_des_;
+  target.kp = joint_kp_;
+  target.kd = joint_kd_;
+  target.tau_ff = tau_ff_des_;
+
+  motion_transition::JointCommand command;
+  if (!entry_transition_.Apply(target, entry_reference_q_, q_real_, param_->control_dt, &command)) {
+    LOG(ERROR) << "[RlWalkingExamplePm01Runner] Entry transition failed; holding measured pose";
+    q_des_ = q_real_;
+    qd_des_.setZero();
+    tau_ff_des_.setZero();
+    joint_kp_des_ = joint_kp_;
+    joint_kd_des_ = joint_kd_;
+    return;
+  }
+
+  // Preserve the legacy opt-out for other robot configs. T800 now leaves this
+  // list empty so every joint is bridged.
+  if (disable_transition_joint_idx_.size() > 0) {
+    command.q(disable_transition_joint_idx_) = target.q(disable_transition_joint_idx_);
+    command.qd(disable_transition_joint_idx_) = target.qd(disable_transition_joint_idx_);
+    command.kp(disable_transition_joint_idx_) = target.kp(disable_transition_joint_idx_);
+    command.kd(disable_transition_joint_idx_) = target.kd(disable_transition_joint_idx_);
+    command.tau_ff(disable_transition_joint_idx_) = target.tau_ff(disable_transition_joint_idx_);
+  }
+
+  q_des_ = std::move(command.q);
+  qd_des_ = std::move(command.qd);
+  joint_kp_des_ = std::move(command.kp);
+  joint_kd_des_ = std::move(command.kd);
+  tau_ff_des_ = std::move(command.tau_ff);
 }
 
 // ============================================================================
@@ -520,11 +562,6 @@ void RlWalkingExamplePm01Runner::CalculateMotorCommand() {
  * SetCommand().
  */
 void RlWalkingExamplePm01Runner::SendMotorCommand() {
-  // Target velocity and feedforward torque are both zero (pure PD position
-  // control mode)
-  qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
-  tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
-
   // Write control commands to the output buffer for dispatch to motor drivers
   GetMutableOutput().SetCommand(q_des_, qd_des_, joint_kp_des_, joint_kd_des_,
                                 tau_ff_des_);
