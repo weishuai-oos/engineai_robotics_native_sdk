@@ -193,6 +193,12 @@ bool RlWalkingExamplePm01Runner::Enter() {
 
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
   data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  if (t800_safety::IsT800Model(*model_param_) &&
+      (!t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &safety_snapshot_) ||
+       safety_snapshot_.frame_fault)) {
+    LOG(ERROR) << "[RlWalkingExamplePm01Runner] Invalid T800 safety state on entry";
+    return false;
+  }
   return InitializeEntryTransition();
 }
 
@@ -218,6 +224,14 @@ void RlWalkingExamplePm01Runner::Run() {
   // Read current joint positions and velocities
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
   data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  if (t800_safety::IsT800Model(*model_param_) &&
+      (!t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &safety_snapshot_) ||
+       safety_snapshot_.frame_fault)) {
+    LOG_EVERY_N(ERROR, 100) << "[RlWalkingExamplePm01Runner] Invalid T800 safety state";
+    GetMutableOutput().Reset();
+    SetRunnerState(RunnerState::kFault);
+    return;
+  }
 
   UpdateRemoteCommand();   // Step 2: Update velocity commands from gamepad
   CalculateObservation();  // Step 3: Assemble the observation vector
@@ -371,11 +385,13 @@ void RlWalkingExamplePm01Runner::CalculateObservation() {
   // command input.
   Eigen::VectorXd mlp_net_observation_single =
       Eigen::VectorXd::Zero(param_->num_observations);
+  Eigen::VectorXd previous_action = mlp_net_action_;
+  t800_safety::MaskFailedHeadActions(safety_snapshot_, active_joint_idx_, &previous_action);
   mlp_net_observation_single << //
       (q_real_ - default_joint_q_)(
           active_joint_idx_),      // Joint position offset [num_actions]
       qd_real_(active_joint_idx_), // Joint angular velocity [num_actions]
-      mlp_net_action_,             // Previous action [num_actions]
+      previous_action,             // Previous action [num_actions]
       w_real,                      // Body-frame angular velocity [3]
       projected_gravity_real;      // Body-frame gravity projection [3]
 
@@ -455,6 +471,7 @@ void RlWalkingExamplePm01Runner::CalculateMotorCommand() {
   // Clip the action to prevent policy outputs from exceeding safe ranges
   mlp_net_action_ = mlp_net_action_.cwiseMax(-param_->action_clip)
                         .cwiseMin(param_->action_clip);
+  t800_safety::MaskFailedHeadActions(safety_snapshot_, active_joint_idx_, &mlp_net_action_);
 
   // Map action to target joint positions:
   //   q_des[active_joints] = default_q[active_joints] + action * action_scale
@@ -514,7 +531,7 @@ void RlWalkingExamplePm01Runner::ApplyEntryTransition() {
   motion_transition::JointCommand command;
   if (!entry_transition_.Apply(target, entry_reference_q_, q_real_, param_->control_dt, &command)) {
     LOG(ERROR) << "[RlWalkingExamplePm01Runner] Entry transition failed; holding measured pose";
-    q_des_ = q_real_;
+    q_des_ = q_real_;  // q_real_ is sanitized at the start of this cycle.
     qd_des_.setZero();
     tau_ff_des_.setZero();
     joint_kp_des_ = joint_kp_;

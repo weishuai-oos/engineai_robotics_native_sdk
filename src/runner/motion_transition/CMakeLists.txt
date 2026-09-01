@@ -20,6 +20,7 @@ target_link_libraries(${CURRENT_TARGET_NAME}
     Eigen3::Eigen
     glog::glog
     src::runner::basic
+    src::runner::t800_safety
 )
 
 install(TARGETS ${CURRENT_TARGET_NAME}

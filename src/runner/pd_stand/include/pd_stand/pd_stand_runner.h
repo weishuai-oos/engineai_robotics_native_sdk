@@ -4,6 +4,7 @@
 #include "basic/runner_registry.h"
 #include "global_options_param/global_options_param.h"
 #include "pd_stand_param/pd_stand_param.h"
+#include "t800_safety/t800_safety.h"
 namespace runner {
 
 class PdStandRunner : public MotionRunner {
@@ -41,6 +42,7 @@ class PdStandRunner : public MotionRunner {
   int num_duration_iterations_ = 0;
   double duration_ = 0.0;
   bool auto_transition_ = false;
+  t800_safety::T800SafetySnapshot safety_snapshot_{};
 };
 }  // namespace runner
 

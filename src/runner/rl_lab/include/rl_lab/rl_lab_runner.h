@@ -7,6 +7,7 @@
 #include "parameter/global_config_initializer.h"
 #include "rl_lab_param/rl_lab_param.h"
 #include "tool/string_join.h"
+#include "t800_safety/t800_safety.h"
 
 namespace runner {
 
@@ -77,6 +78,7 @@ class RlLabRunner : public MotionRunner {
   data::GamepadInfo last_remote_command_;
   Eigen::Vector3d command_ = Eigen::Vector3d::Zero();
   std::unique_ptr<math::FirstOrderLowPassFilter<Eigen::Vector3d>> lpf_command_;
+  t800_safety::T800SafetySnapshot safety_snapshot_{};
 };
 }  // namespace runner
 

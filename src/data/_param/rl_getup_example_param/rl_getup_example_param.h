@@ -22,7 +22,6 @@ class RlGetupExampleParam : public BasicParam {
   int LOAD_PARAM(num_include_obs_steps);
   int LOAD_PARAM(num_actions);
 
-  std::vector<std::string> LOAD_PARAM(host_joint_names);
   std::vector<std::string> LOAD_PARAM(joint_names);
   Eigen::VectorXd LOAD_PARAM(default_joint_pos);
   Eigen::VectorXd LOAD_PARAM(joint_stiffness);
@@ -36,7 +35,6 @@ class RlGetupExampleParam : public BasicParam {
   double LOAD_PARAM(observation_scale_dof_vel);
   double LOAD_PARAM(observation_clip);
 
-  bool LOAD_PARAM(clamp_joint_targets);
   std::string LOAD_PARAM(first_frame_history_mode);
   float LOAD_PARAM(control_dt);
   std::optional<Eigen::Vector3d> LOAD_PARAM(imu_install_bias);
@@ -53,7 +51,6 @@ class RlGetupExampleParam : public BasicParam {
     LOAD_PARAM(joint_damping);
     LOAD_PARAM(action_scale);
     LOAD_PARAM(action_rescale);
-    LOAD_PARAM(clamp_joint_targets);
     LOAD_PARAM(control_dt);
     LOAD_PARAM(entry_max_upright_projected_gravity_z);
     LOAD_PARAM(entry_max_angular_velocity_norm);

@@ -6,8 +6,9 @@
 #include "basic/runner_registry.h"
 #include "math/mnn_model.h"
 #include "parameter/global_config_initializer.h"
-#include "rl_getup_example/host_policy_contract.h"
+#include "rl_getup_example/getup_policy_contract.h"
 #include "rl_getup_example_param/rl_getup_example_param.h"
+#include "t800_safety/t800_safety.h"
 
 namespace runner {
 
@@ -29,11 +30,11 @@ class RlGetupExampleRunner : public MotionRunner {
   bool ValidateParam() const;
   bool ValidatePolicyContract();
   bool BuildJointMapping();
+  bool ValidateMeasuredJointState() const;
   bool ComputeBaseState(Eigen::Vector3d* base_ang_vel, Eigen::Vector3d* projected_gravity) const;
   bool ValidateEntryState();
   void CalculateObservation();
   void CalculateMotorCommand();
-  void ClampAndCheckTargets();
   void UpdateCompletionState();
   void HoldCurrentPose();
   void SendMotorCommand();
@@ -51,6 +52,7 @@ class RlGetupExampleRunner : public MotionRunner {
   Eigen::VectorXd q_real_;
   Eigen::VectorXd qd_real_;
   Eigen::VectorXd q_des_;
+  Eigen::VectorXd last_sent_q_des_;
   Eigen::VectorXd qd_des_;
   Eigen::VectorXd tau_ff_des_;
   Eigen::VectorXi policy2deploy_joint_idx_;
@@ -66,6 +68,7 @@ class RlGetupExampleRunner : public MotionRunner {
   bool timed_out_ = false;
   bool exit_status_reported_ = false;
   bool observation_valid_ = true;
+  t800_safety::T800SafetySnapshot safety_snapshot_{};
 };
 
 }  // namespace runner

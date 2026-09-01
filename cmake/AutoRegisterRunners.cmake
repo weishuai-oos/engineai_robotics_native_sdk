@@ -7,6 +7,8 @@ function(_auto_register_resolve_runner_source_dir RUNNER_NAME OUT_DIR)
   # The registry name predates the source directory's "_example" suffix.
   if(RUNNER_NAME STREQUAL "rl_mimic_trajectory_runner")
     set(_runner_base "rl_mimic_trajectory_example")
+  elseif(RUNNER_NAME STREQUAL "t800_motor_pre_driver_safety_runner")
+    set(_runner_base "t800_safety")
   endif()
   set(${OUT_DIR} "${_runner_base}" PARENT_SCOPE)
 endfunction()
@@ -175,6 +177,15 @@ function(_auto_register_filter_runner_dependencies RUNNER_DEPENDENCIES USED_RUNN
   list(TRANSFORM _used_runners_list STRIP)
   set(_filtered_dependencies "")
 
+  # The selective source collector always registers the SDK-resident T800
+  # safety factories, so their library must always accompany those symbols.
+  set(_t800_safety_target "src::runner::t800_safety")
+  list(FIND RUNNER_DEPENDENCIES "${_t800_safety_target}" _t800_safety_index)
+  if(NOT _t800_safety_index EQUAL -1)
+    list(APPEND _filtered_dependencies "${_t800_safety_target}")
+    message(STATUS "Including SDK-resident safety runner: ${_t800_safety_target}")
+  endif()
+
   foreach(_used_runner ${_used_runners_list})
     _auto_register_resolve_runner_source_dir("${_used_runner}" _runner_base)
     set(_runner_target "src::runner::${_runner_base}")
@@ -187,6 +198,7 @@ function(_auto_register_filter_runner_dependencies RUNNER_DEPENDENCIES USED_RUNN
     endif()
   endforeach()
 
+  list(REMOVE_DUPLICATES _filtered_dependencies)
   set(${OUT_FILTERED_DEPENDENCIES} "${_filtered_dependencies}" PARENT_SCOPE)
 endfunction()
 
@@ -222,6 +234,13 @@ function(auto_register_runners TARGET_NAME)
       set(comment_line "Merged: pre-compiled core runners + selectively compiled local runners")
     endif()
     _auto_register_collect_used_runner_sources("${used_runners_env}" runner_sources)
+
+    # T800 safety is an SDK-resident boundary, not an optional motion runner.
+    # Register both factories in every selective build. They remain inert for
+    # other robots because only the T800 task graph schedules their names.
+    file(GLOB_RECURSE t800_safety_sources
+      "${CMAKE_SOURCE_DIR}/src/runner/t800_safety/include/*.h")
+    list(APPEND runner_sources ${t800_safety_sources})
   else()
     message(STATUS "AutoRegisterRunners: Full compilation mode")
 

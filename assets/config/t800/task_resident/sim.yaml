@@ -29,6 +29,8 @@ tasks:
     priority: 10
     period: 0.002
     runner:
+      - name: t800_safety_runner
+        enabled: true
       - name: sim_publish_runner
         enabled: true
 

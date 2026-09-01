@@ -10,7 +10,6 @@
 #include "tool/concatenate_vector.h"
 
 namespace runner {
-
 void RlMimicTrajectoryRunner::SetupContext() { data_store_->parallel_by_classic_parser.store(false); }
 
 void RlMimicTrajectoryRunner::TeardownContext() {}
@@ -40,6 +39,14 @@ bool RlMimicTrajectoryRunner::Enter() {
 
   GetMutableOutput().Reset();
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, initial_joint_q_);
+  data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_actual_);
+  if (!runner::t800_safety::GetT800SanitizedState(&initial_joint_q_, &qd_actual_,
+                                                   &safety_snapshot_) ||
+      safety_snapshot_.frame_fault) {
+    LOG(ERROR) << "[RlMimicTrajectoryRunner] Invalid T800 safety state on entry";
+    return false;
+  }
+  head_fault_active_ = false;
 
   return true;
 }
@@ -55,6 +62,14 @@ bool RlMimicTrajectoryRunner::Enter() {
  */
 void RlMimicTrajectoryRunner::Run() {
   UpdateState();
+  if (safety_snapshot_.frame_fault) {
+    q_des_ = q_actual_;
+    if (!q_des_.allFinite()) q_des_ = default_joint_q_;
+    qd_des_.setZero();
+    tau_ff_des_.setZero();
+    SendMotorCommand();
+    return;
+  }
   CalculateObservation();
   CalculateMotorCommand();
   SendMotorCommand();
@@ -213,6 +228,14 @@ void RlMimicTrajectoryRunner::PrecomputeTauMax() {
 void RlMimicTrajectoryRunner::UpdateState() {
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_actual_);
   data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_actual_);
+  runner::t800_safety::GetT800SanitizedState(&q_actual_, &qd_actual_, &safety_snapshot_);
+  const bool head_fault = safety_snapshot_.head_fault_mask[runner::t800_safety::kHeadPitchIndex] != 0 ||
+                          safety_snapshot_.head_fault_mask[runner::t800_safety::kHeadYawIndex] != 0;
+  if (head_fault && !head_fault_active_ && observation_manager_) {
+    observation_manager_->Reset();
+  }
+  head_fault_active_ = head_fault;
+  t800_safety::MaskFailedHeadActions(safety_snapshot_, active_joint_idx_, &policy_action_);
   qd_actual_mask_ = qd_actual_.cwiseProduct(qd_mask_);
 }
 
@@ -250,6 +273,7 @@ void RlMimicTrajectoryRunner::CalculateMotorCommand() {
   Eigen::VectorXd obs = Eigen::Map<const Eigen::VectorXd>(obs_matrix.data(), obs_matrix.size());
   policy_action_ = policy_net_->Inference(obs.cast<float>()).cast<double>();
   policy_action_ = policy_action_.cwiseMax(-param_->action_clip).cwiseMin(param_->action_clip);
+  t800_safety::MaskFailedHeadActions(safety_snapshot_, active_joint_idx_, &policy_action_);
 
   const auto& profile = param_->motion_state;
   observation_manager_->StepTrajectory(profile.replay);

@@ -80,6 +80,7 @@ bool RlGetupExampleRunner::Enter() {
   joint_kp_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   joint_kd_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   q_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  last_sent_q_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
 
@@ -98,7 +99,16 @@ bool RlGetupExampleRunner::Enter() {
   GetMutableOutput().Reset();
 
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
+  data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  if (!t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &safety_snapshot_) || safety_snapshot_.frame_fault) {
+    LOG(ERROR) << "[RlGetupExampleRunner] Invalid global T800 joint state";
+    return false;
+  }
+  if (!ValidateMeasuredJointState()) {
+    return false;
+  }
   q_des_ = q_real_;
+  last_sent_q_des_ = q_real_;
   if (!ValidatePolicyContract() || !ValidateEntryState()) {
     return false;
   }
@@ -108,7 +118,7 @@ bool RlGetupExampleRunner::Enter() {
 bool RlGetupExampleRunner::ValidateParam() const {
   if (param_->num_one_step_observations != 76 || param_->num_include_obs_steps != 6 ||
       param_->num_observations != 456 || param_->num_actions != 23) {
-    LOG(ERROR) << "[RlGetupExampleRunner] HoST ABI mismatch: one_step=" << param_->num_one_step_observations
+    LOG(ERROR) << "[RlGetupExampleRunner] Policy ABI mismatch: one_step=" << param_->num_one_step_observations
                << ", history=" << param_->num_include_obs_steps << ", obs=" << param_->num_observations
                << ", actions=" << param_->num_actions;
     return false;
@@ -122,8 +132,7 @@ bool RlGetupExampleRunner::ValidateParam() const {
                << param_->first_frame_history_mode;
     return false;
   }
-  if (param_->host_joint_names.size() != static_cast<size_t>(param_->num_actions) ||
-      param_->joint_names.size() != static_cast<size_t>(param_->num_actions) ||
+  if (param_->joint_names.size() != static_cast<size_t>(param_->num_actions) ||
       param_->default_joint_pos.size() != param_->num_actions ||
       param_->joint_stiffness.size() != param_->num_actions ||
       param_->joint_damping.size() != param_->num_actions ||
@@ -184,6 +193,15 @@ bool RlGetupExampleRunner::ValidateParam() const {
   return true;
 }
 
+bool RlGetupExampleRunner::ValidateMeasuredJointState() const {
+  if (q_real_.size() != model_param_->num_total_joints ||
+      qd_real_.size() != model_param_->num_total_joints || !q_real_.allFinite() || !qd_real_.allFinite()) {
+    LOG(ERROR) << "[RlGetupExampleRunner] Measured joint state is missing or non-finite";
+    return false;
+  }
+  return true;
+}
+
 bool RlGetupExampleRunner::ValidatePolicyContract() {
   const Eigen::VectorXd policy_action = (mlp_net_->Inference(policy_observation_.cast<float>())).cast<double>();
   if (policy_action.size() != param_->num_actions) {
@@ -200,15 +218,9 @@ bool RlGetupExampleRunner::ValidatePolicyContract() {
 
 bool RlGetupExampleRunner::BuildJointMapping() {
   policy2deploy_joint_idx_.setZero(param_->num_actions);
-  std::unordered_set<std::string> host_joint_names;
   std::unordered_set<std::string> deploy_joint_names;
   std::unordered_set<int> deploy_joint_indices;
   for (int i = 0; i < param_->num_actions; ++i) {
-    if (!host_joint_names.insert(param_->host_joint_names[i]).second) {
-      LOG(ERROR) << "[RlGetupExampleRunner] Duplicate HoST joint at action " << i << ": "
-                 << param_->host_joint_names[i];
-      return false;
-    }
     if (!deploy_joint_names.insert(param_->joint_names[i]).second) {
       LOG(ERROR) << "[RlGetupExampleRunner] Duplicate EngineAI joint at action " << i << ": "
                  << param_->joint_names[i];
@@ -217,7 +229,7 @@ bool RlGetupExampleRunner::BuildJointMapping() {
     const auto it = model_param_->joint_id_in_total_limb.find(param_->joint_names[i]);
     if (it == model_param_->joint_id_in_total_limb.end()) {
       LOG(ERROR) << "[RlGetupExampleRunner] Unknown EngineAI joint: " << param_->joint_names[i]
-                 << " mapped from HoST joint " << param_->host_joint_names[i];
+                 << " at policy action " << i;
       return false;
     }
     if (!deploy_joint_indices.insert(it->second).second) {
@@ -269,6 +281,12 @@ bool RlGetupExampleRunner::ValidateEntryState() {
 void RlGetupExampleRunner::Run() {
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
   data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  if (!t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &safety_snapshot_) || safety_snapshot_.frame_fault) {
+    LOG(ERROR) << "[RlGetupExampleRunner] Invalid global T800 joint state; entering fault";
+    SetRunnerState(RunnerState::kFault);
+    GetMutableOutput().Reset();
+    return;
+  }
 
   // Once the safety timeout expires, stop advancing the policy. Keep the last
   // finite command until the task manager performs its fault recovery. A
@@ -300,13 +318,13 @@ void RlGetupExampleRunner::CalculateObservation() {
   last_projected_gravity_ = projected_gravity;
   last_base_ang_vel_norm_ = base_ang_vel.norm();
 
-  const std::vector<double> current_obs = rl_getup_contract::BuildStepObservation(
+  const std::vector<double> current_obs = getup_policy_contract::BuildStepObservation(
       ToArray3(base_ang_vel), ToArray3(projected_gravity), SelectByIndex(q_real_, policy2deploy_joint_idx_),
       SelectByIndex(qd_real_, policy2deploy_joint_idx_), ToStdVector(mlp_net_action_), param_->action_rescale,
       {.angular_velocity = param_->observation_scale_angular_vel,
        .dof_position = param_->observation_scale_dof_pos,
        .dof_velocity = param_->observation_scale_dof_vel});
-  rl_getup_contract::UpdateObservationHistory(observation_history_, param_->num_one_step_observations,
+  getup_policy_contract::UpdateObservationHistory(observation_history_, param_->num_one_step_observations,
                                               param_->num_include_obs_steps, current_obs,
                                               param_->observation_clip, !is_first_time_);
   CopyToEigen(observation_history_, &policy_observation_);
@@ -336,13 +354,12 @@ void RlGetupExampleRunner::CalculateMotorCommand() {
   mlp_net_action_ = mlp_net_action_.cwiseMax(-param_->action_clip).cwiseMin(param_->action_clip);
 
   q_des_ = q_real_;
-  const std::vector<double> joint_targets = rl_getup_contract::ComputeRelativeJointTargets(
+  const std::vector<double> joint_targets = getup_policy_contract::ComputeRelativeJointTargets(
       SelectByIndex(q_real_, policy2deploy_joint_idx_), ToStdVector(mlp_net_action_), ToStdVector(action_scale_),
       param_->action_rescale);
   for (int i = 0; i < param_->num_actions; ++i) {
     q_des_(policy2deploy_joint_idx_(i)) = joint_targets[static_cast<std::size_t>(i)];
   }
-  ClampAndCheckTargets();
 }
 
 void RlGetupExampleRunner::UpdateCompletionState() {
@@ -382,33 +399,60 @@ void RlGetupExampleRunner::UpdateCompletionState() {
   }
 }
 
-void RlGetupExampleRunner::ClampAndCheckTargets() {
-  if (param_->clamp_joint_targets) {
-    Eigen::VectorXd upper_limit(model_param_->num_total_joints);
-    Eigen::VectorXd lower_limit(model_param_->num_total_joints);
-    data_store_->joint_info.GetUpperPositionLimit(upper_limit);
-    data_store_->joint_info.GetLowerPositionLimit(lower_limit);
-    q_des_(policy2deploy_joint_idx_) =
-        q_des_(policy2deploy_joint_idx_).cwiseMax(lower_limit(policy2deploy_joint_idx_))
-            .cwiseMin(upper_limit(policy2deploy_joint_idx_));
-  }
-
-  if (!q_des_(policy2deploy_joint_idx_).allFinite()) {
-    LOG(ERROR) << "[RlGetupExampleRunner] Non-finite q_des after target computation; holding current joints";
-    q_des_(policy2deploy_joint_idx_) = q_real_(policy2deploy_joint_idx_);
-  }
-}
-
 void RlGetupExampleRunner::HoldCurrentPose() {
   q_des_ = q_real_;
-  qd_des_.setZero(model_param_->num_total_joints);
-  tau_ff_des_.setZero(model_param_->num_total_joints);
-  GetMutableOutput().SetCommand(q_des_, qd_des_, joint_kp_, joint_kd_, tau_ff_des_);
+  SendMotorCommand();
 }
 
 void RlGetupExampleRunner::SendMotorCommand() {
+  if (safety_snapshot_.frame_fault || !ValidateMeasuredJointState() || q_des_.size() != model_param_->num_total_joints ||
+      !q_des_.allFinite()) {
+    LOG(ERROR) << "[RlGetupExampleRunner] Non-finite or invalid joint state/target; entering fault";
+    SetRunnerState(RunnerState::kFault);
+    GetMutableOutput().Reset();
+    return;
+  }
+  if (!last_sent_q_des_.allFinite()) {
+    LOG(ERROR) << "[RlGetupExampleRunner] Previous target is non-finite; entering fault";
+    SetRunnerState(RunnerState::kFault);
+    GetMutableOutput().Reset();
+    return;
+  }
+  Eigen::VectorXd lower_limit(model_param_->num_total_joints);
+  Eigen::VectorXd upper_limit(model_param_->num_total_joints);
+  Eigen::VectorXd velocity_limit(model_param_->num_total_joints);
+  data_store_->joint_info.GetLowerPositionLimit(lower_limit);
+  data_store_->joint_info.GetUpperPositionLimit(upper_limit);
+  data_store_->joint_info.GetVelocityLimit(velocity_limit);
+  for (int index = 0; index < model_param_->num_total_joints; ++index) {
+    const double max_delta = velocity_limit(index) * param_->control_dt;
+    const double safe_lower = std::max({lower_limit(index), q_real_(index) - max_delta,
+                                        last_sent_q_des_(index) - max_delta});
+    const double safe_upper = std::min({upper_limit(index), q_real_(index) + max_delta,
+                                        last_sent_q_des_(index) + max_delta});
+    if (safe_lower > safe_upper) {
+      LOG(ERROR) << "[RlGetupExampleRunner] No feasible bounded target for joint index " << index;
+      SetRunnerState(RunnerState::kFault);
+      GetMutableOutput().Reset();
+      return;
+    }
+    q_des_(index) = std::clamp(q_des_(index), safe_lower, safe_upper);
+  }
+  if (!q_des_.allFinite()) {
+    SetRunnerState(RunnerState::kFault);
+    GetMutableOutput().Reset();
+    return;
+  }
+  last_sent_q_des_ = q_des_;
   qd_des_.setZero(model_param_->num_total_joints);
   tau_ff_des_.setZero(model_param_->num_total_joints);
+  if (joint_kp_.size() != model_param_->num_total_joints || joint_kd_.size() != model_param_->num_total_joints ||
+      !joint_kp_.allFinite() || !joint_kd_.allFinite()) {
+    LOG(ERROR) << "[RlGetupExampleRunner] Invalid gain vectors at final command boundary";
+    SetRunnerState(RunnerState::kFault);
+    GetMutableOutput().Reset();
+    return;
+  }
   GetMutableOutput().SetCommand(q_des_, qd_des_, joint_kp_, joint_kd_, tau_ff_des_);
 }
 
@@ -444,7 +488,7 @@ bool RlGetupExampleRunner::IsTransitionAllowed(std::string_view target_motion) c
   // transition, while timeout is handled separately through kFault.
   const bool is_recovery = target_motion == "passive" || target_motion == "pd_stand";
   const bool is_allowed_walk = target_motion == "walk" || target_motion == "walk_custom" ||
-                               target_motion == "walk_leo";
+                               target_motion == "walk_leo" || target_motion == "walk_leo_terrain";
   return is_recovery || is_allowed_walk;
 }
 

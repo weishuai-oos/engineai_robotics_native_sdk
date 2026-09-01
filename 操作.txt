@@ -76,7 +76,7 @@ YAML 中使用的是统一逻辑键。CROSS_X_UP/DOWN 表示十字键上/下，C
   RB + 十字键右           kick_540cut
   RB + 十字键左           zhiquan_base
   START + 十字键上        supine_to_stance（SDK 起身）
-  RB + START              getup（new/HoST 起身）
+  RB + START              getup（T800 RL 起身）
   START + 十字键下        stance_to_supine（SDK 主动倒地）
 
 四套步态的摇杆控制相同：左摇杆前后控制前后速度，左摇杆左右控制横向速度，右摇杆左右控制转向角速度。walk_leo_terrain 使用 LowCylinders-MN-StdTarget-Plus 或 LowCylinders-MN-StdOffset-Target-Plus 模型，面向无感知的盲走地形测试。
@@ -94,7 +94,7 @@ YAML 中使用的是统一逻辑键。CROSS_X_UP/DOWN 表示十字键上/下，C
 - walk_leo_terrain：可切 passive、pd_stand、walk、walk_custom、walk_leo、getup、主动倒地和全部追踪动作。它与 walk_leo 共用 Leo runner 的 entry_transition，因此从动作或其他步态进入时会执行同样的当前无缝衔接逻辑。
 - dance、victory、punch、zhiquan_combo、kick_540cut、zhiquan_base：执行中可切 passive、pd_stand 或任一步态；轨迹正常结束后自动回 walk_leo。这里的 walk_leo 是静态默认回落目标；如需动作结束后进入 terrain 步态，可在完成动作后人工按 LB+十字键上切换。
 - supine_to_stance（SDK 起身）：执行中只允许人工切 passive 或 pd_stand；正常完成后自动回 walk_leo。
-- getup（new/HoST 起身）：可由 walk、walk_custom、walk_leo、walk_leo_terrain 切入；进入时仍执行安全检查，已基本直立（投影重力 z ≤ -0.8）或角速度范数 > 6.0 时会拒绝进入。当投影重力 z ≤ -0.9 且角速度范数 ≤ 2.0 连续保持 0.3 秒后，判定起身成功并自动切入 walk_leo。人工从 getup 切换时，随时都可以切入 walk、walk_custom、walk_leo 或 walk_leo_terrain，不受起身成功与否限制。若 8 秒超时仍未满足站稳条件，会停止推进策略、保持最后一帧有效目标并自动切入 passive。
+- getup（T800 RL 起身）：可由 walk、walk_custom、walk_leo、walk_leo_terrain 切入；进入时仍执行安全检查，已基本直立（投影重力 z ≤ -0.8）或角速度范数 > 6.0 时会拒绝进入。当投影重力 z ≤ -0.9 且角速度范数 ≤ 2.0 连续保持 0.3 秒后，判定起身成功并自动切入 walk_leo。人工从 getup 切换时，随时都可以切入 walk、walk_custom、walk_leo 或 walk_leo_terrain，不受起身成功与否限制。若 8 秒超时仍未满足站稳条件，会停止推进策略、保持最后一帧有效目标并自动切入 passive。
 - stance_to_supine（主动倒地）：可切 passive 或 pd_stand；完成后自动回 passive。
 - 所有状态均保留 LB + RB 到 passive 的软急停路径。
 

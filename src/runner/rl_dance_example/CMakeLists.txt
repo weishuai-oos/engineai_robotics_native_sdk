@@ -41,6 +41,7 @@ target_link_libraries(${CURRENT_TARGET_NAME}
     Eigen3::Eigen
     src::runner::basic
     src::runner::motion_transition
+    src::runner::t800_safety
     cnpy
 )
 

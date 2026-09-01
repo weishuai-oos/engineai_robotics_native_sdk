@@ -37,6 +37,7 @@ target_link_libraries(${CURRENT_TARGET_NAME}
   Eigen3::Eigen
   src::runner::basic
   src::common::tool
+  src::runner::t800_safety
 )
 
 # Set installation of target

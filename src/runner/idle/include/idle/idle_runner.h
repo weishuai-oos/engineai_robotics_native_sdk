@@ -1,6 +1,7 @@
 #pragma once
 
 #include "basic/motion_runner.h"
+#include "t800_safety/t800_safety.h"
 #include "basic/runner_registry.h"
 #include "idle_param/idle_param.h"
 
@@ -29,6 +30,7 @@ class IdleRunner : public MotionRunner {
   int num_try_exit_ = kNumTryExit;
 
   std::shared_ptr<data::IdleParam> param_;
+  t800_safety::T800SafetySnapshot safety_snapshot_{};
 };
 
 }  // namespace runner

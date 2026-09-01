@@ -6,6 +6,8 @@
 
 #include <glog/logging.h>
 
+#include "t800_safety/t800_safety.h"
+
 namespace runner::motion_transition {
 namespace {
 
@@ -14,6 +16,20 @@ constexpr double kQuinticMaxSecondDerivative = 5.773502691896258;
 
 bool IsFiniteNonNegative(const Eigen::VectorXd& values) {
   return values.allFinite() && (values.array() >= 0.0).all();
+}
+
+bool IsFiniteCommand(const JointCommand& command, int joint_count) {
+  return command.IsValid(joint_count);
+}
+
+bool SanitizeMeasuredState(Eigen::VectorXd* q, Eigen::VectorXd* qd) {
+  if (!q || !qd || q->size() != qd->size() || q->size() <= 0) return false;
+  if (q->size() == static_cast<Eigen::Index>(t800_safety::kJointCount)) {
+    t800_safety::T800SafetySnapshot snapshot;
+    if (!t800_safety::GetT800SanitizedState(q, qd, &snapshot)) return false;
+    return !snapshot.frame_fault && q->allFinite() && qd->allFinite();
+  }
+  return q->allFinite() && qd->allFinite();
 }
 
 Eigen::VectorXd Lerp(const Eigen::VectorXd& start, const Eigen::VectorXd& end, double alpha) {
@@ -53,13 +69,16 @@ bool JointCommand::IsValid(int joint_count) const {
 
 bool CaptureJointCommand(data::JointInfo& joint_info, int joint_count, JointCommand* command) {
   if (!command || joint_count <= 0) return false;
-  command->Resize(joint_count);
-  joint_info.GetCommand(data::JointInfoType::kPosition, command->q);
-  joint_info.GetCommand(data::JointInfoType::kVelocity, command->qd);
-  joint_info.GetCommand(data::JointInfoType::kStiffness, command->kp);
-  joint_info.GetCommand(data::JointInfoType::kDamping, command->kd);
-  joint_info.GetCommand(data::JointInfoType::kFeedForwardTorque, command->tau_ff);
-  return command->IsValid(joint_count);
+  JointCommand captured;
+  captured.Resize(joint_count);
+  joint_info.GetCommand(data::JointInfoType::kPosition, captured.q);
+  joint_info.GetCommand(data::JointInfoType::kVelocity, captured.qd);
+  joint_info.GetCommand(data::JointInfoType::kStiffness, captured.kp);
+  joint_info.GetCommand(data::JointInfoType::kDamping, captured.kd);
+  joint_info.GetCommand(data::JointInfoType::kFeedForwardTorque, captured.tau_ff);
+  if (!IsFiniteCommand(captured, joint_count)) return false;
+  *command = std::move(captured);
+  return true;
 }
 
 bool EntryCommandTransition::Configure(const EntryTransitionConfig& config) {
@@ -84,8 +103,10 @@ bool EntryCommandTransition::Configure(const EntryTransitionConfig& config) {
 
 bool EntryCommandTransition::Start(const JointCommand& source, const Eigen::VectorXd& actual_q,
                                    const Eigen::VectorXd& actual_qd, const JointCommand& fallback_target) {
-  if (!configured_ || actual_q.size() <= 0 || actual_qd.size() != actual_q.size() ||
-      !actual_q.allFinite() || !actual_qd.allFinite() || !fallback_target.IsValid(actual_q.size())) {
+  Eigen::VectorXd sanitized_q = actual_q;
+  Eigen::VectorXd sanitized_qd = actual_qd;
+  if (!configured_ || !SanitizeMeasuredState(&sanitized_q, &sanitized_qd) ||
+      !fallback_target.IsValid(actual_q.size())) {
     LOG(ERROR) << "Cannot start entry transition with invalid command/state dimensions";
     return false;
   }
@@ -93,16 +114,16 @@ bool EntryCommandTransition::Start(const JointCommand& source, const Eigen::Vect
   const int joint_count = actual_q.size();
   source_ = source.IsValid(joint_count) ? source : fallback_target;
   if (!source.IsValid(joint_count)) {
-    source_.q = actual_q;
-    source_.qd = actual_qd;
+    source_.q = sanitized_q;
+    source_.qd = sanitized_qd;
     LOG(WARNING) << "Outgoing joint command unavailable; entry transition starts from measured state";
   }
 
   if (config_.source_command_tracking_error > 0.0) {
-    const Eigen::VectorXd source_error = source_.q - actual_q;
+    const Eigen::VectorXd source_error = source_.q - sanitized_q;
     const double max_error = MaxAbs(source_error);
     if (max_error > config_.source_command_tracking_error) {
-      source_.q = actual_q + source_error.cwiseMax(-config_.source_command_tracking_error)
+      source_.q = sanitized_q + source_error.cwiseMax(-config_.source_command_tracking_error)
                                    .cwiseMin(config_.source_command_tracking_error);
       LOG(WARNING) << "Outgoing position command differs from measured state by " << max_error
                    << " rad; clamped transition source to +/-"
@@ -150,8 +171,12 @@ bool EntryCommandTransition::InitializeDuration(const JointCommand& live_target,
 
 bool EntryCommandTransition::Apply(const JointCommand& live_target, const Eigen::VectorXd& reference_q,
                                    const Eigen::VectorXd& actual_q, double control_dt, JointCommand* output) {
-  if (!output || !started_ || !live_target.IsValid(source_.q.size()) ||
-      actual_q.size() != source_.q.size() || !actual_q.allFinite() || !std::isfinite(control_dt) ||
+  Eigen::VectorXd sanitized_q = actual_q;
+  Eigen::VectorXd sanitized_qd;
+  if (actual_q.size() == source_.q.size()) sanitized_qd = Eigen::VectorXd::Zero(actual_q.size());
+  if (!output || !started_ || !IsFiniteCommand(live_target, source_.q.size()) ||
+      actual_q.size() != source_.q.size() || !SanitizeMeasuredState(&sanitized_q, &sanitized_qd) ||
+      !std::isfinite(control_dt) ||
       control_dt <= 0.0) {
     LOG(ERROR) << "Cannot apply entry transition with invalid target/state/control_dt";
     return false;
@@ -193,7 +218,16 @@ bool EntryCommandTransition::Apply(const JointCommand& live_target, const Eigen:
   output->kd = Lerp(source_.kd, live_target.kd, alpha);
   output->tau_ff = Lerp(source_.tau_ff, live_target.tau_ff, alpha);
 
-  const double tracking_error = MaxAbs(output->q - actual_q);
+  // The transition is a boundary between independently produced commands.
+  // Never let arithmetic overflow or a malformed live/reference frame reach
+  // the command store. The resident T800 safety runner remains the final
+  // position/velocity/effort gate; this check only guarantees a finite frame.
+  if (!IsFiniteCommand(*output, source_.q.size())) {
+    LOG(ERROR) << "Entry transition produced a non-finite command; rejecting frame";
+    return false;
+  }
+
+  const double tracking_error = MaxAbs(output->q - sanitized_q);
   if (!tracking_warning_emitted_ && config_.source_command_tracking_error > 0.0 &&
       tracking_error > config_.source_command_tracking_error) {
     LOG(WARNING) << "Entry transition command tracking error is " << tracking_error

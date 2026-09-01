@@ -113,7 +113,8 @@ std::unordered_map<std::string, ObsEntry>& GetRegistry() {
           }
           int n = ctx.data_store->model_param->num_total_joints;
           Eigen::VectorXd q_real(n);
-          ctx.data_store->joint_info.GetState(data::JointInfoType::kPosition, q_real);
+          if (ctx.sanitized_joint_pos && ctx.sanitized_joint_pos->size() == n) q_real = *ctx.sanitized_joint_pos;
+          else ctx.data_store->joint_info.GetState(data::JointInfoType::kPosition, q_real);
           Eigen::VectorXd upper_limit(n), lower_limit(n);
           ctx.data_store->joint_info.GetUpperPositionLimit(upper_limit);
           ctx.data_store->joint_info.GetLowerPositionLimit(lower_limit);
@@ -132,7 +133,8 @@ std::unordered_map<std::string, ObsEntry>& GetRegistry() {
           }
           int n = ctx.data_store->model_param->num_total_joints;
           Eigen::VectorXd qd_real(n);
-          ctx.data_store->joint_info.GetState(data::JointInfoType::kVelocity, qd_real);
+          if (ctx.sanitized_joint_vel && ctx.sanitized_joint_vel->size() == n) qd_real = *ctx.sanitized_joint_vel;
+          else ctx.data_store->joint_info.GetState(data::JointInfoType::kVelocity, qd_real);
           Eigen::VectorXd qd_masked = qd_real;
           if (ctx.joint_vel_mask_indices) {
             for (int idx : *ctx.joint_vel_mask_indices) {

@@ -39,6 +39,7 @@ target_link_libraries(${CURRENT_TARGET_NAME}
     src::common::monitor
     src::common::base
     src::core::model
+    src::runner::t800_safety
 )
 
 # Set installation of target

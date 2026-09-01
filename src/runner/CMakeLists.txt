@@ -78,6 +78,8 @@ if(used_runners_env)
         # "rl_mimic_trajectory_example".
         if(used_runner STREQUAL "rl_mimic_trajectory_runner")
             set(runner_base "rl_mimic_trajectory_example")
+        elseif(used_runner STREQUAL "t800_motor_pre_driver_safety_runner")
+            set(runner_base "t800_safety")
         endif()
         list(APPEND allowed_subdirs "${runner_base}")
     endforeach()
@@ -85,6 +87,17 @@ if(used_runners_env)
     list(REMOVE_DUPLICATES allowed_subdirs)
     
     message(STATUS "Allowed runner subdirectories: ${allowed_subdirs}")
+
+    # motion_transition and the T800-aware shared runners link this SDK safety
+    # target. Define it before every selective build. AutoRegisterRunners also
+    # registers both resident safety factories unconditionally; they are inert
+    # unless a T800 task graph schedules them.
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/t800_safety/CMakeLists.txt")
+        add_subdirectory(t800_safety)
+        list(APPEND added_runner_subdirs "t800_safety")
+        list(REMOVE_ITEM all_subdirectories "t800_safety")
+        message(STATUS "Including runner subdirectory first: t800_safety")
+    endif()
     
     foreach(subdir ${all_subdirectories})
         set(subdir_cmake_file ${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/CMakeLists.txt)
@@ -105,6 +118,13 @@ if(used_runners_env)
     endforeach()
 else()
     message(STATUS "Building all runners (no environment filter)")
+
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/t800_safety/CMakeLists.txt")
+        add_subdirectory(t800_safety)
+        list(APPEND added_runner_subdirs "t800_safety")
+        list(REMOVE_ITEM all_subdirectories "t800_safety")
+        message(STATUS "Including runner subdirectory first: t800_safety")
+    endif()
     
     foreach(subdir ${all_subdirectories})
         set(subdir_cmake_file ${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/CMakeLists.txt)

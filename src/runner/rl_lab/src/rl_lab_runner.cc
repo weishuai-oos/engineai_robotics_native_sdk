@@ -76,6 +76,13 @@ bool RlLabRunner::Enter() {
 
   data_store_->parallel_by_classic_parser.store(false);
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
+  data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  if (t800_safety::IsT800Model(*model_param_) &&
+      (!t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &safety_snapshot_) ||
+       safety_snapshot_.frame_fault)) {
+    LOG(ERROR) << "[RlLabRunner] Invalid T800 safety state on entry";
+    return false;
+  }
   initial_joint_q_ = q_real_;
   return true;
 }
@@ -84,6 +91,14 @@ void RlLabRunner::Run() {
   // Gets current joint pos and vel
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
   data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  if (t800_safety::IsT800Model(*model_param_) &&
+      (!t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &safety_snapshot_) ||
+       safety_snapshot_.frame_fault)) {
+    LOG_EVERY_N(ERROR, 100) << "[RlLabRunner] Invalid T800 safety state";
+    GetMutableOutput().Reset();
+    SetRunnerState(RunnerState::kFault);
+    return;
+  }
   UpdateIMUInstalBias();
   UpdateRobotBaseOrientation();
   UpdateRemoteCommandBias();
@@ -192,9 +207,11 @@ void RlLabRunner::CalculateObservation() {
 
   const Eigen::VectorXd joint_pos = (q_real_ - default_joint_q_)(active_joint_idx_);
   const Eigen::VectorXd joint_vel = qd_real_(active_joint_idx_);
+  Eigen::VectorXd previous_action = mlp_net_action_;
+  t800_safety::MaskFailedHeadActions(safety_snapshot_, active_joint_idx_, &previous_action);
   const Eigen::RowVectorXd joint_pos_row = joint_pos.transpose();
   const Eigen::RowVectorXd joint_vel_row = joint_vel.transpose();
-  const Eigen::RowVectorXd action_row = mlp_net_action_.transpose();
+  const Eigen::RowVectorXd action_row = previous_action.transpose();
   const Eigen::RowVector3d base_ang_vel_row = angular_vel_real_.transpose();
   const Eigen::RowVector3d projected_gravity_row = projected_gravity_real_.transpose();
 
@@ -246,6 +263,7 @@ void RlLabRunner::CalculateMotorCommand() {
 
   mlp_net_action_ = (mlp_net_->Inference(obs.cast<float>())).cast<double>();
   mlp_net_action_ = mlp_net_action_.cwiseMax(-param_->action_clip).cwiseMin(param_->action_clip);
+  t800_safety::MaskFailedHeadActions(safety_snapshot_, active_joint_idx_, &mlp_net_action_);
   q_des_ = default_joint_q_;
   q_des_(active_joint_idx_) += mlp_net_action_.cwiseProduct(action_scale_);
   if (param_->transition_time.has_value() && param_->transition_time.value() > 0 &&

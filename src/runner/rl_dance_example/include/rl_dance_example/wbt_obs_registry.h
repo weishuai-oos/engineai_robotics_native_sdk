@@ -15,6 +15,8 @@ namespace wbt_obs {
 /// - Only policy_step is updated each frame; ref_init_yaw_rot / body_init_yaw_rot on the first frame.
 struct ObsContext {
   std::shared_ptr<data::DataStore> data_store = nullptr;
+  const Eigen::VectorXd* sanitized_joint_pos = nullptr;
+  const Eigen::VectorXd* sanitized_joint_vel = nullptr;
 
   std::shared_ptr<const Eigen::MatrixXd> ref_joint_pos_all = nullptr;
   std::shared_ptr<const Eigen::MatrixXd> ref_joint_vel_all = nullptr;

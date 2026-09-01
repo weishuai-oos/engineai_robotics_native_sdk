@@ -1,0 +1,430 @@
+{
+  "schema_version": 2,
+  "contract_version": "t800-safety-2026-08-31.2",
+  "robot": "t800",
+  "owner": "engineai_robotics_native_sdk",
+  "qualification": "urdf_derived_provisional",
+  "provenance": {
+    "source_urdf": "assets/resource/robot/t800/urdf/serial_t800.urdf",
+    "source_urdf_sha256": "58044bae66d3a5f2993f555548300926765832f5fcb6f2c3bfd80330c51a235c",
+    "default_scale": {
+      "position": 0.9,
+      "velocity": 0.9,
+      "effort": 0.9
+    },
+    "position_rule": "scale endpoints about zero; one-sided ranges require an explicit tightening override",
+    "note": "URDF values are model limits, not hardware certification; operational effort is a signed command envelope ±effort_nm"
+  },
+  "joints": [
+    {
+      "sdk_name": "J00_HIP_PITCH_L",
+      "sdk_index": 0,
+      "hard_limits": {
+        "position_lower_rad": -3.316,
+        "position_upper_rad": 2.269,
+        "velocity_rad_s": 25.96,
+        "effort_nm": 415
+      },
+      "operational_limits": {
+        "position_lower_rad": -2.9844,
+        "position_upper_rad": 2.0421,
+        "velocity_rad_s": 23.364,
+        "effort_nm": 373.5
+      }
+    },
+    {
+      "sdk_name": "J01_HIP_ROLL_L",
+      "sdk_index": 1,
+      "hard_limits": {
+        "position_lower_rad": -1.082,
+        "position_upper_rad": 2.059,
+        "velocity_rad_s": 25.31,
+        "effort_nm": 370
+      },
+      "operational_limits": {
+        "position_lower_rad": -0.9738,
+        "position_upper_rad": 1.8531,
+        "velocity_rad_s": 22.779,
+        "effort_nm": 333
+      }
+    },
+    {
+      "sdk_name": "J02_HIP_YAW_L",
+      "sdk_index": 2,
+      "hard_limits": {
+        "position_lower_rad": -1.42244667,
+        "position_upper_rad": 3.6022778,
+        "velocity_rad_s": 23.19,
+        "effort_nm": 222
+      },
+      "operational_limits": {
+        "position_lower_rad": -1.280202003,
+        "position_upper_rad": 3.24205002,
+        "velocity_rad_s": 20.871,
+        "effort_nm": 199.8
+      }
+    },
+    {
+      "sdk_name": "J03_KNEE_PITCH_L",
+      "sdk_index": 3,
+      "hard_limits": {
+        "position_lower_rad": 0,
+        "position_upper_rad": 2.355,
+        "velocity_rad_s": 25.96,
+        "effort_nm": 415
+      },
+      "operational_limits": {
+        "position_lower_rad": 0.05,
+        "position_upper_rad": 2.1195,
+        "velocity_rad_s": 23.364,
+        "effort_nm": 373.5
+      },
+      "override": {
+        "position_lower_rad": 0.05,
+        "reason": "保留膝关节机械零位余量，避免 0 rad 下限附近硬顶",
+        "evidence": "T800 SDK safety review; URDF lower bound is 0 rad"
+      }
+    },
+    {
+      "sdk_name": "J04_ANKLE_PITCH_L",
+      "sdk_index": 4,
+      "hard_limits": {
+        "position_lower_rad": -0.68068,
+        "position_upper_rad": 0.68068,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -0.612612,
+        "position_upper_rad": 0.612612,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J05_ANKLE_ROLL_L",
+      "sdk_index": 5,
+      "hard_limits": {
+        "position_lower_rad": -0.3491,
+        "position_upper_rad": 0.1745,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -0.31419,
+        "position_upper_rad": 0.15705,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J06_HIP_PITCH_R",
+      "sdk_index": 6,
+      "hard_limits": {
+        "position_lower_rad": -3.316,
+        "position_upper_rad": 2.269,
+        "velocity_rad_s": 25.96,
+        "effort_nm": 415
+      },
+      "operational_limits": {
+        "position_lower_rad": -2.9844,
+        "position_upper_rad": 2.0421,
+        "velocity_rad_s": 23.364,
+        "effort_nm": 373.5
+      }
+    },
+    {
+      "sdk_name": "J07_HIP_ROLL_R",
+      "sdk_index": 7,
+      "hard_limits": {
+        "position_lower_rad": -2.059,
+        "position_upper_rad": 1.082,
+        "velocity_rad_s": 25.31,
+        "effort_nm": 370
+      },
+      "operational_limits": {
+        "position_lower_rad": -1.8531,
+        "position_upper_rad": 0.9738,
+        "velocity_rad_s": 22.779,
+        "effort_nm": 333
+      }
+    },
+    {
+      "sdk_name": "J08_HIP_YAW_R",
+      "sdk_index": 8,
+      "hard_limits": {
+        "position_lower_rad": -3.6022778,
+        "position_upper_rad": 1.42244667,
+        "velocity_rad_s": 23.19,
+        "effort_nm": 222
+      },
+      "operational_limits": {
+        "position_lower_rad": -3.24205002,
+        "position_upper_rad": 1.280202003,
+        "velocity_rad_s": 20.871,
+        "effort_nm": 199.8
+      }
+    },
+    {
+      "sdk_name": "J09_KNEE_PITCH_R",
+      "sdk_index": 9,
+      "hard_limits": {
+        "position_lower_rad": 0,
+        "position_upper_rad": 2.355,
+        "velocity_rad_s": 25.96,
+        "effort_nm": 415
+      },
+      "operational_limits": {
+        "position_lower_rad": 0.05,
+        "position_upper_rad": 2.1195,
+        "velocity_rad_s": 23.364,
+        "effort_nm": 373.5
+      },
+      "override": {
+        "position_lower_rad": 0.05,
+        "reason": "保留膝关节机械零位余量，避免 0 rad 下限附近硬顶",
+        "evidence": "T800 SDK safety review; URDF lower bound is 0 rad"
+      }
+    },
+    {
+      "sdk_name": "J10_ANKLE_PITCH_R",
+      "sdk_index": 10,
+      "hard_limits": {
+        "position_lower_rad": -0.68068,
+        "position_upper_rad": 0.68068,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -0.612612,
+        "position_upper_rad": 0.612612,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J11_ANKLE_ROLL_R",
+      "sdk_index": 11,
+      "hard_limits": {
+        "position_lower_rad": -0.1745,
+        "position_upper_rad": 0.3491,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -0.15705,
+        "position_upper_rad": 0.31419,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J12_TORSO_YAW",
+      "sdk_index": 12,
+      "hard_limits": {
+        "position_lower_rad": -4.381,
+        "position_upper_rad": 1.2392,
+        "velocity_rad_s": 23.19,
+        "effort_nm": 222
+      },
+      "operational_limits": {
+        "position_lower_rad": -3.9429,
+        "position_upper_rad": 1.11528,
+        "velocity_rad_s": 20.871,
+        "effort_nm": 199.8
+      }
+    },
+    {
+      "sdk_name": "J13_SHOULDER_PITCH_L",
+      "sdk_index": 13,
+      "hard_limits": {
+        "position_lower_rad": -2.967,
+        "position_upper_rad": 2.793,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -2.6703,
+        "position_upper_rad": 2.5137,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J14_SHOULDER_ROLL_L",
+      "sdk_index": 14,
+      "hard_limits": {
+        "position_lower_rad": -0.384,
+        "position_upper_rad": 2.443,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -0.3456,
+        "position_upper_rad": 2.1987,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J15_SHOULDER_YAW_L",
+      "sdk_index": 15,
+      "hard_limits": {
+        "position_lower_rad": -2.618,
+        "position_upper_rad": 2.618,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -2.3562,
+        "position_upper_rad": 2.3562,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J16_ELBOW_PITCH_L",
+      "sdk_index": 16,
+      "hard_limits": {
+        "position_lower_rad": -2.286,
+        "position_upper_rad": 0.262,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -2.0574,
+        "position_upper_rad": 0.2358,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J17_ELBOW_YAW_L",
+      "sdk_index": 17,
+      "hard_limits": {
+        "position_lower_rad": -2.618,
+        "position_upper_rad": 2.618,
+        "velocity_rad_s": 35.2,
+        "effort_nm": 52
+      },
+      "operational_limits": {
+        "position_lower_rad": -2.3562,
+        "position_upper_rad": 2.3562,
+        "velocity_rad_s": 31.68,
+        "effort_nm": 46.8
+      }
+    },
+    {
+      "sdk_name": "J18_SHOULDER_PITCH_R",
+      "sdk_index": 18,
+      "hard_limits": {
+        "position_lower_rad": -2.967,
+        "position_upper_rad": 2.793,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -2.6703,
+        "position_upper_rad": 2.5137,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J19_SHOULDER_ROLL_R",
+      "sdk_index": 19,
+      "hard_limits": {
+        "position_lower_rad": -2.443,
+        "position_upper_rad": 0.384,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -2.1987,
+        "position_upper_rad": 0.3456,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J20_SHOULDER_YAW_R",
+      "sdk_index": 20,
+      "hard_limits": {
+        "position_lower_rad": -2.618,
+        "position_upper_rad": 2.618,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -2.3562,
+        "position_upper_rad": 2.3562,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J21_ELBOW_PITCH_R",
+      "sdk_index": 21,
+      "hard_limits": {
+        "position_lower_rad": -2.286,
+        "position_upper_rad": 0.262,
+        "velocity_rad_s": 33.51,
+        "effort_nm": 160
+      },
+      "operational_limits": {
+        "position_lower_rad": -2.0574,
+        "position_upper_rad": 0.2358,
+        "velocity_rad_s": 30.159,
+        "effort_nm": 144
+      }
+    },
+    {
+      "sdk_name": "J22_ELBOW_YAW_R",
+      "sdk_index": 22,
+      "hard_limits": {
+        "position_lower_rad": -2.618,
+        "position_upper_rad": 2.618,
+        "velocity_rad_s": 35.2,
+        "effort_nm": 52
+      },
+      "operational_limits": {
+        "position_lower_rad": -2.3562,
+        "position_upper_rad": 2.3562,
+        "velocity_rad_s": 31.68,
+        "effort_nm": 46.8
+      }
+    },
+    {
+      "sdk_name": "J23_HEAD_PITCH",
+      "sdk_index": 23,
+      "hard_limits": {
+        "position_lower_rad": -0.523,
+        "position_upper_rad": 0.523,
+        "velocity_rad_s": 35.2,
+        "effort_nm": 52
+      },
+      "operational_limits": {
+        "position_lower_rad": -0.4707,
+        "position_upper_rad": 0.4707,
+        "velocity_rad_s": 31.68,
+        "effort_nm": 46.8
+      }
+    },
+    {
+      "sdk_name": "J24_HEAD_YAW",
+      "sdk_index": 24,
+      "hard_limits": {
+        "position_lower_rad": -1.222,
+        "position_upper_rad": 1.222,
+        "velocity_rad_s": 35.2,
+        "effort_nm": 52
+      },
+      "operational_limits": {
+        "position_lower_rad": -1.0998,
+        "position_upper_rad": 1.0998,
+        "velocity_rad_s": 31.68,
+        "effort_nm": 46.8
+      }
+    }
+  ]
+}

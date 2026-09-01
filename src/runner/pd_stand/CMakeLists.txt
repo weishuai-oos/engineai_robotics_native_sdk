@@ -38,6 +38,7 @@ target_link_libraries(${CURRENT_TARGET_NAME}
     fmt::fmt
     Eigen3::Eigen
     src::runner::basic
+    src::runner::t800_safety
 )
 
 # Set installation of target

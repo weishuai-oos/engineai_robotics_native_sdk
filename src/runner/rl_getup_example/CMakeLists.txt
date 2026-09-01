@@ -37,6 +37,7 @@ target_link_libraries(${CURRENT_TARGET_NAME}
     fmt::fmt
     Eigen3::Eigen
     src::runner::basic
+    src::runner::t800_safety
     src::common::base
     src::core::model
 )
@@ -58,6 +59,7 @@ add_googletest(test_${CURRENT_TARGET_NAME}
     GTest::GTest
     GTest::Main
     pthread
+    yaml-cpp::yaml-cpp
     src::core::math
     ${CURRENT_TARGET_NAME}
 )

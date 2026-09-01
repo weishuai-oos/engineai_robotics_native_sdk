@@ -30,7 +30,7 @@ class RlWalkingLeolabExampleParam : public BasicParam {
   std::string LOAD_PARAM(hidden_output_name);
   std::string LOAD_PARAM(cell_output_name);
 
-  std::vector<std::string> LOAD_PARAM(host_joint_names);
+  std::vector<std::string> LOAD_PARAM(policy_joint_names);
   std::vector<std::string> LOAD_PARAM(joint_names);
   std::vector<std::string> LOAD_PARAM(override_action_joint_names);
   double LOAD_PARAM(override_action_value);

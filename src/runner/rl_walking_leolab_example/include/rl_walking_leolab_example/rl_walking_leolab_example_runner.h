@@ -10,6 +10,7 @@
 #include "math/first_order_low_pass_filter.h"
 #include "math/mnn_model.h"
 #include "motion_transition/entry_command_transition.h"
+#include "t800_safety/t800_safety.h"
 #include "parameter/global_config_initializer.h"
 #include "rl_walking_leolab_example/fixed_remote_command_shaper.h"
 #include "rl_walking_leolab_example/mnn_recurrent_model.h"
@@ -49,6 +50,8 @@ class RlWalkingLeolabExampleRunner : public MotionRunner {
   double time_ = 0.0;
   bool is_first_time_ = true;
   bool policy_output_valid_ = true;
+  bool head_fault_active_ = false;
+  runner::t800_safety::T800SafetySnapshot safety_snapshot_{};
 
   std::unique_ptr<math::MNNModel> mlp_net_;
   std::unique_ptr<math::MNNRecurrentModel> recurrent_net_;

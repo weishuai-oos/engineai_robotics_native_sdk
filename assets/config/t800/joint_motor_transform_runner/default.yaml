@@ -9,7 +9,10 @@ enable_parallel_converter: true
 # Set to true for robots without parallel mechanism
 enable_serial_converter: false
 
-enable_joint_override_converter: true
+# The override converter runs after the SDK joint-space safety boundary and can
+# replace an already-validated command. Keep it disabled until it consumes the
+# same T800 contract and has an independently verified motor-space gate.
+enable_joint_override_converter: false
 
 joint_override_converter_param:
   position_clamp: [-6.28318, 6.28318]

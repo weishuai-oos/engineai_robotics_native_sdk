@@ -27,6 +27,17 @@ void IdleRunner::Run() {
   const int n = model_param_->num_total_joints;
   Eigen::VectorXd q_cur = Eigen::VectorXd::Zero(n);
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_cur);
+  Eigen::VectorXd qd_cur = Eigen::VectorXd::Zero(n);
+  data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_cur);
+  const bool is_t800 = model_param_ && t800_safety::IsT800Model(*model_param_);
+  if (is_t800 &&
+      (!t800_safety::GetT800SanitizedState(&q_cur, &qd_cur, &safety_snapshot_) ||
+       safety_snapshot_.frame_fault)) {
+    LOG(ERROR) << "[IdleRunner] Invalid global T800 joint state; refusing hold command";
+    GetMutableOutput().Reset();
+    SetRunnerState(runner::RunnerState::kTryExit);
+    return;
+  }
 
   if (!param_) {
     LOG_FIRST_N(WARNING, 1) << "[IdleRunner] param_ is null, output reset to zero.";

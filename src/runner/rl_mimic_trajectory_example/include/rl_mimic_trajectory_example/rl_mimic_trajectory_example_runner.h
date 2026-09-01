@@ -7,6 +7,7 @@
 #include "rl_mimic_trajectory_example/csv_loader.h"
 #include "rl_mimic_trajectory_example/observation_manager.h"
 #include "rl_mimic_trajectory_example_param/rl_mimic_trajectory_example_param.h"
+#include "t800_safety/t800_safety.h"
 
 namespace runner {
 
@@ -80,6 +81,8 @@ class RlMimicTrajectoryRunner : public MotionRunner {
 
   // Yaw forward vector calculation state
   bool initial_quat_set_ = false;
+  bool head_fault_active_ = false;
+  runner::t800_safety::T800SafetySnapshot safety_snapshot_{};
   Eigen::Vector4d initial_base_quat_ = Eigen::Vector4d::Zero();
 };
 }  // namespace runner

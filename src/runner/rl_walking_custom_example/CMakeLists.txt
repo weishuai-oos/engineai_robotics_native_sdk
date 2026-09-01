@@ -41,6 +41,7 @@ target_link_libraries(${CURRENT_TARGET_NAME}
     src::runner::motion_transition
     src::common::base
     src::core::model
+    src::runner::t800_safety
 )
 
 # Set installation of target

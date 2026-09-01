@@ -1,5 +1,7 @@
 #include "motion_transition/entry_command_transition.h"
 
+#include <limits>
+
 #include <gtest/gtest.h>
 
 namespace runner::motion_transition {
@@ -92,6 +94,26 @@ TEST(EntryCommandTransitionTest, AdaptsDurationToInitialPositionGap) {
   JointCommand output;
   ASSERT_TRUE(transition.Apply(target, target.q, source.q, 0.01, &output));
   EXPECT_NEAR(transition.duration(), 0.375, 1e-9);
+}
+
+TEST(EntryCommandTransitionTest, RejectsNonFiniteTargetWithoutWritingOutput) {
+  EntryCommandTransition transition;
+  EntryTransitionConfig config;
+  config.nominal_duration = 0.20;
+  config.min_duration = 0.20;
+  config.max_duration = 0.20;
+  config.reference_pose_weight = 0.0;
+  ASSERT_TRUE(transition.Configure(config));
+
+  const JointCommand source = ConstantCommand(1, 0.0, 0.0, 20.0, 1.0, 0.0);
+  JointCommand target = ConstantCommand(1, 1.0, 0.0, 80.0, 3.0, 0.0);
+  target.q(0) = std::numeric_limits<double>::quiet_NaN();
+  ASSERT_TRUE(transition.Start(source, source.q, source.qd, ConstantCommand(1, 0.0, 0.0, 20.0, 1.0, 0.0)));
+
+  JointCommand output = ConstantCommand(1, 123.0, 0.0, 1.0, 1.0, 0.0);
+  EXPECT_FALSE(transition.Apply(target, target.q, source.q, 0.02, &output));
+  EXPECT_TRUE(output.IsValid(1));
+  EXPECT_DOUBLE_EQ(output.q(0), 123.0);
 }
 
 }  // namespace

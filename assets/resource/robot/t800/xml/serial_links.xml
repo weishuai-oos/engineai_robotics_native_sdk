@@ -16,7 +16,7 @@
         <geom class="collision_hip_yaw_left"/>
         <body name="LINK_KNEE_PITCH_L" pos="-0.037707 0 -0.28792">
           <inertial pos="-0.0197449 0.00139162 -0.211907" quat="0.475454 0.0210361 0.0168989 0.879327" mass="5.99503" diaginertia="0.0858454 0.0856511 0.0115715"/>
-          <joint name="J03_KNEE_PITCH_L" pos="0 0 0" axis="0 1 0" range="-0.261667 2.355" actuatorfrcrange="-415 415" armature="0.2427264 "/>
+          <joint name="J03_KNEE_PITCH_L" pos="0 0 0" axis="0 1 0" range="0 2.355" actuatorfrcrange="-415 415" armature="0.2427264 "/>
           <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="LINK_KNEE_PITCH_L" material="LINK_KNEE_PITCH" class="visual"/>
           <geom class="collision_knee_left_1"/>
           <geom class="collision_knee_left_2"/>
@@ -59,7 +59,7 @@
         <geom class="collision_hip_yaw_right"/>
         <body name="LINK_KNEE_PITCH_R" pos="-0.037707 0 -0.28792">
           <inertial pos="-0.0197449 -0.00139162 -0.211907" quat="0.879327 0.0168989 0.0210361 0.475454" mass="5.99503" diaginertia="0.0858454 0.0856511 0.0115715"/>
-          <joint name="J09_KNEE_PITCH_R" pos="0 0 0" axis="0 1 0" range="-0.261667 2.355" actuatorfrcrange="-415 415" armature="0.2427264 "/>
+          <joint name="J09_KNEE_PITCH_R" pos="0 0 0" axis="0 1 0" range="0 2.355" actuatorfrcrange="-415 415" armature="0.2427264 "/>
           <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="LINK_KNEE_PITCH_R" material="LINK_KNEE_PITCH" class="visual"/>
           <geom class="collision_knee_right_1"/>
           <geom class="collision_knee_right_2"/>

@@ -83,7 +83,6 @@
   },
   "checkpoint_file_iteration": 25000,
   "checkpoint_iteration": 25000,
-  "checkpoint_path": "legged_gym/logs/t800_host_ground/May24_13-38-40_slurm_4090_f500_pd18_a06_getup_4096env_30000it/model_6000.pt",
   "checkpoint_sha256": "60c68cea06658d2ddb869de148898c01184d75e8ff9b87fb2c4ec4a04316eff3",
   "checkpoint_state_iteration": 0,
   "created_at": "2026-05-25T12:19:13Z",
@@ -114,36 +113,6 @@
   ],
   "history_length": 6,
   "history_order": "oldest_to_newest; newest block is [380:456)",
-  "host_git": {
-    "commit": "f715c7ea88297b967419d3a36d178c711067d35b",
-    "repo": "HoST",
-    "status_short": "sanitized for portability"
-  },
-  "host_joint_names": [
-    "J00_HIP_PITCH_L",
-    "J01_HIP_ROLL_L",
-    "J02_HIP_YAW_L",
-    "J03_KNEE_PITCH_L",
-    "J04_ANKLE_PITCH_L",
-    "J05_ANKLE_ROLL_L",
-    "J06_HIP_PITCH_R",
-    "J07_HIP_ROLL_R",
-    "J08_HIP_YAW_R",
-    "J09_KNEE_PITCH_R",
-    "J10_ANKLE_PITCH_R",
-    "J11_ANKLE_ROLL_R",
-    "J12_TORSO_YAW",
-    "J13_SHOULDER_PITCH_L",
-    "J14_SHOULDER_ROLL_L",
-    "J15_SHOULDER_YAW_L",
-    "J16_ELBOW_PITCH_L",
-    "J17_ELBOW_YAW_L",
-    "J20_SHOULDER_PITCH_R",
-    "J21_SHOULDER_ROLL_R",
-    "J22_SHOULDER_YAW_R",
-    "J23_ELBOW_PITCH_R",
-    "J24_ELBOW_YAW_R"
-  ],
   "input_dim": 456,
   "observation_clip": 100.0,
   "observation_order": [
@@ -168,6 +137,5 @@
     "commit": "f19f396b7cf6c231750223f190e24c38c4661911",
     "repo": "engineai_robotics",
     "status_short": "sanitized for minimal get-up migration"
-  },
-  "task": "t800_host_ground"
+  }
 }

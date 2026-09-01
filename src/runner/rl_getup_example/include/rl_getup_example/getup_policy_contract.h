@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace runner::rl_getup_contract {
+namespace runner::getup_policy_contract {
 
 struct ObservationScales {
   double angular_velocity = 1.0;
@@ -100,4 +100,4 @@ inline std::vector<double> ComputeRelativeJointTargets(const std::vector<double>
   return target;
 }
 
-}  // namespace runner::rl_getup_contract
+}  // namespace runner::getup_policy_contract

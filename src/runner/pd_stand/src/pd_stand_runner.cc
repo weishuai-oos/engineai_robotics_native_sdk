@@ -74,6 +74,15 @@ bool PdStandRunner::Enter() {
   // Read configuration: auto-transition flag, current joint positions, target pose, PD gains
   auto_transition_ = param_->auto_transition.value_or(false);
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_init_);
+  Eigen::VectorXd qd_init = Eigen::VectorXd::Zero(q_init_.size());
+  data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_init);
+  const bool is_t800 = model_param_ && t800_safety::IsT800Model(*model_param_);
+  if (is_t800 &&
+      (!t800_safety::GetT800SanitizedState(&q_init_, &qd_init, &safety_snapshot_) ||
+       safety_snapshot_.frame_fault)) {
+    LOG(ERROR) << "PdStandRunner: invalid global T800 joint state";
+    return false;
+  }
   q_des_ = common::ConcatenateVectors(param_->desired_joint_position);  // Target standing pose [rad]
   kp_ = common::ConcatenateVectors(param_->stiffness);                  // PD proportional gain
   kd_ = common::ConcatenateVectors(param_->damping);                    // PD derivative gain

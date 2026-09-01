@@ -78,7 +78,7 @@ EngineAI Native SDK（T800 功能合并版）配置与调参说明
 - policy_recurrent：true 使用带 hidden/cell 的循环策略；false 使用普通 MLP。
 - observation_input_name、hidden_input_name、cell_input_name、action_output_name、hidden_output_name、cell_output_name：MNN 张量名，必须与导出模型一致。
 - num_one_step_observations、num_observations、num_actions、num_include_obs_steps：模型 ABI；当前循环策略固定为 84 输入、25 输出、1 帧历史。
-- host_joint_names 与 joint_names：训练端到 T800 的逐项关节映射。两组数组必须等长、无重复，不能只改其中一组。
+- policy_joint_names 与 joint_names：策略动作顺序到 T800 SDK 关节顺序的逐项映射。两组数组必须等长、无重复，不能只改其中一组。
 - override_action_joint_names：需要强制覆盖的训练端关节；当前为空，策略控制全部 25 个关节。
 - remote_command_tactical_front_offset_deg：Leo 训练坐标系到机器人根坐标系的平面旋转补偿，当前 37 度。
 - command_scale_pos/neg：Leo 前后、横移、转向指令范围。
@@ -106,7 +106,7 @@ Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、e
   策略：assets/config/t800/rl_supine_to_stance/policy/
   轨迹：assets/config/t800/rl_supine_to_stance/trajectory/
 
-2. new/HoST 起身 getup
+2. T800 RL 起身 getup
 
   配置：assets/config/t800/rl_getup_example/default.yaml
   模型：assets/config/t800/rl_getup_example/policies/policy.mnn
@@ -114,11 +114,11 @@ Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、e
   代码：src/runner/rl_getup_example/
 
 - 当前模型 ABI 固定为单帧 76、6 帧历史、总输入 456、输出 23；这些维度和 first_frame_history_mode 不可随意改。
-- host_joint_names/joint_names：HoST 到 T800 的关节映射。
+- joint_names：SDK 内的 23 维策略动作到 T800 关节的固定映射顺序。
 - default_joint_pos：为模型契约记录保留，当前 Runner 不用它生成目标。
 - joint_stiffness/joint_damping：起身 PD 参数，当前数值明显高于步态；降低可减小冲击但可能没有足够支撑力，必须小幅调整并重新验证。
 - action_rescale：全局动作幅值；最终增量为 raw_action × action_rescale × action_scale。增大时动作更强、更危险。
-- clamp_joint_targets：true 时把目标限制在机器人关节上下限内，应保持开启。
+- 起身目标始终经过本状态的关节限位/速度步长限制，并在 2 ms 全局安全边界再次检查，不能通过配置关闭。
 - entry_max_upright_projected_gravity_z：机器人已经接近直立时拒绝进入该起身。直立时 projected_gravity.z 约为 -1；数值调得更大（如 -0.7）会更严格地拒绝半直立姿势。
 - entry_max_angular_velocity_norm：进入起身允许的最大机身角速度。
 - success_upright_projected_gravity_z：完成所需的直立阈值；越接近 -1 越严格。
@@ -192,5 +192,5 @@ Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、e
 - 只改 YAML、MNN、NPY/NPZ/CSV 或机器人资源：不需要重新编译 C++，但要重启程序；真机还需重新部署/同步 assets。
 - 改 src、simulation 或参数类头文件：需要重新编译。
 - 新增 Runner 目录且带 CMakeLists.txt：官方构建会自动发现，仍执行 ./build.sh；不增加新的构建指令。
-- 默认全量构建会包含全部迁移功能。若自行设置 ENGINEAI_ROBOTICS_USED_RUNNERS 并选中 walk_custom、walk_leo、new/HoST getup 中任一 T800 专属 Runner，CMake 会从 task_motion/default.yaml、task_resident/robot.yaml、task_resident/sim.yaml 自动提取完整 T800 Runner 集并检查选择列表；缺少 SDK walk、SDK 起身/倒地、基础状态或 robot/sim 常驻 Runner 中任一项都会拒绝配置。仅选择其他机型 Runner 时不触发这项 T800 检查。
+- 默认全量构建会包含全部迁移功能。若自行设置 ENGINEAI_ROBOTICS_USED_RUNNERS 并选中 walk_custom、walk_leo、getup 中任一 T800 专属 Runner，CMake 会从 task_motion/default.yaml、task_resident/robot.yaml、task_resident/sim.yaml 自动提取完整 T800 Runner 集并检查选择列表；缺少 SDK walk、SDK 起身/倒地、基础状态或 robot/sim 常驻 Runner 中任一项都会拒绝配置。仅选择其他机型 Runner 时不触发这项 T800 检查。
 - aarch64 与 x86_64 使用同一套源码和配置，但必须部署与机载 CPU 架构相符的 build/<arch>/_install。

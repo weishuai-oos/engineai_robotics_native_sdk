@@ -115,6 +115,11 @@ bool RlWalkingLeolabExampleRunner::Enter() {
 
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
   data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  if (!runner::t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &safety_snapshot_) ||
+      safety_snapshot_.frame_fault) {
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] Invalid T800 safety state on entry";
+    return false;
+  }
   q_des_ = q_real_;
   if (!ValidatePolicyContract()) {
     return false;
@@ -141,7 +146,7 @@ bool RlWalkingLeolabExampleRunner::ValidateParam() const {
     LOG(ERROR) << "[RlWalkingLeolabExampleRunner] recurrent policies require num_include_obs_steps == 1";
     return false;
   }
-  if (param_->host_joint_names.size() != static_cast<std::size_t>(param_->num_actions) ||
+  if (param_->policy_joint_names.size() != static_cast<std::size_t>(param_->num_actions) ||
       param_->joint_names.size() != static_cast<std::size_t>(param_->num_actions) ||
       param_->default_joint_pos.size() != param_->num_actions ||
       param_->joint_stiffness.size() != param_->num_actions ||
@@ -247,13 +252,13 @@ bool RlWalkingLeolabExampleRunner::ValidatePolicyContract() {
 
 bool RlWalkingLeolabExampleRunner::BuildJointMapping() {
   policy2deploy_joint_idx_.setZero(param_->num_actions);
-  std::unordered_set<std::string> host_joint_names;
+  std::unordered_set<std::string> policy_joint_names;
   std::unordered_set<std::string> deploy_joint_names;
   std::unordered_set<int> deploy_joint_indices;
   for (int i = 0; i < param_->num_actions; ++i) {
-    if (!host_joint_names.insert(param_->host_joint_names[i]).second) {
-      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] Duplicate host joint at action " << i << ": "
-                 << param_->host_joint_names[i];
+    if (!policy_joint_names.insert(param_->policy_joint_names[i]).second) {
+      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] Duplicate policy joint at action " << i << ": "
+                 << param_->policy_joint_names[i];
       return false;
     }
     if (!deploy_joint_names.insert(param_->joint_names[i]).second) {
@@ -264,7 +269,7 @@ bool RlWalkingLeolabExampleRunner::BuildJointMapping() {
     const auto it = model_param_->joint_id_in_total_limb.find(param_->joint_names[i]);
     if (it == model_param_->joint_id_in_total_limb.end()) {
       LOG(ERROR) << "[RlWalkingLeolabExampleRunner] Unknown deploy joint: " << param_->joint_names[i]
-                 << " mapped from host joint " << param_->host_joint_names[i];
+                 << " mapped from policy joint " << param_->policy_joint_names[i];
       return false;
     }
     if (!deploy_joint_indices.insert(it->second).second) {
@@ -283,14 +288,14 @@ bool RlWalkingLeolabExampleRunner::BuildOverrideActionIndices() {
     const auto& joint_name = param_->override_action_joint_names[static_cast<std::size_t>(i)];
     bool found = false;
     for (int action_idx = 0; action_idx < param_->num_actions; ++action_idx) {
-      if (param_->host_joint_names[static_cast<std::size_t>(action_idx)] == joint_name) {
+      if (param_->policy_joint_names[static_cast<std::size_t>(action_idx)] == joint_name) {
         override_action_idx_(i) = action_idx;
         found = true;
         break;
       }
     }
     if (!found) {
-      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] override_action_joint_names entry is not a host joint: "
+      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] override_action_joint_names entry is not a policy joint: "
                  << joint_name;
       return false;
     }
@@ -317,6 +322,24 @@ bool RlWalkingLeolabExampleRunner::ComputeBaseState(Eigen::Vector3d* base_ang_ve
 void RlWalkingLeolabExampleRunner::Run() {
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
   data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  runner::t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &safety_snapshot_);
+  const bool head_fault = safety_snapshot_.head_fault_mask[runner::t800_safety::kHeadPitchIndex] != 0 ||
+                          safety_snapshot_.head_fault_mask[runner::t800_safety::kHeadYawIndex] != 0;
+  if (head_fault && !head_fault_active_) {
+    observation_history_.setZero();
+    mlp_net_action_.setZero();
+    recurrent_hidden_.setZero();
+    recurrent_cell_.setZero();
+    is_first_time_ = true;
+  }
+  head_fault_active_ = head_fault;
+  t800_safety::MaskFailedHeadActions(safety_snapshot_, policy2deploy_joint_idx_,
+                                     &mlp_net_action_);
+  if (safety_snapshot_.frame_fault) {
+    HoldCurrentPose();
+    SendMotorCommand();
+    return;
+  }
 
   UpdateRemoteCommand();
   CalculateObservation();
@@ -430,10 +453,14 @@ void RlWalkingLeolabExampleRunner::CalculateMotorCommand() {
   }
 
   mlp_net_action_ = policy_action.cwiseMax(-param_->action_clip).cwiseMin(param_->action_clip);
+  t800_safety::MaskFailedHeadActions(safety_snapshot_, policy2deploy_joint_idx_,
+                                     &mlp_net_action_);
   Eigen::VectorXd controlled_action = mlp_net_action_;
   for (int i = 0; i < override_action_idx_.size(); ++i) {
     controlled_action(override_action_idx_(i)) = param_->override_action_value;
   }
+  t800_safety::MaskFailedHeadActions(safety_snapshot_, policy2deploy_joint_idx_,
+                                     &controlled_action);
 
   q_des_ = default_joint_q_;
   q_des_(policy2deploy_joint_idx_) += controlled_action.cwiseProduct(action_scale_);
@@ -495,6 +522,9 @@ void RlWalkingLeolabExampleRunner::ApplyEntryTransition() {
 
 void RlWalkingLeolabExampleRunner::HoldCurrentPose() {
   q_des_ = q_real_;
+  if (!q_des_.allFinite()) {
+    q_des_ = default_joint_q_;
+  }
   qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   mlp_net_action_.setZero();

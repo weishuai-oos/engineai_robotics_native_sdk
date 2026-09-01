@@ -221,6 +221,8 @@ void RlDanceExampleRunner::fillObsContextConstantPart() {
   obs_ctx_.default_joint_q = default_joint_q_;
   obs_ctx_.policy2deploy_joint_idx = policy2deploy_joint_idx_;
   obs_ctx_.actions = mlp_net_action_;
+  obs_ctx_.sanitized_joint_pos = &q_real_;
+  obs_ctx_.sanitized_joint_vel = &qd_real_;
 }
 
 // ============================================================================
@@ -235,6 +237,26 @@ void RlDanceExampleRunner::fillObsContextConstantPart() {
  * so the robot holds the final pose once the trajectory is fully played.
  */
 void RlDanceExampleRunner::Run() {
+  data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
+  data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  runner::t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &safety_snapshot_);
+  const bool head_fault = safety_snapshot_.head_fault_mask[runner::t800_safety::kHeadPitchIndex] != 0 ||
+                          safety_snapshot_.head_fault_mask[runner::t800_safety::kHeadYawIndex] != 0;
+  if (head_fault && !head_fault_active_) {
+    is_first_time_ = true;
+    mlp_net_action_->setZero();
+  }
+  head_fault_active_ = head_fault;
+  t800_safety::MaskFailedHeadActions(safety_snapshot_, *policy2deploy_joint_idx_,
+                                     mlp_net_action_.get());
+  if (safety_snapshot_.frame_fault) {
+    q_des_ = q_real_;
+    if (!q_des_.allFinite()) q_des_ = *default_joint_q_;
+    qd_des_.setZero();
+    tau_ff_des_.setZero();
+    SendMotorCommand();
+    return;
+  }
   if (trajectory_hold_active_) {
     SendMotorCommand();
     return;
@@ -370,13 +392,10 @@ void RlDanceExampleRunner::updateFirstFrameYawAlignment() {
  *       around the default pose.
  */
 void RlDanceExampleRunner::CalculateMotorCommand() {
-  // Read current joint state (used internally by some observation functions
-  // but NOT directly used in action computation here)
-  data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
-  data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
-
   // Run MLP forward inference (float precision, cast back to double)
   *mlp_net_action_ = (mlp_net_->Inference(mlp_net_observation_vec.cast<float>())).cast<double>();
+  t800_safety::MaskFailedHeadActions(safety_snapshot_, *policy2deploy_joint_idx_,
+                                     mlp_net_action_.get());
 
   // Map action to target joint positions:
   //   q_des = ref_joint_pos + action * action_scale (for policy-controlled joints only)
@@ -435,6 +454,12 @@ bool RlDanceExampleRunner::InitializeEntryTransition() {
 
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
   data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
+  t800_safety::T800SafetySnapshot entry_safety_snapshot;
+  if (!t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &entry_safety_snapshot) ||
+      entry_safety_snapshot.frame_fault) {
+    LOG(ERROR) << "Cannot initialize dance entry transition from an invalid T800 joint state";
+    return false;
+  }
   entry_reference_q_ = *default_joint_q_;
   entry_reference_q_(*policy2deploy_joint_idx_) = ref_joint_pos_all_->row(0).transpose();
 

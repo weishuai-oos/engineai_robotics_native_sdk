@@ -8,6 +8,7 @@
 #include "parameter/global_config_initializer.h"
 #include "rl_walking_example_param/rl_walking_example_param.h"
 #include "tool/string_join.h"
+#include "t800_safety/t800_safety.h"
 
 namespace runner {
 
@@ -61,6 +62,7 @@ private:
   Eigen::VectorXd action_scale_;
   Eigen::VectorXd entry_reference_q_;
   motion_transition::EntryCommandTransition entry_transition_;
+  t800_safety::T800SafetySnapshot safety_snapshot_{};
 
   Eigen::Vector3d imu_install_bias_ = Eigen::Vector3d::Zero();
   Eigen::Vector3d command_ = Eigen::Vector3d::Zero();

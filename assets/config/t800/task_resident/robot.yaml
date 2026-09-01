@@ -29,7 +29,11 @@ tasks:
     priority: 90
     period: 0.002
     runner:
+      - name: t800_safety_runner
+        enabled: true
       - name: joint_motor_transform_runner
+        enabled: true
+      - name: t800_motor_pre_driver_safety_runner
         enabled: true
       - name: motor_runner
         enabled: true

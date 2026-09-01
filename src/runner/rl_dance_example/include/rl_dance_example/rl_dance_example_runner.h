@@ -10,6 +10,7 @@
 #include "cnpy.h"
 #include "math/mnn_model.h"
 #include "motion_transition/entry_command_transition.h"
+#include "t800_safety/t800_safety.h"
 #include "parameter/global_config_initializer.h"
 
 namespace runner {
@@ -71,6 +72,8 @@ class RlDanceExampleRunner : public MotionRunner {
   int policy_step = 0;
   bool exit_on_trajectory_end_ = true;
   bool trajectory_hold_active_ = false;
+  bool head_fault_active_ = false;
+  runner::t800_safety::T800SafetySnapshot safety_snapshot_{};
 
   // --- Joint and mapping ---
   std::shared_ptr<Eigen::VectorXi> policy2deploy_joint_idx_;
