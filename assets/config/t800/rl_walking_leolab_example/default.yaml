@@ -1,9 +1,9 @@
-# leo_lab T800 active Mild-MN-StdTarget deployment contract.
+# leo_lab T800 Mild-MN-StdTarget-Plus deployment contract.
 # Action-offset family: StdTarget (original boxing-guard nominal offset).
 # Policy observation layout:
 # base_ang_vel(3) + projected_gravity(3) + velocity_commands(3)
 # + joint_pos(25) + joint_vel(25) + previous_raw_actions(25)
-policy_file: "rl_walking_leolab_example/policies/boxing_policy.mnn"
+policy_file: "rl_walking_leolab_example/2026-08-27-15-00-33:t800_amp_terrain_mild_mn_std_target_plus_2gpu_seed42/boxing_policy.mnn"
 policy_recurrent: true
 observation_input_name: "observation"
 hidden_input_name: "memory_in.0"
