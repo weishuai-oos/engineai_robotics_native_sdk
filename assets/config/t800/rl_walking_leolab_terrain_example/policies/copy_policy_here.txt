@@ -2,8 +2,8 @@ This directory expects boxing_policy.mnn for LowCylinders-MN-StdTarget-Plus
 or LowCylinders-MN-StdOffset-Target-Plus converted from a zq_leo CusRL T800 AMP
 checkpoint.
 
-Current status: boxing_policy.mnn is not included yet. Entering walk_leo_terrain
-will fail policy loading until the matching LowCylinders model is copied here.
+The active deployment slot is boxing_policy.mnn. Keep its model and the root
+default.yaml from the same training family whenever switching policies.
 
 Model contract:
   - raw observation input: 84 = base_ang_vel(3) + projected_gravity(3) + velocity_command(3) + joint_pos(25) + joint_vel(25) + previous_raw_action(25)
@@ -14,8 +14,8 @@ Model contract:
 
 Active profile selection:
   - StdTarget: keep robot and sim scopes in assets/config/t800/mode.yaml at rl_walking_leolab_terrain_example/default
-  - StdOffset: set both scopes to rl_walking_leolab_terrain_example/profiles/std_offset/default
-  - always replace this directory's boxing_policy.mnn with the model that matches the selected profile
+  - StdOffset: set both scopes to rl_walking_leolab_terrain_example/profiles/std_offset/default; that profile references its archived StdOffset model directly
+  - central-slot workflow: copy the selected model to policies/boxing_policy.mnn and promote its matching parameters to the root default.yaml while keeping the root policy_file on the central slot
 
 Conversion outline:
   1. In zq_leo, run scripts/cusrl/export.py with the selected AMP checkpoint and --format onnx.
