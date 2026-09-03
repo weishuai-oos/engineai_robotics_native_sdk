@@ -245,7 +245,7 @@ tasks:
     key: [START, CROSS_X_UP]
 
   - motion: getup
-    period: 0.01
+    period: 0.02
     runner:
       - name: rl_getup_example_runner
         enabled: true

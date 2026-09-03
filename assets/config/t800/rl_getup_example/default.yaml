@@ -181,7 +181,7 @@ observation_scale_dof_pos: 1.0
 observation_scale_dof_vel: 0.05
 observation_clip: 100.0
 
-control_dt: 0.01
+control_dt: 0.02
 imu_install_bias: [0.0, 0.0, 0.0]
 
 # Entry/exit safety semantics.
