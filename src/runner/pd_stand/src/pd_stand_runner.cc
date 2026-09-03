@@ -11,9 +11,11 @@
  * Key features:
  *   - **Quintic interpolation**: Provides smooth, jerk-limited joint trajectories
  *     with zero velocity and acceleration at start and end points
- *   - **Safety check**: Validates that initial joint positions are within a
- *     configurable threshold of the target pose before executing (prevents
- *     large unexpected motions from unsafe starting poses)
+ *   - **Controlled recovery**: T800 may start from an arbitrary finite pose
+ *     inside the recoverable hard-limit envelope; the global T800 safety gate
+ *     still enforces position, velocity, effort, slew, data, and motor checks
+ *   - **Legacy safety check**: Other robots require the initial joints to stay
+ *     within a configurable distance of the target pose
  *   - **Auto-transition**: Optionally transitions to the next Runner in the
  *     sequence once the standing motion is complete
  *   - **Force-start override**: When strict motion check is disabled and the
@@ -46,9 +48,13 @@ namespace runner {
 void PdStandRunner::SetupContext() { data_store_->parallel_by_classic_parser.store(true); }
 
 /**
- * @brief Tears down the runtime context. Currently no cleanup needed.
+ * @brief Tears down the runtime context and releases the T800 recovery profile.
  */
-void PdStandRunner::TeardownContext() {}
+void PdStandRunner::TeardownContext() {
+  t800_safety::ReleaseSafetyProfile(
+      t800_safety::SafetyProfile::kPdStandRecovery);
+  t800_recovery_profile_active_ = false;
+}
 
 /**
  * @brief Initializes the standing motion.
@@ -57,12 +63,13 @@ void PdStandRunner::TeardownContext() {}
  *   1. Reload parameters if param_tag_ has been updated
  *   2. Record the current joint positions as the interpolation start point
  *   3. Load the target standing pose, PD gains, and motion duration from config
- *   4. Validate that the initial joint positions are within the safety threshold
- *      of the target pose (unless overridden by gamepad LT + disabled strict check)
+ *   4. For T800, validate the global safety snapshot and enter controlled
+ *      recovery. For other robots, validate the initial pose distance (unless
+ *      overridden by gamepad LT + disabled strict check)
  *   5. Set the initial motor command output to hold the current position
  *
- * @return true if initialization succeeds and the standup motion can begin,
- *         false if the joint position safety check fails.
+ * @return true if initialization succeeds and the standup motion can begin;
+ *         false if the applicable safety check fails.
  */
 bool PdStandRunner::Enter() {
   // Reload parameters if a tag has been set
@@ -77,11 +84,23 @@ bool PdStandRunner::Enter() {
   Eigen::VectorXd qd_init = Eigen::VectorXd::Zero(q_init_.size());
   data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_init);
   const bool is_t800 = model_param_ && t800_safety::IsT800Model(*model_param_);
+  t800_recovery_profile_active_ = is_t800;
   if (is_t800 &&
       (!t800_safety::GetT800SanitizedState(&q_init_, &qd_init, &safety_snapshot_) ||
        safety_snapshot_.frame_fault)) {
-    LOG(ERROR) << "PdStandRunner: invalid global T800 joint state";
+    LOG(ERROR) << "PdStandRunner: "
+               << t800_safety::SafetyStatusMessage(safety_snapshot_.status)
+               << ", reasons="
+               << t800_safety::SafetyReasonSummary(safety_snapshot_.reason_mask);
     return false;
+  }
+  if (is_t800) {
+    LOG_IF(WARNING,
+           safety_snapshot_.status == t800_safety::SafetyStatus::kRecovery)
+        << "PdStandRunner: "
+        << t800_safety::SafetyStatusMessage(safety_snapshot_.status);
+    LOG(INFO) << "PdStandRunner: T800 受控恢复入口已启用；跳过初始姿态偏差门，"
+                 "绝对位置硬限、速度、力矩、数据和电机故障保护仍然生效";
   }
   q_des_ = common::ConcatenateVectors(param_->desired_joint_position);  // Target standing pose [rad]
   kp_ = common::ConcatenateVectors(param_->stiffness);                  // PD proportional gain
@@ -93,7 +112,7 @@ bool PdStandRunner::Enter() {
 
   // --- Safety check: verify initial joint positions ---
   // Skip the check in MuJoCo simulation (always safe in sim)
-  if (!common::IsInMujoco() && !CheckJointPositionBias()) {
+  if (!common::IsInMujoco() && !is_t800 && !CheckJointPositionBias()) {
     // Safety check failed — joints are too far from the target pose.
     // Allow a force-start override if strict_motion_check is disabled AND
     // the gamepad LT trigger is held past the threshold.
@@ -112,6 +131,10 @@ bool PdStandRunner::Enter() {
 
   // Set initial motor output to hold the current position
   // (the interpolation will gradually move from q_init_ to q_des_ in Run())
+  if (t800_recovery_profile_active_) {
+    t800_safety::RequestSafetyProfile(
+        t800_safety::SafetyProfile::kPdStandRecovery);
+  }
   q_cmd_ = q_init_;
   qd_cmd_ = Eigen::VectorXd::Zero(q_init_.size());
   GetMutableOutput().SetCommand(q_cmd_, qd_cmd_, kp_, kd_, tau_ff_cmd_);
@@ -184,6 +207,10 @@ void PdStandRunner::Run() {
   math::QuinticInterpolate(q_init_, q_des_, duration_, phase, q_cmd_, qd_cmd_);
 
   // Write the interpolated command to the output buffer
+  if (t800_recovery_profile_active_) {
+    t800_safety::RequestSafetyProfile(
+        t800_safety::SafetyProfile::kPdStandRecovery);
+  }
   GetMutableOutput().SetCommand(q_cmd_, qd_cmd_, kp_, kd_, tau_ff_cmd_);
 
   ++iter_;

@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "contract_version": "t800-safety-2026-08-31.2",
+  "contract_version": "t800-safety-2026-09-03.4",
   "robot": "t800",
   "owner": "engineai_robotics_native_sdk",
   "qualification": "urdf_derived_provisional",
@@ -14,6 +14,12 @@
     },
     "position_rule": "scale endpoints about zero; one-sided ranges require an explicit tightening override",
     "note": "URDF values are model limits, not hardware certification; operational effort is a signed command envelope ±effort_nm"
+  },
+  "recovery": {
+    "position_overrun_rad": 0.01,
+    "max_outward_velocity_rad_s": 0.2,
+    "healthy_frames": 50,
+    "note": "A finite non-head state no more than 0.01 rad beyond a hard endpoint is recoverable only while outward velocity is no more than 0.2 rad/s; commands are constrained toward the valid interval."
   },
   "joints": [
     {

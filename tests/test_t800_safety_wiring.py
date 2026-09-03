@@ -53,9 +53,65 @@ class T800SafetyWiringTest(unittest.TestCase):
         self.assertIn("last_motor_debug_sample_", source)
         self.assertIn("require_motor_debug = !common::IsInMujoco()", source)
         self.assertIn("kMotorDebugFreshnessLimitNs", source)
+        self.assertIn("motor_enable_guard_.Update", source)
+        self.assertIn("kReasonMotorNotReady", source)
+        self.assertIn("snapshot.frame_fault || motor_not_ready", source)
+        self.assertIn("MotorEnablePhaseMessage(motor_enable_phase)", source)
         self.assertIn("T800MotorPreDriverSafetyRunner::Run", source)
         self.assertIn("joint_info.SetZeroCommand();\n  data_store_->joint_info.SetCommandWithoutTorque", source)
         self.assertIn("motor_info.SetZeroCommand();\n  data_store_->motor_info.SetCommandWithoutTorque", source)
+
+    def test_safety_runner_preallocates_joint_limit_buffers(self):
+        source = (
+            SDK_ROOT / "src/runner/t800_safety/src/t800_safety.cc"
+        ).read_text()
+        get_limit_call = source.index(
+            "data_store_->joint_info.GetLimit(upper, lower, velocity, effort);"
+        )
+        for buffer_name in ("upper", "lower", "velocity", "effort"):
+            allocation = (
+                f"Eigen::VectorXd {buffer_name}(t800_safety::kJointCount);"
+            )
+            self.assertIn(allocation, source)
+            self.assertLess(source.index(allocation), get_limit_call)
+
+    def test_status_logs_explain_operator_action_and_motion_profile(self):
+        source = (
+            SDK_ROOT / "src/runner/t800_safety/src/t800_safety.cc"
+        ).read_text()
+        for message in (
+            "NORMAL：状态正常，命令在安全范围内",
+            "LIMITED：轻微越界或瞬时命令裁剪，仍允许受控运动",
+            "RECOVERY：检测到可恢复越界，仅允许向安全区方向运动",
+            "FATAL：检测到不可恢复或数据/电机故障，已停止驱动输出",
+        ):
+            self.assertIn(message, source)
+        self.assertIn("SafetyProfileForMotion(motion_name)", source)
+        self.assertIn('motion_name == "getup"', source)
+        self.assertIn('motion_name == "pd_stand"', source)
+        self.assertIn("ResolveSafetyProfileForMotion(motion_name", source)
+        self.assertIn("kReasonProfileAuthorization", source)
+        self.assertIn("kPersistentStatusReportFrames = 500", source)
+
+    def test_pd_stand_is_controlled_recovery_not_a_global_bypass(self):
+        source = (
+            SDK_ROOT / "src/runner/pd_stand/src/pd_stand_runner.cc"
+        ).read_text()
+        self.assertIn("!common::IsInMujoco() && !is_t800", source)
+        self.assertIn("GetT800SanitizedState", source)
+        self.assertIn("RequestSafetyProfile", source)
+        self.assertIn("ReleaseSafetyProfile", source)
+        self.assertIn("绝对位置硬限、速度、力矩、数据和电机故障保护仍然生效", source)
+
+    def test_getup_can_recover_inward_at_a_hard_position_endpoint(self):
+        source = (
+            SDK_ROOT / "src/runner/rl_getup_example/src/rl_getup_example_runner.cc"
+        ).read_text()
+        self.assertIn("q_real_(index) < lower_limit(index)", source)
+        self.assertIn("q_real_(index) > upper_limit(index)", source)
+        self.assertIn("std::clamp(q_des_(index), lower_limit(index), upper_limit(index))", source)
+        self.assertIn("RequestSafetyProfile", source)
+        self.assertIn("ReleaseSafetyProfile", source)
 
     def test_selective_build_maps_both_safety_runners_to_one_sdk_module(self):
         runner_cmake = (SDK_ROOT / "src/runner/CMakeLists.txt").read_text()

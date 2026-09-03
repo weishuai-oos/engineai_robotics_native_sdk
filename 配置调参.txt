@@ -32,6 +32,30 @@ EngineAI Native SDK（T800 功能合并版）配置与调参说明
 
 前者包含仿真收发，后者包含真机硬件和输入适配。此次保留 SDK 原有常驻任务、ROS2 bridge 和硬件接口。
 
+4. T800 全局安全档位和终端状态
+
+  合同：assets/config/t800/safety/t800_safety_contract.json
+  实现：src/runner/t800_safety/
+
+- 普通策略（包括 walk、walk_custom、walk_leo、walk_leo_terrain 和动作策略）：位置、速度、力矩使用 operational_limits，通常是 URDF 的 90%。
+- getup：位置可使用 URDF hard_limits 的 100% 区间；速度、力矩仍使用 operational_limits 的 90%，并继续检查目标变化率和估算 PD 力矩。
+- pd_stand：与 getup 使用相同的全局位置/速度/力矩档位，并在 T800 上跳过自身的初始姿态距离检查，作为从各种硬限内姿态回到标准姿势的受控恢复入口；它没有绕过全局保护。
+- getup 和 pd_stand 的 100% 位置档位还需要动作自身每 50 ms 内续约一次安全租约，并在退出动作时释放。动作名与租约不匹配、租约缺失或过期时会自动降回普通 90% 档位并报告 LIMITED，不会因为状态切换竞态把宽档位留给下一策略。
+- recovery.position_overrun_rad：反馈略过 URDF 硬限时仍允许恢复的最大位置误差，当前 0.01 rad。这里只允许目标和期望速度朝安全区方向运动，不是扩大普通策略范围。
+- recovery.max_outward_velocity_rad_s：略过硬限时仍可判定为可恢复的最大向外速度，当前 0.2 rad/s。超过后进入 FATAL，不继续主动驱动。
+- recovery.healthy_frames：回到硬限内后连续健康多少个 2 ms 周期才退出 RECOVERY，当前 50 帧（100 ms）；确认期间仍只允许向安全区方向运动。
+- idle 主动断使能和重新使能的过渡不会再被误判为永久 FATAL：过渡期间报告 LIMITED，保留有效关节状态供 pd_stand/getup 进入，但整帧驱动输出保持为零；23 个非头部电机全部确认使能后立即恢复输出。首次使能最多等待 500 ms，超时或运行中掉使能仍进入 FATAL；离线、错误码和诊断数据超时不享受该过渡窗口。
+- 全局安全没有总开关。不要为了运行某个策略关闭最后一道保护；应通过动作档位和受控恢复处理必要的关节范围。
+
+终端状态会同时打印动作名、档位、电机使能阶段、原因和受影响关节：
+
+- NORMAL：状态正常，命令在安全范围内。
+- LIMITED：轻微越界或瞬时命令裁剪，仍允许受控运动。
+- RECOVERY：检测到可恢复越界，仅允许向安全区方向运动。
+- FATAL：检测到不可恢复或数据/电机故障，已停止驱动输出。
+
+LIMITED 和 RECOVERY 不会把机器人锁死；安全门会继续下发经过裁剪或仅朝安全区的命令。FATAL 才会撤掉主动输出。当前阈值仍是基于 URDF 的 provisional 配置，实物标定前必须使用吊架，并结合日志逐关节验证。
+
 二、四套步态
 
 1. SDK 普通步态 walk

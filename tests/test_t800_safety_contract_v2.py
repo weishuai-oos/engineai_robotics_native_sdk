@@ -28,6 +28,14 @@ class T800SafetyContractV2Test(unittest.TestCase):
         c = self.contract
         self.assertEqual(c["schema_version"], 2)
         self.assertEqual(c["qualification"], "urdf_derived_provisional")
+        self.assertEqual(
+            set(c["recovery"]),
+            {"position_overrun_rad", "max_outward_velocity_rad_s", "healthy_frames", "note"},
+        )
+        self.assertEqual(c["recovery"]["position_overrun_rad"], 0.01)
+        self.assertEqual(c["recovery"]["max_outward_velocity_rad_s"], 0.2)
+        self.assertEqual(c["recovery"]["healthy_frames"], 50)
+        self.assertTrue(c["recovery"]["note"])
         self.assertEqual(len(c["joints"]), 25)
         self.assertNotIn("policy_control_period_s", c)
         self.assertNotIn("collision", c)

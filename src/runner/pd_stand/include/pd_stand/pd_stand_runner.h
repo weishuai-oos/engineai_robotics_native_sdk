@@ -42,6 +42,7 @@ class PdStandRunner : public MotionRunner {
   int num_duration_iterations_ = 0;
   double duration_ = 0.0;
   bool auto_transition_ = false;
+  bool t800_recovery_profile_active_ = false;
   t800_safety::T800SafetySnapshot safety_snapshot_{};
 };
 }  // namespace runner

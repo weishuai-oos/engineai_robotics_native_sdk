@@ -50,7 +50,9 @@ RlGetupExampleRunner::RlGetupExampleRunner(std::string_view name,
 
 void RlGetupExampleRunner::SetupContext() { data_store_->parallel_by_classic_parser.store(false); }
 
-void RlGetupExampleRunner::TeardownContext() {}
+void RlGetupExampleRunner::TeardownContext() {
+  t800_safety::ReleaseSafetyProfile(t800_safety::SafetyProfile::kGetup);
+}
 
 bool RlGetupExampleRunner::Enter() {
   if (!param_tag_.empty() && param_tag_ != last_param_tag_) {
@@ -101,7 +103,10 @@ bool RlGetupExampleRunner::Enter() {
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
   data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
   if (!t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &safety_snapshot_) || safety_snapshot_.frame_fault) {
-    LOG(ERROR) << "[RlGetupExampleRunner] Invalid global T800 joint state";
+    LOG(ERROR) << "[RlGetupExampleRunner] "
+               << t800_safety::SafetyStatusMessage(safety_snapshot_.status)
+               << ", reasons="
+               << t800_safety::SafetyReasonSummary(safety_snapshot_.reason_mask);
     return false;
   }
   if (!ValidateMeasuredJointState()) {
@@ -282,7 +287,11 @@ void RlGetupExampleRunner::Run() {
   data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
   data_store_->joint_info.GetState(data::JointInfoType::kVelocity, qd_real_);
   if (!t800_safety::GetT800SanitizedState(&q_real_, &qd_real_, &safety_snapshot_) || safety_snapshot_.frame_fault) {
-    LOG(ERROR) << "[RlGetupExampleRunner] Invalid global T800 joint state; entering fault";
+    LOG(ERROR) << "[RlGetupExampleRunner] "
+               << t800_safety::SafetyStatusMessage(safety_snapshot_.status)
+               << ", reasons="
+               << t800_safety::SafetyReasonSummary(safety_snapshot_.reason_mask)
+               << "; entering fault";
     SetRunnerState(RunnerState::kFault);
     GetMutableOutput().Reset();
     return;
@@ -426,17 +435,37 @@ void RlGetupExampleRunner::SendMotorCommand() {
   data_store_->joint_info.GetVelocityLimit(velocity_limit);
   for (int index = 0; index < model_param_->num_total_joints; ++index) {
     const double max_delta = velocity_limit(index) * param_->control_dt;
-    const double safe_lower = std::max({lower_limit(index), q_real_(index) - max_delta,
-                                        last_sent_q_des_(index) - max_delta});
-    const double safe_upper = std::min({upper_limit(index), q_real_(index) + max_delta,
-                                        last_sent_q_des_(index) + max_delta});
+    const double bounded_target =
+        std::clamp(q_des_(index), lower_limit(index), upper_limit(index));
+    double safe_lower = 0.0;
+    double safe_upper = 0.0;
+    if (q_real_(index) < lower_limit(index)) {
+      // A small, finite lower-limit overrun is recoverable. Keep both the
+      // measured-state and previous-target slew bounds, but only permit the
+      // command to increase toward the valid interval.
+      safe_lower = std::max(q_real_(index), last_sent_q_des_(index));
+      safe_upper = std::min(q_real_(index) + max_delta,
+                            last_sent_q_des_(index) + max_delta);
+    } else if (q_real_(index) > upper_limit(index)) {
+      // Symmetric upper-limit recovery: every accepted target must decrease
+      // toward the valid interval. The global gate still decides whether the
+      // measured overrun is small enough to be recoverable.
+      safe_lower = std::max(q_real_(index) - max_delta,
+                            last_sent_q_des_(index) - max_delta);
+      safe_upper = std::min(q_real_(index), last_sent_q_des_(index));
+    } else {
+      safe_lower = std::max({lower_limit(index), q_real_(index) - max_delta,
+                             last_sent_q_des_(index) - max_delta});
+      safe_upper = std::min({upper_limit(index), q_real_(index) + max_delta,
+                             last_sent_q_des_(index) + max_delta});
+    }
     if (safe_lower > safe_upper) {
       LOG(ERROR) << "[RlGetupExampleRunner] No feasible bounded target for joint index " << index;
       SetRunnerState(RunnerState::kFault);
       GetMutableOutput().Reset();
       return;
     }
-    q_des_(index) = std::clamp(q_des_(index), safe_lower, safe_upper);
+    q_des_(index) = std::clamp(bounded_target, safe_lower, safe_upper);
   }
   if (!q_des_.allFinite()) {
     SetRunnerState(RunnerState::kFault);
@@ -453,6 +482,7 @@ void RlGetupExampleRunner::SendMotorCommand() {
     GetMutableOutput().Reset();
     return;
   }
+  t800_safety::RequestSafetyProfile(t800_safety::SafetyProfile::kGetup);
   GetMutableOutput().SetCommand(q_des_, qd_des_, joint_kp_, joint_kd_, tau_ff_des_);
 }
 
