@@ -233,7 +233,7 @@ remote_command_reversal_pause_sec: 0.10
 remote_command_tactical_front_offset_deg: 37.0
 # Fixed tactical speeds: [forward/backward, left/right, yaw] in
 # [m/s, m/s, rad/s]. Positive and negative directions can be tuned separately.
-command_scale_pos: [1.30, 0.80, 1.60]
+command_scale_pos: [1.0, 0.80, 1.00]
 command_scale_neg: [0.80, 0.80, 1.00]
 
 imu_install_bias: [0.0, 0.0, 0.0]
