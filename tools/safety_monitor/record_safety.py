@@ -2,7 +2,8 @@
 """Read-only T800 safety telemetry recorder.
 
 This process subscribes to existing ROS2 topics and the optional LCM task_state
-channel. It never publishes commands and never changes robot state.
+channel. It records IMU posture context for walking-motion limit events. It
+never publishes commands and never changes robot state.
 """
 
 from __future__ import annotations
@@ -30,6 +31,16 @@ import yaml
 # the one-bit left rotation of the seed in TaskState::_computeHash().
 LCM_TASK_STATE_HASH = 0x104561AA026A2B0E
 DEFAULT_LCM_URL = "udpm://239.255.76.67:7667?ttl=0"
+IMU_GRAVITY_MPS2 = 9.80665
+WALK_MOTIONS = frozenset({"walk", "walk_custom", "walk_leo", "walk_leo_terrain"})
+POSTURE_EVENT_TYPES = frozenset(
+    {
+        "model_position_limit_violation",
+        "model_position_limit_near",
+        "model_velocity_limit_violation",
+        "model_effort_limit_violation",
+    }
+)
 
 
 def utc_now() -> str:
@@ -46,6 +57,74 @@ def finite_float(value: Any) -> Optional[float]:
 
 def finite_float_list(values: Any) -> list[Optional[float]]:
     return [finite_float(value) for value in values]
+
+
+def vector3_record(value: Any) -> list[Optional[float]]:
+    if value is None:
+        return [None, None, None]
+    return finite_float_list(
+        [
+            getattr(value, "x", None),
+            getattr(value, "y", None),
+            getattr(value, "z", None),
+        ]
+    )
+
+
+def vector_norm(values: list[Optional[float]]) -> Optional[float]:
+    if len(values) < 3 or any(value is None for value in values[:3]):
+        return None
+    return math.sqrt(sum(float(value) ** 2 for value in values[:3]))
+
+
+def quaternion_tilt_rad(quaternion: list[Optional[float]]) -> Optional[float]:
+    if len(quaternion) < 4 or any(value is None for value in quaternion[:4]):
+        return None
+    w, x, y, z = (float(value) for value in quaternion[:4])
+    norm = math.sqrt(w * w + x * x + y * y + z * z)
+    if norm <= 1e-12:
+        return None
+    x /= norm
+    y /= norm
+    vertical_component = max(-1.0, min(1.0, 1.0 - 2.0 * (x * x + y * y)))
+    return math.acos(vertical_component)
+
+
+def imu_record(message: Any, monotonic_ns: int, ros_time_ns: int) -> dict[str, Any]:
+    quaternion_message = getattr(message, "quaternion", None)
+    quaternion = finite_float_list(
+        [
+            getattr(quaternion_message, "w", None),
+            getattr(quaternion_message, "x", None),
+            getattr(quaternion_message, "y", None),
+            getattr(quaternion_message, "z", None),
+        ]
+    )
+    rpy = vector3_record(getattr(message, "rpy", None))
+    linear_acceleration = vector3_record(getattr(message, "linear_acceleration", None))
+    angular_velocity = vector3_record(getattr(message, "angular_velocity", None))
+    tilt_rad = quaternion_tilt_rad(quaternion)
+    if tilt_rad is None and rpy[0] is not None and rpy[1] is not None:
+        tilt_rad = math.hypot(float(rpy[0]), float(rpy[1]))
+    acceleration_norm = vector_norm(linear_acceleration)
+    angular_speed = vector_norm(angular_velocity)
+    acceleration_deviation = (
+        abs(acceleration_norm - IMU_GRAVITY_MPS2) if acceleration_norm is not None else None
+    )
+    return {
+        "receive_monotonic_ns": monotonic_ns,
+        "receive_ros_time_ns": ros_time_ns,
+        "ros_stamp_ns": message_stamp_ns(message),
+        "quaternion_wxyz": quaternion,
+        "rpy": rpy,
+        "linear_acceleration_mps2": linear_acceleration,
+        "angular_velocity_rad_s": angular_velocity,
+        "tilt_rad": tilt_rad,
+        "tilt_deg": math.degrees(tilt_rad) if tilt_rad is not None else None,
+        "acceleration_norm_mps2": acceleration_norm,
+        "acceleration_deviation_mps2": acceleration_deviation,
+        "angular_speed_rad_s": angular_speed,
+    }
 
 
 def int_list(values: Any) -> list[Optional[int]]:
@@ -171,7 +250,7 @@ class SafetyRecorder:
         self,
         node: Any,
         args: argparse.Namespace,
-        message_types: tuple[Any, Any, Any, Any, Any],
+        message_types: tuple[Any, Any, Any, Any, Any, Any],
         joint_names: list[str],
         limits: dict[str, dict[str, Optional[float]]],
         qos_profile: Any,
@@ -231,6 +310,7 @@ class SafetyRecorder:
                 "motor_debug": args.motor_debug_topic,
                 "power_info": args.power_info_topic,
                 "motion_state": args.motion_topic,
+                "imu_info": args.imu_topic,
             },
             "lcm": {
                 "enabled": not args.no_lcm,
@@ -242,6 +322,11 @@ class SafetyRecorder:
                 "tracking_error_rad": args.tracking_error_threshold,
                 "expected_joint_rate_hz": args.expected_joint_rate,
                 "gap_factor": args.gap_factor,
+                "imu_max_age_ms": args.imu_max_age_ms,
+                "posture_tilt_threshold_deg": args.posture_tilt_threshold_deg,
+                "posture_fallen_threshold_deg": args.posture_fallen_threshold_deg,
+                "posture_angular_speed_threshold_rad_s": args.posture_angular_speed_threshold,
+                "posture_acceleration_deviation_threshold_mps2": args.posture_acceleration_deviation,
             },
             "files": {
                 "samples": str(self.samples_path),
@@ -250,7 +335,14 @@ class SafetyRecorder:
         }
         self.write_metadata()
 
-        joint_state_type, joint_command_type, motor_debug_type, power_info_type, motion_state_type = message_types
+        (
+            joint_state_type,
+            joint_command_type,
+            motor_debug_type,
+            power_info_type,
+            motion_state_type,
+            imu_info_type,
+        ) = message_types
         self.subscriptions = [
             node.create_subscription(joint_state_type, args.joint_state_topic, self.on_joint_state, qos_profile),
             node.create_subscription(joint_state_type, args.motor_state_topic, self.on_motor_state, qos_profile),
@@ -258,6 +350,7 @@ class SafetyRecorder:
             node.create_subscription(joint_command_type, args.motor_command_topic, self.on_motor_command, qos_profile),
             node.create_subscription(motor_debug_type, args.motor_debug_topic, self.on_motor_debug, qos_profile),
             node.create_subscription(power_info_type, args.power_info_topic, self.on_power_info, qos_profile),
+            node.create_subscription(imu_info_type, args.imu_topic, self.on_imu_info, qos_profile),
         ]
         if motion_state_type is not None:
             self.subscriptions.append(
@@ -351,6 +444,7 @@ class SafetyRecorder:
                 "motor_command": self.copy_latest("motor_command"),
                 "motor_debug": self.copy_latest("motor_debug"),
                 "power_info": self.copy_latest("power_info"),
+                "imu_info": self.copy_latest("imu_info"),
             }
             self.last_sample = sample
             self.write_line(self.samples_file, sample)
@@ -415,6 +509,12 @@ class SafetyRecorder:
             if not self.closed:
                 self.latest["power_info"] = record
 
+    def on_imu_info(self, message: Any) -> None:
+        monotonic_ns, ros_time_ns = self.receipt_times()
+        with self.lock:
+            if not self.closed:
+                self.latest["imu_info"] = imu_record(message, monotonic_ns, ros_time_ns)
+
     def on_motion_state(self, message: Any) -> None:
         _, ros_time_ns = self.receipt_times()
         name = str(getattr(message, "current_motion_task", "")).strip()
@@ -462,6 +562,80 @@ class SafetyRecorder:
         sample_ns = sample.get("receive_monotonic_ns")
         if command_ns is not None and sample_ns is not None:
             details["target_age_ms"] = (sample_ns - command_ns) / 1_000_000.0
+
+    def add_posture_evidence(self, details: dict[str, Any], sample: dict[str, Any]) -> None:
+        """Attach IMU posture context to limit events during walking motions.
+
+        The SDK does not publish a measured foot-contact topic through this
+        interface, so acceleration and angular speed are recorded as motion
+        indicators only. They must not be interpreted as proof that a foot is
+        airborne.
+        """
+        if sample.get("motion") not in WALK_MOTIONS:
+            return
+
+        imu = sample.get("imu_info")
+        if not imu:
+            details["posture_context"] = {
+                "available": False,
+                "reason": "imu_info_unavailable",
+                "foot_contact": "not_recorded",
+            }
+            return
+
+        sample_ns = sample.get("receive_monotonic_ns")
+        imu_ns = imu.get("receive_monotonic_ns")
+        age_ms = None
+        if sample_ns is not None and imu_ns is not None:
+            age_ms = (int(sample_ns) - int(imu_ns)) / 1_000_000.0
+
+        tilt_rad = finite_float(imu.get("tilt_rad"))
+        angular_speed = finite_float(imu.get("angular_speed_rad_s"))
+        acceleration_deviation = finite_float(imu.get("acceleration_deviation_mps2"))
+        tilt_threshold = math.radians(self.args.posture_tilt_threshold_deg)
+        fallen_threshold = math.radians(self.args.posture_fallen_threshold_deg)
+        posture_class = "unknown"
+        if tilt_rad is not None:
+            if tilt_rad >= fallen_threshold:
+                posture_class = "fallen_suspected"
+            elif tilt_rad >= tilt_threshold:
+                posture_class = "tilted"
+            else:
+                posture_class = "upright"
+
+        details["posture_context"] = {
+            "available": True,
+            "fresh": age_ms is None or age_ms <= self.args.imu_max_age_ms,
+            "age_ms": age_ms,
+            "posture_class": posture_class,
+            "tilt_rad": tilt_rad,
+            "tilt_deg": imu.get("tilt_deg"),
+            "tilt_threshold_deg": self.args.posture_tilt_threshold_deg,
+            "fallen_threshold_deg": self.args.posture_fallen_threshold_deg,
+            "angular_speed_rad_s": angular_speed,
+            "angular_speed_threshold_rad_s": self.args.posture_angular_speed_threshold,
+            "acceleration_norm_mps2": imu.get("acceleration_norm_mps2"),
+            "acceleration_deviation_mps2": acceleration_deviation,
+            "acceleration_deviation_threshold_mps2": self.args.posture_acceleration_deviation,
+            "tilt_exceeded": tilt_rad is not None and tilt_rad >= tilt_threshold,
+            "fallen_suspected": tilt_rad is not None and tilt_rad >= fallen_threshold,
+            "high_angular_speed": (
+                angular_speed is not None
+                and angular_speed >= self.args.posture_angular_speed_threshold
+            ),
+            "acceleration_anomaly": (
+                acceleration_deviation is not None
+                and acceleration_deviation >= self.args.posture_acceleration_deviation
+            ),
+            "foot_contact": "not_recorded",
+            "imu_receive_monotonic_ns": imu.get("receive_monotonic_ns"),
+            "imu_receive_ros_time_ns": imu.get("receive_ros_time_ns"),
+            "imu_ros_stamp_ns": imu.get("ros_stamp_ns"),
+            "rpy": imu.get("rpy"),
+            "quaternion_wxyz": imu.get("quaternion_wxyz"),
+            "linear_acceleration_mps2": imu.get("linear_acceleration_mps2"),
+            "angular_velocity_rad_s": imu.get("angular_velocity_rad_s"),
+        }
 
     def update_motion(self, name: str, source: str, available: list[str], ros_time_ns: int) -> None:
         if not name:
@@ -770,6 +944,8 @@ class SafetyRecorder:
 
         for details in conditions.values():
             self.add_command_evidence(details, sample)
+            if details.get("event_type") in POSTURE_EVENT_TYPES:
+                self.add_posture_evidence(details, sample)
         for key, details in conditions.items():
             self.sync_condition(key, details, sample)
         for key in list(self.active):
@@ -875,12 +1051,43 @@ def build_parser(repo_root: Path) -> argparse.ArgumentParser:
     parser.add_argument("--motor-command-topic", default="/hardware/motor_command")
     parser.add_argument("--motor-debug-topic", default="/hardware/motor_debug")
     parser.add_argument("--power-info-topic", default="/hardware/power_info")
+    parser.add_argument("--imu-topic", default="/hardware/imu_info")
     parser.add_argument("--motion-topic", default="/motion/motion_state")
     parser.add_argument("--duration", type=positive_float, default=None)
     parser.add_argument("--position-margin", type=non_negative_float, default=0.02)
     parser.add_argument("--tracking-error-threshold", type=non_negative_float, default=0.0)
     parser.add_argument("--expected-joint-rate", type=positive_float, default=500.0)
     parser.add_argument("--gap-factor", type=positive_float, default=5.0)
+    parser.add_argument(
+        "--imu-max-age-ms",
+        type=positive_float,
+        default=20.0,
+        help="maximum age for a fresh IMU posture context",
+    )
+    parser.add_argument(
+        "--posture-tilt-threshold-deg",
+        type=positive_float,
+        default=35.0,
+        help="tilt threshold for the tilted posture flag",
+    )
+    parser.add_argument(
+        "--posture-fallen-threshold-deg",
+        type=positive_float,
+        default=60.0,
+        help="tilt threshold for fallen_suspected",
+    )
+    parser.add_argument(
+        "--posture-angular-speed-threshold",
+        type=positive_float,
+        default=6.0,
+        help="angular-speed threshold for the high-angular-speed flag",
+    )
+    parser.add_argument(
+        "--posture-acceleration-deviation",
+        type=positive_float,
+        default=3.0,
+        help="acceleration deviation from 1 g in m/s^2 for the anomaly flag",
+    )
     parser.add_argument("--fsync-every", type=int, default=100)
     parser.add_argument("--dry-run", action="store_true")
     return parser
@@ -895,6 +1102,13 @@ def main() -> int:
     args.lcm_config = resolve_path(args.lcm_config, repo_root)
     args.config = [str(resolve_path(path, repo_root)) for path in args.config]
     args.lcm_url = args.lcm_url or lcm_url_from_config(args.lcm_config)
+    if args.posture_fallen_threshold_deg <= args.posture_tilt_threshold_deg:
+        print(
+            "configuration error: --posture-fallen-threshold-deg must be greater than "
+            "--posture-tilt-threshold-deg",
+            file=sys.stderr,
+        )
+        return 2
     if args.output:
         output_path = Path(args.output).expanduser()
         args.output = str((Path.cwd() / output_path if not output_path.is_absolute() else output_path).resolve())
@@ -927,6 +1141,14 @@ def main() -> int:
                     "limits_found": len(limits),
                     "missing_limits": missing,
                     "lcm_url": args.lcm_url,
+                    "imu_topic": args.imu_topic,
+                    "posture_thresholds": {
+                        "imu_max_age_ms": args.imu_max_age_ms,
+                        "tilt_deg": args.posture_tilt_threshold_deg,
+                        "fallen_suspected_deg": args.posture_fallen_threshold_deg,
+                        "angular_speed_rad_s": args.posture_angular_speed_threshold,
+                        "acceleration_deviation_mps2": args.posture_acceleration_deviation,
+                    },
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -936,7 +1158,7 @@ def main() -> int:
 
     try:
         import rclpy
-        from interface_protocol.msg import JointCommand, JointState, MotorDebug, PowerInfo
+        from interface_protocol.msg import ImuInfo, JointCommand, JointState, MotorDebug, PowerInfo
         try:
             from interface_protocol.msg import MotionState
         except ImportError:
@@ -961,7 +1183,7 @@ def main() -> int:
         recorder = SafetyRecorder(
             node,
             args,
-            (JointState, JointCommand, MotorDebug, PowerInfo, MotionState),
+            (JointState, JointCommand, MotorDebug, PowerInfo, MotionState, ImuInfo),
             joint_names,
             limits,
             qos_profile,
