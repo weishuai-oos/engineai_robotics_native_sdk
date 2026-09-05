@@ -39,4 +39,4 @@ _build
 .lastformat
 .cache
 build
-.vscode
+.vscodesafety_logs/
