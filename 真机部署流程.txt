@@ -1,6 +1,0 @@
-T800 Native SDK 真机部署流程
-===========================
-
-本文件原内容把 Native SDK 错误地写成部署到 Jetson，现已废止。请以同目录下的 `真机部署.txt` 为唯一执行说明。
-
-关键结论：T800 开发版包含 Nezha（Robot PC）和 Jetson AGX Orin 64GB（AI PC）；Native SDK 官方真机流程运行在 Nezha。当前实测 Nezha `user@192.168.0.163` 与 Orin `ubuntu@192.168.0.162` 都是 aarch64，必须通过地址、内核或设备树识别目标板。

@@ -1,17 +1,20 @@
-T800 Native SDK 真机部署（feature/motion_transition）
+# T800 Native SDK 真机部署
 
-一、目标板
+适用分支：`feature/motion_transition`
+
+## 1. 目标板与部署结论
 
 T800 开发版有两块机载电脑：
 
-- Nezha（Robot PC）：`user@192.168.0.163`，实测 `aarch64`，内核 `6.1.141-4-engineai`
-- NVIDIA Jetson AGX Orin 64GB（AI PC）：`ubuntu@192.168.0.162`，实测 `aarch64`，内核 `5.15.148-6-engine-tegra`
+| 设备 | SSH 地址 | 实测架构 | 实测内核 | 用途 |
+| --- | --- | --- | --- | --- |
+| Nezha（Robot PC） | `user@192.168.0.163` | `aarch64` | `6.1.141-4-engineai` | Native SDK / 运控策略 |
+| NVIDIA Jetson AGX Orin 64GB（AI PC） | `ubuntu@192.168.0.162` | `aarch64` | `5.15.148-6-engine-tegra` | AI 计算 |
 
-Native SDK 的 `src_executor` 真机流程部署到 Nezha，不部署到 Orin。两块板都是 aarch64，不能只用 `uname -m` 区分；`install.sh` 会检查架构，并对 T800 拒绝 Jetson/Orin 的内核或设备树特征。
+Native SDK 的 `src_executor` 真机流程部署到 Nezha，不部署到 Orin。两块板都是 `aarch64`，不能只用 `uname -m` 区分；`install.sh` 会检查架构，并对 T800 拒绝 Jetson/Orin 的内核或设备树特征。
 
-`192.168.0.62` 当前尚未确认属于哪块板，不作为默认部署地址。Wi-Fi 和网线同时连接时，也必须先确认地址对应的是 Nezha。
 
-二、编译与下发
+## 2. 编译与下发
 
 在开发电脑仓库根目录执行：
 
@@ -19,35 +22,55 @@ Native SDK 的 `src_executor` 真机流程部署到 Nezha，不部署到 Orin。
 cd /home/xjh/workspace/zq/engineai_robotics_native_sdk
 git switch feature/motion_transition
 
-# 在宿主机执行；build.sh 会自动启动 aarch64 交叉编译容器
+# 在宿主机执行；build.sh 会自动启动 aarch64 交叉编译环境
 ./build.sh -a aarch64 -r humble -t release
 
-# install.sh 顶部默认已配置为 Nezha；部署目录是远端独立目录
+# 默认下发到 Nezha 的 ~/projects/engineai_robotics
 ./install.sh t800 robot aarch64
 ```
 
-如更换网线地址，只修改 `install.sh` 顶部的 `remote_user`、`remote_host`、`remote_dir`，不要把 `remote_dir` 设置为源码目录或用户主目录。安装脚本会把 `active_mode` 改为 `robot`，并记录本次提交信息。
+如更换网线地址，只修改 `install.sh` 顶部的 `remote_user`、`remote_host`、`remote_dir`。不要把 `remote_dir` 设置为源码目录或用户主目录。安装脚本会把远端 `mode.yaml` 的 `active_mode` 改为 `robot`，并记录本次提交信息。
 
-三、真机启动
+## 3. 真机启动
 
-当前 Nezha 上已有系统服务运行 Native/运控程序；启动本仓库版本前，先停止它，避免两个程序同时访问电机：
+当前 Nezha 上已有 `robotics.service` 运行 Native/运控程序。启动本仓库版本前，先停止该服务，避免两个程序同时访问电机：
 
 ```bash
 ssh user@192.168.0.163
 sudo systemctl stop robotics.service
+# 确认服务已停止
+systemctl is-active robotics.service
+# 应输出：inactive
 cd ~/projects/engineai_robotics
 sudo ./run_robot.sh t800
 ```
 
-启动前确认急停有效、人员远离机器人；首次测试建议使用吊架。异常时立即按急停或切入 `passive`。
+稳定后c掉前台后台运行
+nohup sudo ./run_robot.sh pm01_edu > nohup.out 2>&1 &
+tail -f nohup.out
 
-交互终端中的 `$ROS_DISTRO` 为空不一定表示 ROS 不可用，`run_robot.sh` 会自行选择并 source `/opt/ros/humble` 或 `/opt/ros/jazzy`；仍应在启动前确认对应目录存在。
+## 4. 结束运行并恢复
 
-四、结束运行
+# 查找进程
+pgrep -af "run_robot|src_executor"
 
-```bash
-Ctrl-C
+#确认进程（看输出路径是否正确）
+ps -p <PID> -o pid,ppid,cmd
+
+sudo kill <run_robot的PID>
+
+# 确认已退出
+pgrep -af "run_robot|src_executor"
+# 无输出 = 已停止
+
+# 如果还在，强制结束
+sudo kill -9 <剩余PID>
+
+恢复
 sudo systemctl start robotics.service
 ```
 
-官方参考：[T800 机载计算机与网络架构图](https://www.engineai.com.cn/open/docs/t800-developer/03?product=t800)、[Native SDK 开发环境与快速开始](https://www.engineai.com.cn/open/docs/native-sdk/02?product=t800)。
+官方参考：
+
+- [T800 机载计算机与网络架构图](https://www.engineai.com.cn/open/docs/t800-developer/03?product=t800)
+- [Native SDK 开发环境与快速开始](https://www.engineai.com.cn/open/docs/native-sdk/02?product=t800)
