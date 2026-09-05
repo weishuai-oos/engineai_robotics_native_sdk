@@ -44,6 +44,10 @@ class RC02Driver {
   ~RC02Driver();
 
   bool Init();
+  // Open the port, query the receiver, and complete the RC02 initialization ACK.
+  // A failed handshake closes the port so the next attempt starts cleanly.
+  bool Connect(int8_t robot_model, const std::string& protocol_version = "1.0.1",
+               const std::string& motion_version = "");
   void Close() noexcept;
 
   // -------------------------------------------------------------------------
@@ -59,7 +63,10 @@ class RC02Driver {
   bool SendMotionStatus(uint8_t error_code, uint8_t current_motion);
 
   /// 构建初始化信息（使用默认值），robot_model 写入 init_info.Product
-  Rc02InitInfo BuildInitData(int8_t robot_model, std::string protocol_version = "1.0.1") const;
+  // An explicit motion version overrides ENGINEAI_ROBOTICS_VERSION for the RC02
+  // compatibility handshake only. Hardware currently uses the same version.
+  Rc02InitInfo BuildInitData(int8_t robot_model, std::string protocol_version = "1.0.1",
+                            std::string motion_version = "") const;
 
   /// 发送初始化帧：0xAA | len 0x33 | 0x0D | product | protocol | motion | hardware | CRC16
   bool SendInitData(const Rc02InitInfo& init_info);

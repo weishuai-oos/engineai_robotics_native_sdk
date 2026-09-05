@@ -11,7 +11,7 @@ GamepadInputAdapter::GamepadInputAdapter(std::string name, const std::shared_ptr
 
 bool GamepadInputAdapter::Init() {
   hardware_gamepad_publisher_ =
-      data::VariantStore::GetInstance().CreatePublisher<data::GamepadInfo>("hardware/gamepad_info");
+      data::VariantStore::GetInstance().CreatePublisher<data::GamepadInfo>("hardware/f710_info");
   ResetDriverState();
   static constexpr uint32_t kDriverRetryIntervalCount = 200;
   failed_count_ = kDriverRetryIntervalCount - 1;

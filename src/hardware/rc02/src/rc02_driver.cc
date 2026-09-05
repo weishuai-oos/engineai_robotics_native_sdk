@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
@@ -34,6 +35,10 @@ bool ParseVersionString(const std::string& version, int8_t* major, int8_t* minor
   char dot1 = '\0', dot2 = '\0';
   if (!(ss >> maj >> dot1 >> min >> dot2 >> pat) || dot1 != '.' || dot2 != '.') return false;
   if (maj < 0 || maj > 127 || min < 0 || min > 127 || pat < 0 || pat > 127) return false;
+  // Accept release suffixes such as 1.0.3+hotfix.v2, but reject extra numbers
+  // or arbitrary text rather than silently advertising a different version.
+  ss >> std::ws;
+  if (!ss.eof() && ss.peek() != '+' && ss.peek() != '-') return false;
   *major = static_cast<int8_t>(maj);
   *minor = static_cast<int8_t>(min);
   *patch = static_cast<int8_t>(pat);
@@ -63,9 +68,27 @@ bool RC02Driver::Init() {
   return configured_;
 }
 
+bool RC02Driver::Connect(int8_t robot_model, const std::string& protocol_version,
+                         const std::string& motion_version) {
+  if (!Init()) return false;
+  try {
+    if (GetRc02HardwareVersion() && SendInitData(BuildInitData(robot_model, protocol_version, motion_version))) {
+      return true;
+    }
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "RC02 connection initialization failed: " << e.what();
+  }
+  Close();
+  return false;
+}
+
 void RC02Driver::Close() noexcept {
   if (serial_.isOpen()) {
-    serial_.close();
+    try {
+      serial_.close();
+    } catch (const std::exception& e) {
+      LOG(WARNING) << "RC02 serial close failed: " << e.what();
+    }
   }
   ResetConnectionState();
   origin_ = {};
@@ -191,23 +214,29 @@ bool RC02Driver::SendMotionStatus(uint8_t error_code, uint8_t current_motion) {
   }
 }
 
-Rc02InitInfo RC02Driver::BuildInitData(const int8_t robot_model, std::string protocol_version) const {
+Rc02InitInfo RC02Driver::BuildInitData(const int8_t robot_model, std::string protocol_version,
+                                     std::string motion_version) const {
   Rc02InitInfo init_info{};
 
+  if (robot_model <= 0) throw std::invalid_argument("RC02 product must be a positive protocol model ID");
   init_info.Product = robot_model;
   init_info.Protocol_major = 0x01;
   init_info.Protocol_minor = 0x00;
   init_info.Protocol_patch = 0x01;
   if (!ParseVersionString(protocol_version, &init_info.Protocol_major, &init_info.Protocol_minor,
                           &init_info.Protocol_patch)) {
-    LOG(WARNING) << "RC02 protocol version is invalid: '" << protocol_version
-                 << "', fallback to default protocol version 1.0.1.";
+    throw std::invalid_argument("Invalid RC02 protocol version: '" + protocol_version + "'");
   }
 
   init_info.Motion_major = 0x00;
   init_info.Motion_minor = 0x00;
   init_info.Motion_patch = 0x00;
-  if (!ParseVersionFromEnv("ENGINEAI_ROBOTICS_VERSION", &init_info.Motion_major, &init_info.Motion_minor,
+  if (!motion_version.empty()) {
+    if (!ParseVersionString(motion_version, &init_info.Motion_major, &init_info.Motion_minor,
+                            &init_info.Motion_patch)) {
+      throw std::invalid_argument("Invalid RC02 motion version: '" + motion_version + "'");
+    }
+  } else if (!ParseVersionFromEnv("ENGINEAI_ROBOTICS_VERSION", &init_info.Motion_major, &init_info.Motion_minor,
                            &init_info.Motion_patch)) {
     LOG_EVERY_N(WARNING, 200) << "ENGINEAI_ROBOTICS_VERSION is missing/invalid, fallback to default motion version: "
                               << static_cast<int>(0x00) << "." << static_cast<int>(0x00) << "."

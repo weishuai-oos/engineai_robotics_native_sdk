@@ -16,6 +16,8 @@ InputCommandArbiterRunner::InputCommandArbiterRunner(std::string_view name,
                          std::make_shared<VirtualGamepadInputAdapter>("virtual_gamepad", data_store));
 
   selected_hardware_idx_ = -1;
+  hardware_input_publisher_ =
+      data::VariantStore::GetInstance().CreatePublisher<data::GamepadInfo>("hardware/gamepad_info");
   for (int i = 0; i < static_cast<int>(hardware_sources_.size()); ++i) {
     if (!hardware_sources_[i]->Init()) {
       LOG(WARNING) << "InputCommandArbiterRunner: Init failed for hardware source '"
@@ -24,8 +26,6 @@ InputCommandArbiterRunner::InputCommandArbiterRunner(std::string_view name,
     }
     LOG(INFO) << "InputCommandArbiterRunner: hardware source '" << hardware_sources_[i]->GetName()
               << "' Init succeeded at index " << i << ".";
-    selected_hardware_idx_ = i;
-    break;
   }
 
   for (auto& source : override_sources_) {
@@ -39,24 +39,26 @@ void InputCommandArbiterRunner::Run() {
   data::GamepadInfo result;
   result.Reset();
 
-  if (selected_hardware_idx_ < 0) {
-    for (int i = 0; i < static_cast<int>(hardware_sources_.size()); ++i) {
-      if (hardware_sources_[i]->Run() == InputAdapterStatus::NORMAL && selected_hardware_idx_ < 0) {
-        selected_hardware_idx_ = i;
-      }
-      if (hardware_sources_[i]->IsActive()) {
-        hardware_sources_[i]->Process(result);
-        LOG(INFO) << "Hardware source locked: " << hardware_sources_[i]->GetName();
-        break;
-      }
-    }
-  } else {
-    auto& selected = hardware_sources_[selected_hardware_idx_];
-    static_cast<void>(selected->Run());
-    if (selected->IsActive()) {
-      selected->Process(result);
+  // Service every adapter so a failed startup ACK cannot permanently suppress
+  // RC02 retries after F710 was selected. RC02 has priority once fresh input
+  // arrives; a merely open port or pending handshake never claims control.
+  int active_hardware_idx = -1;
+  for (int i = 0; i < static_cast<int>(hardware_sources_.size()); ++i) {
+    static_cast<void>(hardware_sources_[i]->Run());
+    if (active_hardware_idx < 0 && hardware_sources_[i]->IsActive()) {
+      active_hardware_idx = i;
+      hardware_sources_[i]->Process(result);
     }
   }
+  if (active_hardware_idx != selected_hardware_idx_) {
+    selected_hardware_idx_ = active_hardware_idx;
+    if (selected_hardware_idx_ >= 0) {
+      LOG(INFO) << "Hardware source locked: " << hardware_sources_[selected_hardware_idx_]->GetName();
+    }
+  }
+  // Publish only the selected hardware snapshot; disconnected fallback
+  // adapters must not overwrite it for ROS2 and other hardware consumers.
+  hardware_input_publisher_.Publish(result);
 
   for (auto& source : override_sources_) {
     static_cast<void>(source->Run());

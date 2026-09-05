@@ -152,7 +152,6 @@ std::array<uint8_t, RC02_INIT_TX_FRAME_SIZE> BuildRc02InitFrame(const int8_t pro
                                                                 const std::array<int8_t, 3>& hardware_version,
                                                                 const int8_t robot_rc02_hw) {
   std::array<uint8_t, RC02_INIT_TX_CONTROL_SIZE> control{};
-  // control.fill(9);  // Debug default: initialize all control bytes to 9 first.
   control[INIT_CONTROL_OFF_CMD] = RC02_INIT_TX_CMD;
   control[INIT_CONTROL_OFF_PRODUCT] = static_cast<uint8_t>(product);
   control[INIT_CONTROL_OFF_PROTOCOL_PATCH] = static_cast<uint8_t>(protocol_version[0]);

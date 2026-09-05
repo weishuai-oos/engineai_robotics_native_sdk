@@ -27,7 +27,7 @@ constexpr size_t RC02_STATUS_TX_FRAME_SIZE = 2 + RC02_STATUS_TX_CONTROL_SIZE + 2
 
 // Host -> device init TX: length = 0x01 + N (N=50 -> 0x33); control = 0x0D + uint8[50]
 // (offsets 0..11 carry cmd/product/protocol/motion/hardware/robot_rc02_hw; the trailing
-// 39 bytes are reserved. For current debug flow they are initialized to 9).
+// 39 bytes are reserved and initialized to zero).
 constexpr uint8_t RC02_INIT_TX_CMD = 0x0D;
 constexpr uint8_t RC02_INIT_TX_DATA_N = 50;
 constexpr uint8_t RC02_INIT_TX_LEN = static_cast<uint8_t>(0x01 + RC02_INIT_TX_DATA_N);

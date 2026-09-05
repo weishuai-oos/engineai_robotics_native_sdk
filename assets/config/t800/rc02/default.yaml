@@ -1,0 +1,7 @@
+# RC02 wire-protocol compatibility settings, verified against the onboard
+# 1.0.3+hotfix.v2 program. These are not the Native SDK software release version.
+# Loaded from the selected robot's config directory; install.sh copies this file.
+product: 0x04  # t800, from the official robot_model_map.yaml
+protocol_version: "1.0.3"
+motion_version: "1.0.3"  # also used for the handshake's hardware version fields
+# The radio hardware version is queried from /dev/ttyJS, never hardcoded here.

@@ -8,6 +8,7 @@
 #include "basic/basic_runner.h"
 #include "basic/runner_registry.h"
 #include "input_command_arbiter/base_input_adapter.h"
+#include "variant_store/variant_store.h"
 
 namespace runner {
 
@@ -29,6 +30,7 @@ class InputCommandArbiterRunner : public BasicRunner {
 
   std::vector<std::shared_ptr<BaseInputAdapter>> hardware_sources_;
   std::vector<std::shared_ptr<BaseInputAdapter>> override_sources_;
+  data::Publisher<data::GamepadInfo> hardware_input_publisher_;
   int selected_hardware_idx_{-1};
 };
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <future>
 #include <memory>
 #include <string>
 
@@ -17,7 +18,7 @@ class Rc02InputAdapter : public BaseInputAdapter {
   // 生命周期
   // -------------------------------------------------------------------------
   explicit Rc02InputAdapter(std::string name, const std::shared_ptr<data::DataStore>& data_store);
-  ~Rc02InputAdapter() = default;
+  ~Rc02InputAdapter() override;
 
   bool Init() override;
   InputAdapterStatus Run() override;
@@ -34,7 +35,7 @@ class Rc02InputAdapter : public BaseInputAdapter {
   // -------------------------------------------------------------------------
   bool CheckRc02Connected();
   bool TryReconnectRc02();
-  bool Rc02Init();
+  bool LoadRc02Config();
 
   // -------------------------------------------------------------------------
   // 输入解析
@@ -48,10 +49,18 @@ class Rc02InputAdapter : public BaseInputAdapter {
 
   // 硬件驱动与连接状态
   hardware::RC02Driver rc02_;
+  // Only the handshake task touches rc02_ until get() returns. Join it before
+  // destroying any adapter members (see destructor).
+  std::future<bool> reconnect_task_;
+  int8_t robot_model_ = 0;
+  std::string protocol_version_;
+  std::string motion_version_;
+  bool config_loaded_ = false;
   bool rc02_data_available_ = false;
   bool prev_rc02_data_available_ = false;  // 上一帧是否有有效输入，用于跨帧检测数据中断
   uint32_t failed_count_ = 0;
   bool driver_initialized_ = false;
+  std::chrono::steady_clock::time_point last_rc02_input_time_{};
 
   // 输入数据
   data::GamepadInfo rc02_input_;
