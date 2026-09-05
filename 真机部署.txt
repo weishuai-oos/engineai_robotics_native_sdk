@@ -1,0 +1,59 @@
+T800 真机部署（feature/motion_transition）
+
+一、部署前确认
+
+1. 真机架构：已确认使用 `aarch64`。
+2. 远端目录必须是独立运行目录，不能使用源码目录；`install.sh` 使用 `rsync --delete`。
+3. 真机默认 Wi-Fi 地址为 `192.168.0.62`，登录用户为 `ubuntu`；确认 SSH 可以连通：
+
+   `ssh ubuntu@192.168.0.62`
+
+   若改用网线，使用网线对应的实际 IP；Wi-Fi 和网线同时在线时以当前可达的 IP 为准。
+
+二、本地编译
+
+```bash
+cd /home/xjh/workspace/zq/engineai_robotics_native_sdk
+git switch feature/motion_transition
+
+# aarch64：在宿主机执行
+./build.sh -a aarch64
+```
+
+三、修改部署目标并下发
+
+编辑 `install.sh` 顶部：
+
+```bash
+remote_user="ubuntu"
+remote_host="192.168.0.62"  # 若走网线，替换为网线 IP
+remote_dir="~/projects/engineai_robotics"  # /home/ubuntu/projects/engineai_robotics
+```
+
+执行：
+
+```bash
+./install.sh t800 robot aarch64
+```
+
+四、真机启动
+
+```bash
+ssh ubuntu@192.168.0.62
+sudo systemctl stop robotics.service
+cd /home/ubuntu/projects/engineai_robotics
+sudo ./run_robot.sh t800
+```
+
+启动前确认急停可用、人员远离机器人；首次测试建议使用吊架。异常时按急停或切入 `passive`。
+
+RC02 的 L2 对应 LT。完整状态和按键映射见 `操作.txt`。
+
+五、结束运行
+
+```bash
+Ctrl-C
+sudo systemctl start robotics.service
+```
+
+如需采集安全日志，在具备源码和 ROS2 环境的另一终端先启动 `tools/safety_monitor/record_safety.py`，再启动 `run_robot.sh`。

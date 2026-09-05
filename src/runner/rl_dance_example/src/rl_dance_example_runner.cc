@@ -541,7 +541,13 @@ void RlDanceExampleRunner::initHistoryBuffers() {
 
 bool RlDanceExampleRunner::LoadAndValidateTrajectory(const std::string& trajectory_path) {
   try {
-    trajectory_npz = cnpy::npz_load(trajectory_path);
+    // Load only the arrays consumed by this Runner. Loading the whole archive
+    // would also parse optional metadata arrays (for example <U... strings),
+    // which the legacy cnpy parser does not represent safely.
+    trajectory_npz.clear();
+    for (const char* key : {"joint_pos", "joint_vel", "body_quat_w"}) {
+      trajectory_npz.emplace(key, cnpy::npz_load(trajectory_path, key));
+    }
 
     const auto joint_pos_it = trajectory_npz.find("joint_pos");
     const auto joint_vel_it = trajectory_npz.find("joint_vel");

@@ -9,8 +9,76 @@
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
+#include <limits>
 #include <regex>
 #include <stdexcept>
+
+namespace {
+
+constexpr uint32_t kZip32BitSentinel = 0xffffffffU;
+constexpr uint16_t kZip64ExtraFieldId = 0x0001U;
+
+uint16_t ReadLittleEndian16(const std::vector<char>& bytes, size_t offset) {
+  if (offset + sizeof(uint16_t) > bytes.size()) throw std::runtime_error("ZIP extra field is truncated");
+  return static_cast<uint16_t>(static_cast<uint8_t>(bytes[offset])) |
+         (static_cast<uint16_t>(static_cast<uint8_t>(bytes[offset + 1])) << 8);
+}
+
+uint64_t ReadLittleEndian64(const std::vector<char>& bytes, size_t offset) {
+  if (offset + sizeof(uint64_t) > bytes.size()) throw std::runtime_error("ZIP64 extra field is truncated");
+  uint64_t value = 0;
+  for (size_t byte = 0; byte < sizeof(uint64_t); ++byte) {
+    value |= static_cast<uint64_t>(static_cast<uint8_t>(bytes[offset + byte])) << (byte * 8);
+  }
+  return value;
+}
+
+struct ZipEntrySizes {
+  size_t compressed;
+  size_t uncompressed;
+};
+
+ZipEntrySizes ReadZipEntrySizes(const std::vector<char>& local_header, const std::vector<char>& extra_field) {
+  const uint32_t compressed32 = *reinterpret_cast<const uint32_t*>(&local_header[18]);
+  const uint32_t uncompressed32 = *reinterpret_cast<const uint32_t*>(&local_header[22]);
+  uint64_t compressed = compressed32;
+  uint64_t uncompressed = uncompressed32;
+
+  if (compressed32 == kZip32BitSentinel || uncompressed32 == kZip32BitSentinel) {
+    bool found_zip64_field = false;
+    size_t offset = 0;
+    while (offset + 4 <= extra_field.size()) {
+      const uint16_t field_id = ReadLittleEndian16(extra_field, offset);
+      const uint16_t field_size = ReadLittleEndian16(extra_field, offset + 2);
+      offset += 4;
+      if (offset + field_size > extra_field.size()) throw std::runtime_error("ZIP extra field is truncated");
+
+      if (field_id == kZip64ExtraFieldId) {
+        found_zip64_field = true;
+        const size_t field_end = offset + field_size;
+        if (uncompressed32 == kZip32BitSentinel) {
+          uncompressed = ReadLittleEndian64(extra_field, offset);
+          offset += sizeof(uint64_t);
+        }
+        if (compressed32 == kZip32BitSentinel) {
+          compressed = ReadLittleEndian64(extra_field, offset);
+          offset += sizeof(uint64_t);
+        }
+        if (offset > field_end) throw std::runtime_error("ZIP64 extra field is truncated");
+        break;
+      }
+      offset += field_size;
+    }
+    if (!found_zip64_field) throw std::runtime_error("ZIP64 entry is missing its ZIP64 extra field");
+  }
+
+  if (compressed > std::numeric_limits<size_t>::max() || uncompressed > std::numeric_limits<size_t>::max()) {
+    throw std::runtime_error("ZIP entry is too large for this platform");
+  }
+  return {static_cast<size_t>(compressed), static_cast<size_t>(uncompressed)};
+}
+
+}  // namespace
 
 char cnpy::BigEndianTest() {
   int x = 1;
@@ -186,7 +254,7 @@ cnpy::NpyArray load_the_npy_file(FILE* fp) {
   return arr;
 }
 
-cnpy::NpyArray load_the_npz_array(FILE* fp, uint32_t compr_bytes, uint32_t uncompr_bytes) {
+cnpy::NpyArray load_the_npz_array(FILE* fp, size_t compr_bytes, size_t uncompr_bytes) {
   std::vector<unsigned char> buffer_compr(compr_bytes);
   std::vector<unsigned char> buffer_uncompr(uncompr_bytes);
   size_t nread = fread(&buffer_compr[0], 1, compr_bytes, fp);
@@ -251,20 +319,19 @@ cnpy::npz_t cnpy::npz_load(std::string fname) {
 
     // read in the extra field
     uint16_t extra_field_len = *(uint16_t*)&local_header[28];
+    std::vector<char> extra_field(extra_field_len);
     if (extra_field_len > 0) {
-      std::vector<char> buff(extra_field_len);
-      size_t efield_res = fread(&buff[0], sizeof(char), extra_field_len, fp);
+      size_t efield_res = fread(&extra_field[0], sizeof(char), extra_field_len, fp);
       if (efield_res != extra_field_len) throw std::runtime_error("npz_load: failed fread");
     }
 
     uint16_t compr_method = *reinterpret_cast<uint16_t*>(&local_header[0] + 8);
-    uint32_t compr_bytes = *reinterpret_cast<uint32_t*>(&local_header[0] + 18);
-    uint32_t uncompr_bytes = *reinterpret_cast<uint32_t*>(&local_header[0] + 22);
+    const ZipEntrySizes sizes = ReadZipEntrySizes(local_header, extra_field);
 
     if (compr_method == 0) {
       arrays[varname] = load_the_npy_file(fp);
     } else {
-      arrays[varname] = load_the_npz_array(fp, compr_bytes, uncompr_bytes);
+      arrays[varname] = load_the_npz_array(fp, sizes.compressed, sizes.uncompressed);
     }
   }
 
@@ -294,20 +361,27 @@ cnpy::NpyArray cnpy::npz_load(std::string fname, std::string varname) {
 
     // read in the extra field
     uint16_t extra_field_len = *(uint16_t*)&local_header[28];
-    fseek(fp, extra_field_len, SEEK_CUR);  // skip past the extra field
+    std::vector<char> extra_field(extra_field_len);
+    if (extra_field_len > 0) {
+      size_t efield_res = fread(&extra_field[0], sizeof(char), extra_field_len, fp);
+      if (efield_res != extra_field_len) throw std::runtime_error("npz_load: failed fread");
+    }
 
     uint16_t compr_method = *reinterpret_cast<uint16_t*>(&local_header[0] + 8);
-    uint32_t compr_bytes = *reinterpret_cast<uint32_t*>(&local_header[0] + 18);
-    uint32_t uncompr_bytes = *reinterpret_cast<uint32_t*>(&local_header[0] + 22);
+    const ZipEntrySizes sizes = ReadZipEntrySizes(local_header, extra_field);
 
     if (vname == varname) {
-      NpyArray array = (compr_method == 0) ? load_the_npy_file(fp) : load_the_npz_array(fp, compr_bytes, uncompr_bytes);
+      NpyArray array =
+          (compr_method == 0) ? load_the_npy_file(fp) : load_the_npz_array(fp, sizes.compressed, sizes.uncompressed);
       fclose(fp);
       return array;
     } else {
-      // skip past the data
-      uint32_t size = *(uint32_t*)&local_header[22];
-      fseek(fp, size, SEEK_CUR);
+      // Skip the bytes stored in the archive. For compressed entries this is
+      // the compressed size, not the uncompressed size.
+      if (fseek(fp, static_cast<long>(sizes.compressed), SEEK_CUR) != 0) {
+        fclose(fp);
+        throw std::runtime_error("npz_load: failed to skip archive entry");
+      }
     }
   }
 

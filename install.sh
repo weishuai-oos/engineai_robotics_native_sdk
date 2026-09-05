@@ -7,9 +7,9 @@
 # Exits on error
 set -e
 
-# !!! Sets the remote user and host
-remote_user="user"
-remote_host="192.168.0.163"
+# Default T800 onboard Wi-Fi target. Replace remote_host when using Ethernet.
+remote_user="ubuntu"
+remote_host="192.168.0.62"
 remote_dir="~/projects/engineai_robotics"
 
 # Sets the remote destination
