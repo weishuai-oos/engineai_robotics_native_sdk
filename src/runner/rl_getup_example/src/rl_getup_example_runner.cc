@@ -439,12 +439,12 @@ TransitionState RlGetupExampleRunner::TryExit() {
 }
 
 bool RlGetupExampleRunner::IsTransitionAllowed(std::string_view target_motion) const {
-  // Manual recovery and all three manual gait selections are always
+  // Manual recovery and all four manual gait selections are always
   // available. Automatic success still uses the task graph's walk_leo
   // transition, while timeout is handled separately through kFault.
   const bool is_recovery = target_motion == "passive" || target_motion == "pd_stand";
   const bool is_allowed_walk = target_motion == "walk" || target_motion == "walk_custom" ||
-                               target_motion == "walk_leo";
+                               target_motion == "walk_leo" || target_motion == "walk_leo_terrain";
   return is_recovery || is_allowed_walk;
 }
 

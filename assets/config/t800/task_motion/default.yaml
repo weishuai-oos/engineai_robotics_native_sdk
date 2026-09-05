@@ -1,4 +1,10 @@
 # ----------------------- Motion Tasks ----------------------- #
+#
+# The SDK core task parser has no symbolic LT key. The input adapters encode a
+# pressed LT as the impossible simultaneous CROSS_Y_LEFT+CROSS_Y_RIGHT marker,
+# so [CROSS_Y_LEFT, CROSS_Y_RIGHT, A/X/Y] below means physical LT + A/X/Y.
+# LB + BACK remains the real getup2 combination.
+
 cpu:
   number: 3
   priority: 10
@@ -12,7 +18,7 @@ tasks:
     manual_transition:
       - passive
     auto_transition: passive
-    key: [LB, START]
+    key: [BACK, START]
 
   - motion: passive
     period: 0.002
@@ -22,8 +28,11 @@ tasks:
     manual_transition:
       - idle
       - pd_stand
+      - pd_stand_x
+      - pd_stand_y
       - supine_to_stance
       - getup
+      - getup2
     key: [LB, RB]
 
   - motion: pd_stand
@@ -40,13 +49,66 @@ tasks:
       - walk_leo_terrain
       - dance
       - victory
-      - punch
-      - zhiquan_combo
-      - kick_540cut
-      - zhiquan_base
+      - rl_left_front_kick_002_complete_heightfall
+      - rl_roundhouse_kick
+      - rl_straight_punch_L_improved
+      - rl_left_hook_001_improved
       - supine_to_stance
       - getup
-    key: [LB, A]
+      - getup2
+      - pd_stand_x
+      - pd_stand_y
+    key: [CROSS_Y_LEFT, CROSS_Y_RIGHT, A]  # physical LT + A
+
+  - motion: pd_stand_x
+    period: 0.002
+    runner:
+      - name: pd_stand_runner
+        enabled: true
+        param_tag: pd_stand_x
+    manual_transition:
+      - passive
+      - pd_stand
+      - pd_stand_y
+      - walk
+      - walk_custom
+      - walk_leo
+      - walk_leo_terrain
+      - dance
+      - victory
+      - rl_left_front_kick_002_complete_heightfall
+      - rl_roundhouse_kick
+      - rl_straight_punch_L_improved
+      - rl_left_hook_001_improved
+      - supine_to_stance
+      - getup
+      - getup2
+    key: [CROSS_Y_LEFT, CROSS_Y_RIGHT, X]  # physical LT + X
+
+  - motion: pd_stand_y
+    period: 0.002
+    runner:
+      - name: pd_stand_runner
+        enabled: true
+        param_tag: pd_stand_y
+    manual_transition:
+      - passive
+      - pd_stand
+      - pd_stand_x
+      - walk
+      - walk_custom
+      - walk_leo
+      - walk_leo_terrain
+      - dance
+      - victory
+      - rl_left_front_kick_002_complete_heightfall
+      - rl_roundhouse_kick
+      - rl_straight_punch_L_improved
+      - rl_left_hook_001_improved
+      - supine_to_stance
+      - getup
+      - getup2
+    key: [CROSS_Y_LEFT, CROSS_Y_RIGHT, Y]  # physical LT + Y
 
   - motion: walk
     period: 0.01
@@ -61,13 +123,14 @@ tasks:
       - walk_leo
       - walk_leo_terrain
       - getup
+      - getup2
       - stance_to_supine
       - dance
       - victory
-      - punch
-      - zhiquan_combo
-      - kick_540cut
-      - zhiquan_base
+      - rl_left_front_kick_002_complete_heightfall
+      - rl_roundhouse_kick
+      - rl_straight_punch_L_improved
+      - rl_left_hook_001_improved
     key: [LB, B]
 
   - motion: walk_custom
@@ -83,14 +146,15 @@ tasks:
       - walk_leo
       - walk_leo_terrain
       - getup
+      - getup2
       - stance_to_supine
       - dance
       - victory
-      - punch
-      - zhiquan_combo
-      - kick_540cut
-      - zhiquan_base
-    key: [LB, X]
+      - rl_left_front_kick_002_complete_heightfall
+      - rl_roundhouse_kick
+      - rl_straight_punch_L_improved
+      - rl_left_hook_001_improved
+    key: [LB, Y]
 
   - motion: walk_leo
     period: 0.02
@@ -105,14 +169,15 @@ tasks:
       - walk_custom
       - walk_leo_terrain
       - getup
+      - getup2
       - stance_to_supine
       - dance
       - victory
-      - punch
-      - zhiquan_combo
-      - kick_540cut
-      - zhiquan_base
-    key: [LB, Y]
+      - rl_left_front_kick_002_complete_heightfall
+      - rl_roundhouse_kick
+      - rl_straight_punch_L_improved
+      - rl_left_hook_001_improved
+    key: [LB, A]
 
   - motion: walk_leo_terrain
     period: 0.02
@@ -127,14 +192,15 @@ tasks:
       - walk_custom
       - walk_leo
       - getup
+      - getup2
       - stance_to_supine
       - dance
       - victory
-      - punch
-      - zhiquan_combo
-      - kick_540cut
-      - zhiquan_base
-    key: [LB, CROSS_X_UP]
+      - rl_left_front_kick_002_complete_heightfall
+      - rl_roundhouse_kick
+      - rl_straight_punch_L_improved
+      - rl_left_hook_001_improved
+    key: [LB, X]
 
   - motion: dance
     period: 0.02
@@ -168,12 +234,12 @@ tasks:
     auto_transition: walk_leo
     key: [RB, Y]
 
-  - motion: punch
+  - motion: rl_left_front_kick_002_complete_heightfall
     period: 0.02
     runner:
       - name: rl_dance_example_runner
         enabled: true
-        param_tag: rl_punch_example
+        param_tag: rl_left_front_kick_002_complete_heightfall
     manual_transition:
       - passive
       - pd_stand
@@ -184,12 +250,12 @@ tasks:
     auto_transition: walk_leo
     key: [RB, CROSS_X_UP]
 
-  - motion: zhiquan_combo
+  - motion: rl_roundhouse_kick
     period: 0.02
     runner:
       - name: rl_dance_example_runner
         enabled: true
-        param_tag: rl_zhiquan_combo_example
+        param_tag: rl_roundhouse_kick
     manual_transition:
       - passive
       - pd_stand
@@ -200,28 +266,12 @@ tasks:
     auto_transition: walk_leo
     key: [RB, CROSS_X_DOWN]
 
-  - motion: kick_540cut
+  - motion: rl_straight_punch_L_improved
     period: 0.02
     runner:
       - name: rl_dance_example_runner
         enabled: true
-        param_tag: rl_540cut_example
-    manual_transition:
-      - passive
-      - pd_stand
-      - walk
-      - walk_custom
-      - walk_leo
-      - walk_leo_terrain
-    auto_transition: walk_leo
-    key: [RB, CROSS_Y_RIGHT]
-
-  - motion: zhiquan_base
-    period: 0.02
-    runner:
-      - name: rl_dance_example_runner
-        enabled: true
-        param_tag: rl_zhiquan_base_example
+        param_tag: rl_straight_punch_L_improved
     manual_transition:
       - passive
       - pd_stand
@@ -231,6 +281,22 @@ tasks:
       - walk_leo_terrain
     auto_transition: walk_leo
     key: [RB, CROSS_Y_LEFT]
+
+  - motion: rl_left_hook_001_improved
+    period: 0.02
+    runner:
+      - name: rl_dance_example_runner
+        enabled: true
+        param_tag: rl_left_hook_001_improved
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+      - walk_leo_terrain
+    auto_transition: walk_leo
+    key: [RB, CROSS_Y_RIGHT]
 
   - motion: supine_to_stance
     period: 0.01
@@ -258,7 +324,23 @@ tasks:
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo
-    key: [RB, START]
+    key: [LB, START]
+
+  - motion: getup2
+    period: 0.02
+    runner:
+      - name: rl_getup_example_runner
+        enabled: true
+        param_tag: rl_getup2_example
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+      - walk_leo_terrain
+    auto_transition: walk_leo
+    key: [LB, BACK]
 
   - motion: stance_to_supine
     period: 0.01

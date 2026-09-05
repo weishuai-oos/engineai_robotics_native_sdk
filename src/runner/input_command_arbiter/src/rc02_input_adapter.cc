@@ -2,6 +2,8 @@
 
 #include <glog/logging.h>
 
+#include "input_command_arbiter/gamepad_key_encoding.h"
+
 namespace runner {
 
 namespace {
@@ -146,6 +148,7 @@ void Rc02InputAdapter::GetKeyInputFromRc02Raw(const hardware::Rc02InputData& raw
   if (raw.CROSS_DOWN) key_value |= gamepad_tool_.KeyStringToValue("CROSS_X_DOWN");
   if (raw.CROSS_LEFT) key_value |= gamepad_tool_.KeyStringToValue("CROSS_Y_LEFT");
   if (raw.CROSS_RIGHT) key_value |= gamepad_tool_.KeyStringToValue("CROSS_Y_RIGHT");
+  AddLtTaskModifier(raw.L2, &key_value);
   rc02_input_.combined_key_value = key_value;
 }
 

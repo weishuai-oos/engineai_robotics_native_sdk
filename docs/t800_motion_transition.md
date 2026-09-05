@@ -19,9 +19,9 @@
 | 状态 | 按键 | runner | 控制周期 | 控制频率 |
 | --- | --- | --- | ---: | ---: |
 | `walk` | `LB + B` | `rl_walking_example_runner` | 0.01 s | 100 Hz |
-| `walk_custom` | `LB + X` | `rl_walking_custom_example_runner` | 0.01 s | 100 Hz |
-| `walk_leo` | `LB + Y` | `rl_walking_leolab_example_runner` | 0.02 s | 50 Hz |
-| `walk_leo_terrain` | `LB + 十字键上` | `rl_walking_leolab_example_runner` | 0.02 s | 50 Hz |
+| `walk_custom` | `LB + Y` | `rl_walking_custom_example_runner` | 0.01 s | 100 Hz |
+| `walk_leo` | `LB + A` | `rl_walking_leolab_example_runner` | 0.02 s | 50 Hz |
+| `walk_leo_terrain` | `LB + X` | `rl_walking_leolab_example_runner` | 0.02 s | 50 Hz |
 
 四种 walk 状态所用的三个 runner 都在入口应用统一衔接，因此只要状态机允许切入，来源可以是参考动作、getup、SDK 起身、`pd_stand` 或另一种 walk；衔接不依赖来源状态名称。terrain 状态复用 Leo runner 后会自动走同一套入口逻辑，无需复制一份衔接实现。
 
@@ -31,10 +31,10 @@
 | --- | --- | --- | ---: | ---: |
 | `dance` | `RB + B` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 | `victory` | `RB + Y` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
-| `punch` | `RB + 十字键上` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
-| `zhiquan_combo` | `RB + 十字键下` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
-| `kick_540cut` | `RB + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
-| `zhiquan_base` | `RB + 十字键左` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
+| `rl_left_front_kick_002_complete_heightfall` | `RB + 十字键上` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
+| `rl_roundhouse_kick` | `RB + 十字键下` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
+| `rl_straight_punch_L_improved` | `RB + 十字键左` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
+| `rl_left_hook_001_improved` | `RB + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 
 六种动作共用同一个 runner，通过不同的 `param_tag` 加载模型和参考轨迹。它们的入口统一使用参考轨迹第 0 帧作为短时姿态引导。
 
@@ -49,8 +49,10 @@ flowchart LR
   W2[walk_custom]
   W3[walk_leo]
   W4[walk_leo_terrain]
+  PX[pd_stand_x]
+  PY[pd_stand_y]
   A[六种参考动作]
-  G[getup]
+  G[getup / getup2]
   S[supine_to_stance]
 
   PD --> W1
@@ -58,6 +60,20 @@ flowchart LR
   PD --> W3
   PD --> W4
   PD --> A
+  PD --> PX
+  PD --> PY
+
+  PX <--> PY
+  PX --> PD
+  PY --> PD
+  PX --> W1
+  PX --> W2
+  PX --> W3
+  PX --> W4
+  PY --> W1
+  PY --> W2
+  PY --> W3
+  PY --> W4
 
   W1 <--> W2
   W1 <--> W3
@@ -89,17 +105,20 @@ flowchart LR
 | 四种 walk → 六种参考动作 | 是 | 目标动作参考轨迹第 0 帧 | 动作策略运行，但轨迹帧暂时保持在第 0 帧 |
 | `pd_stand` → 四种 walk | 是 | 目标 walk 默认姿势 | 来源是 `pd_stand` 最后实际命令 |
 | `pd_stand` → 六种参考动作 | 是 | 目标动作第 0 帧 | 由动作 runner 在入口衔接 |
+| `passive`/`pd_stand` → `pd_stand_x`/`pd_stand_y` | 否 | 目标 PD 姿态 | 使用 `pd_stand_runner` 自身的三秒姿态插值 |
+| `pd_stand_x` ↔ `pd_stand_y` | 否 | 目标 PD 姿态 | 使用 `pd_stand_runner` 自身的三秒姿态插值 |
 | 六种参考动作 → 四种 walk（手动提前） | 是 | 目标 walk 默认姿势 | 使用按键生效时动作的实时末端命令，不要求动作到固定末帧 |
 | 六种参考动作正常完成 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 状态机自动切换，来源是动作最后实际下发的命令 |
-| `getup` → 四种 walk（手动） | 是 | 目标 walk 默认姿势 | 无论 getup 是否成功，状态机允许人工切换；动态可行性由操作者负责判断 |
-| `getup` 成功 → `walk_leo`（自动） | 是 | `walk_leo` 默认姿势 | 保留当前自动目标 |
+| `getup`/`getup2` → 四种 walk（手动） | 是 | 目标 walk 默认姿势 | 无论起身是否成功，状态机允许人工切换；动态可行性由操作者负责判断 |
+| `getup`/`getup2` 成功 → `walk_leo`（自动） | 是 | `walk_leo` 默认姿势 | 保留当前自动目标 |
 | `supine_to_stance` 正常完成 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 由 `walk_leo` 入口完成衔接 |
 
 ### 3.2 本次未接入统一衔接的边
 
 以下目标状态没有接入本次共享入口衔接，继续使用其自身原有逻辑：
 
-- 切入 `passive`、`idle`、`pd_stand`、`getup`、`stance_to_supine`、`supine_to_stance`。
+- 切入 `passive`、`idle`、`pd_stand`、`pd_stand_x`、`pd_stand_y`、`getup`、`getup2`、`stance_to_supine`、`supine_to_stance`。
+- `pd_stand_x`/`pd_stand_y` 之间互切，以及切回 `passive`/`pd_stand`，使用各自的 PD 插值，不走本次策略入口衔接。
 - 参考动作手动切到 `passive` 或 `pd_stand`。
 - walk 手动切到 `passive`、`pd_stand`、`getup` 或 `stance_to_supine`。
 
@@ -146,7 +165,7 @@ flowchart LR
 - walk 默认姿势只提供短时引导。
 - 即使动作执行到一半也能完成命令连续的切换。
 
-需要区分“命令连续”和“动力学上一定可站稳”：如果在腾空、单脚高速旋转或质心明显越界时强行从 `kick_540cut` 等动作切出，任何短时插值都不能保证接触条件立刻可行。实机上仍应尽量选择双脚稳定接触的切换时机。
+需要区分“命令连续”和“动力学上一定可站稳”：如果在腾空、单脚高速旋转或质心明显越界时强行从高速击打动作切出，任何短时插值都不能保证接触条件立刻可行。实机上仍应尽量选择双脚稳定接触的切换时机。
 
 ### 4.4 参考动作正常结束时
 
@@ -272,7 +291,7 @@ T800 配置显式开启了该功能。其他机型如果没有配置这些新字
 2. 验证四种 walk 分别进入六种参考动作，并等待动作自动回 `walk_leo`。
 3. 在参考动作前半段和后半段分别手动切回四种 walk，观察是否出现 0.28 s 封顶或 tracking error 日志。
 4. 吊架/保护绳下实机测试 `pd_stand → walk_leo`、`walk_leo ↔ walk_custom`。
-5. 再测试低动态动作，最后测试 punch、combo、kick 的手动提前退出。
+5. 再测试低动态动作，最后测试四个新击打动作的手动提前退出。
 6. 只有在零速切换稳定后，再逐步加入行走速度命令。
 
 重点记录：切换来源/目标、切换时动作帧、双脚接触、`q_cmd-q_real` 最大值、衔接实际 duration、是否触发封顶警告，以及是否触发电机限流。

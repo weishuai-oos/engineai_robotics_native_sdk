@@ -125,10 +125,17 @@ class VirtualGamepadWidget(QWidget):
 
         # set predefined macro combinations
         self.macros = {
-            "pd_stand: [LB, A]": ("LB", "A"),
+            "pd_stand: [LT, A]": ("LT", "A"),
+            "pd_stand_x: [LT, X]": ("LT", "X"),
+            "pd_stand_y: [LT, Y]": ("LT", "Y"),
             "passive: [LB, RB]": ("LB", "RB"),
             "walk: [LB, B]": ("LB", "B"),
-            "dance: [RB, B]": ("RB", "B")
+            "walk_custom: [LB, Y]": ("LB", "Y"),
+            "walk_leo: [LB, A]": ("LB", "A"),
+            "walk_leo_terrain: [LB, X]": ("LB", "X"),
+            "getup: [LB, START]": ("LB", "START"),
+            "getup2: [LB, BACK]": ("LB", "BACK"),
+            "dance: [RB, B]": ("RB", "B"),
         }
 
         self.init_ui()
@@ -430,7 +437,9 @@ class VirtualGamepadWidget(QWidget):
 
         # Set digital button states.
         for button_name in button_combination:
-            if button_name in self.button_map:
+            if button_name == "LT":
+                gamepad_keys.analog_states[0] = 1.0
+            elif button_name in self.button_map:
                 button, index = self.button_map[button_name]
                 gamepad_keys.digital_states[index] = 1
             else:

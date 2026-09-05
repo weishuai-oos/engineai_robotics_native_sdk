@@ -2,6 +2,8 @@
 
 #include "lcm_param/lcm_param.h"
 
+#include "input_command_arbiter/gamepad_key_encoding.h"
+
 namespace runner {
 
 VirtualGamepadInputAdapter::VirtualGamepadInputAdapter(std::string name,
@@ -155,6 +157,8 @@ int VirtualGamepadInputAdapter::UpdateKeyValue(const data::GamepadKeys& msg) con
       value |= (1 << i);
     }
   }
+
+  AddLtTaskModifier(msg.analog_states[0], &value);
 
   return value;
 }

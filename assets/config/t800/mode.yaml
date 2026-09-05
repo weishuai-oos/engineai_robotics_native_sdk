@@ -39,6 +39,10 @@ mode:
       scope: passive/default
     - tag: pd_stand
       scope: pd_stand/robot
+    - tag: pd_stand_x
+      scope: pd_stand/pose_x
+    - tag: pd_stand_y
+      scope: pd_stand/pose_y
     - tag: rl_walking_example
       scope: rl_walking_example/default
     - tag: ros2_bridge
@@ -59,14 +63,16 @@ mode:
       scope: rl_getup_example/default
     - tag: rl_victory_example
       scope: rl_victory_example/default
-    - tag: rl_punch_example
-      scope: rl_punch_example/default
-    - tag: rl_zhiquan_combo_example
-      scope: rl_zhiquan_combo_example/default
-    - tag: rl_540cut_example
-      scope: rl_540cut_example/default
-    - tag: rl_zhiquan_base_example
-      scope: rl_zhiquan_base_example/default
+    - tag: rl_getup2_example
+      scope: rl_getup2_example/default
+    - tag: rl_left_front_kick_002_complete_heightfall
+      scope: rl_left_front_kick_002_complete_heightfall/default
+    - tag: rl_roundhouse_kick
+      scope: rl_roundhouse_kick/default
+    - tag: rl_straight_punch_L_improved
+      scope: rl_straight_punch_L_improved/default
+    - tag: rl_left_hook_001_improved
+      scope: rl_left_hook_001_improved/default
 
   sim:
     - tag: resident_task
@@ -95,6 +101,10 @@ mode:
       scope: passive/default
     - tag: pd_stand
       scope: pd_stand/default
+    - tag: pd_stand_x
+      scope: pd_stand/pose_x
+    - tag: pd_stand_y
+      scope: pd_stand/pose_y
     - tag: rl_walking_example
       scope: rl_walking_example/default
     - tag: ros2_bridge
@@ -115,11 +125,13 @@ mode:
       scope: rl_getup_example/default
     - tag: rl_victory_example
       scope: rl_victory_example/default
-    - tag: rl_punch_example
-      scope: rl_punch_example/default
-    - tag: rl_zhiquan_combo_example
-      scope: rl_zhiquan_combo_example/default
-    - tag: rl_540cut_example
-      scope: rl_540cut_example/default
-    - tag: rl_zhiquan_base_example
-      scope: rl_zhiquan_base_example/default
+    - tag: rl_getup2_example
+      scope: rl_getup2_example/default
+    - tag: rl_left_front_kick_002_complete_heightfall
+      scope: rl_left_front_kick_002_complete_heightfall/default
+    - tag: rl_roundhouse_kick
+      scope: rl_roundhouse_kick/default
+    - tag: rl_straight_punch_L_improved
+      scope: rl_straight_punch_L_improved/default
+    - tag: rl_left_hook_001_improved
+      scope: rl_left_hook_001_improved/default

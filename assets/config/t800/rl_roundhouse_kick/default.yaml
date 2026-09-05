@@ -1,5 +1,5 @@
-policy_file: "rl_zhiquan_base_example/policies/policy.mnn"
-trajectory_file_npz: "rl_zhiquan_base_example/trajectories/zhiquan_quanji1.npz"
+policy_file: "rl_roundhouse_kick/policies/policy.mnn"
+trajectory_file_npz: "rl_roundhouse_kick/trajectories/roundhouse_kick_001_retimed_terminal_hold_1s.npz"
 trajectory_body_index: 0
 default_joint_pos: [-0.05999999865889549, 0.0, 0.0, 0.11999999731779099, -0.05999999865889549,
   0.0, -0.05999999865889549, 0.0, 0.0, 0.11999999731779099, -0.05999999865889549,

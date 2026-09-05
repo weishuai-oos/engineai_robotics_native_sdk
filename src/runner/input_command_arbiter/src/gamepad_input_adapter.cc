@@ -2,6 +2,8 @@
 
 #include <glog/logging.h>
 
+#include "input_command_arbiter/gamepad_key_encoding.h"
+
 namespace runner {
 
 GamepadInputAdapter::GamepadInputAdapter(std::string name, const std::shared_ptr<data::DataStore>& data_store)
@@ -152,6 +154,8 @@ int GamepadInputAdapter::UpdateKeyValue() {
   if (gamepad_driver_.logitech_data_res.CROSS_Y < 0) {
     value |= gamepad_tool_.KeyStringToValue("CROSS_Y_RIGHT");
   }
+
+  AddLtTaskModifier(gamepad_driver_.logitech_data_res.LT, &value);
 
   return value;
 }

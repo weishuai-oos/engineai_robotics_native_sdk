@@ -1,5 +1,5 @@
-policy_file: "rl_punch_example/policies/policy.mnn"
-trajectory_file_npz: "rl_punch_example/trajectories/Punch_Swing_L_50hz.npz"
+policy_file: "rl_straight_punch_L_improved/policies/policy.mnn"
+trajectory_file_npz: "rl_straight_punch_L_improved/trajectories/straight_punch_L_terminal_hold_0p5s.npz"
 trajectory_body_index: 0
 default_joint_pos: [-0.05999999865889549, 0.0, 0.0, 0.11999999731779099, -0.05999999865889549,
   0.0, -0.05999999865889549, 0.0, 0.0, 0.11999999731779099, -0.05999999865889549,

@@ -1,5 +1,5 @@
-policy_file: "rl_zhiquan_combo_example/policies/policy.mnn"
-trajectory_file_npz: "rl_zhiquan_combo_example/trajectories/riot_combo_50hz.npz"
+policy_file: "rl_left_hook_001_improved/policies/policy.mnn"
+trajectory_file_npz: "rl_left_hook_001_improved/trajectories/left_hook_001_terminal_hold_0p5s.npz"
 trajectory_body_index: 0
 default_joint_pos: [-0.05999999865889549, 0.0, 0.0, 0.11999999731779099, -0.05999999865889549,
   0.0, -0.05999999865889549, 0.0, 0.0, 0.11999999731779099, -0.05999999865889549,

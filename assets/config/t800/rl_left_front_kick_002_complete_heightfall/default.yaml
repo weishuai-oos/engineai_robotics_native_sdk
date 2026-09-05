@@ -1,5 +1,5 @@
-policy_file: "rl_540cut_example/policies/policy.mnn"
-trajectory_file_npz: "rl_540cut_example/trajectories/540huixuantitui1.npz"
+policy_file: "rl_left_front_kick_002_complete_heightfall/policies/policy.mnn"
+trajectory_file_npz: "rl_left_front_kick_002_complete_heightfall/trajectories/left_front_kick_002_terminal_hold_1s.npz"
 trajectory_body_index: 0
 default_joint_pos: [-0.05999999865889549, 0.0, 0.0, 0.11999999731779099, -0.05999999865889549,
   0.0, -0.05999999865889549, 0.0, 0.0, 0.11999999731779099, -0.05999999865889549,

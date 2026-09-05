@@ -61,23 +61,28 @@ install.sh 会把远端 assets/config/t800/mode.yaml 的 active_mode 改为 robo
 三、T800 状态和按键
 
 YAML 中使用的是统一逻辑键。CROSS_X_UP/DOWN 表示十字键上/下，CROSS_Y_LEFT/RIGHT 表示十字键左/右。
+当前核心库没有 LT 字符串键，输入适配层将 LT 按下编码成同时存在的 CROSS_Y_LEFT+CROSS_Y_RIGHT 标记；因此下面写的 LT 仍是实际物理按键。
 
-  LB + START              idle
   LB + RB                 passive（软急停；所有状态均可进入）
-  LB + A                  pd_stand
+  LT + A                  pd_stand
+  LT + X                  pd_stand_x（趴姿）
+  LT + Y                  pd_stand_y（躺姿）
   LB + B                  walk（SDK 普通步态）
-  LB + X                  walk_custom（new 普通步态，上半身锁定和平滑插值）
-  LB + Y                  walk_leo（Leo Lab 步态）
-  LB + 十字键上           walk_leo_terrain（LowCylinders 地形步态）
+  LB + Y                  walk_custom（new 普通步态，上半身锁定和平滑插值）
+  LB + A                  walk_leo（Leo Lab 步态）
+  LB + X                  walk_leo_terrain（LowCylinders 地形步态）
   RB + B                  dance（SDK 动作追踪）
   RB + Y                  victory
-  RB + 十字键上           punch
-  RB + 十字键下           zhiquan_combo
-  RB + 十字键右           kick_540cut
-  RB + 十字键左           zhiquan_base
+  RB + 十字键上           rl_left_front_kick_002_complete_heightfall
+  RB + 十字键下           rl_roundhouse_kick
+  RB + 十字键左           rl_straight_punch_L_improved
+  RB + 十字键右           rl_left_hook_001_improved
   START + 十字键上        supine_to_stance（SDK 起身）
-  RB + START              getup（new/HoST 起身）
+  LB + START              getup（HoST 起身）
+  LB + Back               getup2（HoST 起身第二版本）
   START + 十字键下        stance_to_supine（SDK 主动倒地）
+
+idle 是上电初始/故障恢复状态，不再占用 LB+START；程序进入 idle 后会自动转 passive。
 
 四套步态的摇杆控制相同：左摇杆前后控制前后速度，左摇杆左右控制横向速度，右摇杆左右控制转向角速度。walk_leo_terrain 使用 LowCylinders-MN-StdTarget-Plus 或 LowCylinders-MN-StdOffset-Target-Plus 模型，面向无感知的盲走地形测试。
 
@@ -86,15 +91,16 @@ YAML 中使用的是统一逻辑键。CROSS_X_UP/DOWN 表示十字键上/下，C
 按键只在当前状态允许目标状态时生效。状态关系如下：
 
 - idle：可切 passive；进入后也会自动转 passive。
-- passive：可切 idle、pd_stand、supine_to_stance、getup。
-- pd_stand：可切 passive、四套步态、全部追踪动作、SDK 起身、new 起身。
-- walk（SDK）：可切 passive、pd_stand、walk_custom、walk_leo、walk_leo_terrain、getup、主动倒地和全部追踪动作。
-- walk_custom：可切 passive、pd_stand、walk、walk_leo、walk_leo_terrain、getup、主动倒地和全部追踪动作。
-- walk_leo：可切 passive、pd_stand、walk、walk_custom、walk_leo_terrain、getup、主动倒地和全部追踪动作。
-- walk_leo_terrain：可切 passive、pd_stand、walk、walk_custom、walk_leo、getup、主动倒地和全部追踪动作。它与 walk_leo 共用 Leo runner 的 entry_transition，因此从动作或其他步态进入时会执行同样的当前无缝衔接逻辑。
-- dance、victory、punch、zhiquan_combo、kick_540cut、zhiquan_base：执行中可切 passive、pd_stand 或任一步态；轨迹正常结束后自动回 walk_leo。这里的 walk_leo 是静态默认回落目标；如需动作结束后进入 terrain 步态，可在完成动作后人工按 LB+十字键上切换。
+- passive：可切 idle、pd_stand、pd_stand_x、pd_stand_y、supine_to_stance、getup、getup2。
+- pd_stand：可切 passive、四套步态、全部追踪动作、SDK 起身、HoST 起身以及 pd_stand_x/pd_stand_y。
+- pd_stand_x/pd_stand_y：两者可互切，也可切 passive、pd_stand、四套步态、全部追踪动作、SDK 起身和两套 HoST 起身；只有 passive 或 pd_stand 能切入这两个状态，其他状态不能直接切入。
+- walk（SDK）：可切 passive、pd_stand、walk_custom、walk_leo、walk_leo_terrain、getup、getup2、主动倒地和全部追踪动作。
+- walk_custom：可切 passive、pd_stand、walk、walk_leo、walk_leo_terrain、getup、getup2、主动倒地和全部追踪动作。
+- walk_leo：可切 passive、pd_stand、walk、walk_custom、walk_leo_terrain、getup、getup2、主动倒地和全部追踪动作。
+- walk_leo_terrain：可切 passive、pd_stand、walk、walk_custom、walk_leo、getup、getup2、主动倒地和全部追踪动作。它与 walk_leo 共用 Leo runner 的 entry_transition，因此从动作或其他步态进入时会执行同样的当前无缝衔接逻辑。
+- dance、victory、四个新击打动作：执行中可切 passive、pd_stand 或任一步态；轨迹正常结束后自动回 walk_leo。这里的 walk_leo 是静态默认回落目标；如需动作结束后进入 terrain 步态，可在完成动作后人工按 LB+X 切换。
 - supine_to_stance（SDK 起身）：执行中只允许人工切 passive 或 pd_stand；正常完成后自动回 walk_leo。
-- getup（new/HoST 起身）：可由 walk、walk_custom、walk_leo、walk_leo_terrain 切入；进入时仍执行安全检查，已基本直立（投影重力 z ≤ -0.8）或角速度范数 > 6.0 时会拒绝进入。当投影重力 z ≤ -0.9 且角速度范数 ≤ 2.0 连续保持 0.3 秒后，判定起身成功并自动切入 walk_leo。人工从 getup 切换时，随时都可以切入 walk、walk_custom、walk_leo 或 walk_leo_terrain，不受起身成功与否限制。若 8 秒超时仍未满足站稳条件，会停止推进策略、保持最后一帧有效目标并自动切入 passive。
+- getup/getup2（HoST 起身）：可由 walk、walk_custom、walk_leo、walk_leo_terrain 切入；进入时仍执行安全检查，已基本直立（投影重力 z ≤ -0.8）或角速度范数 > 6.0 时会拒绝进入。当投影重力 z ≤ -0.9 且角速度范数 ≤ 2.0 连续保持 0.3 秒后，判定起身成功并自动切入 walk_leo。人工切换时，随时都可以切入四套步态，不受起身成功与否限制。若 8 秒超时仍未满足站稳条件，会停止推进策略、保持最后一帧有效目标并自动切入 passive。
 - stance_to_supine（主动倒地）：可切 passive 或 pd_stand；完成后自动回 passive。
 - 所有状态均保留 LB + RB 到 passive 的软急停路径。
 
@@ -102,13 +108,14 @@ pd_stand 在本工程中是固定姿势入口，不假设机器人已经站立�
 
 五、遥控器兼容性
 
-RC02、Logitech F710/F310（Xbox/XInput 键位模式）和虚拟遥控器都会转换成同一套 GamepadInfo，以上状态键位对三类输入源共用。
+RC02、Logitech F710/F310（Xbox/XInput 键位模式）和虚拟遥控器都会转换成同一套 GamepadInfo，以上状态键位对三类输入源共用。LT/L2 的模拟量达到 0.5 以上才视为 LT 按下。
 
 逻辑键与实体键：
 
   逻辑键             F710/Xbox 式键位       RC02
   LB                 LB                    L1
   RB                 RB                    R1
+  LT                 LT                  L2（模拟量 ≥ 0.5）
   A/B/X/Y            A/B/X/Y               A/B/X/Y
   START              Start                 START
   CROSS_X_UP/DOWN    十字键上/下           CROSS_UP/DOWN
@@ -116,7 +123,7 @@ RC02、Logitech F710/F310（Xbox/XInput 键位模式）和虚拟遥控器都会�
 
 虚拟遥控器键盘：
 
-  LB=Q，RB=E，A=J，B=K，X=U，Y=I，START=F2，十字键上=W、下=S、左=A、右=D。因而 terrain 步态的虚拟键盘组合是 Q+W。
+  LB=Q，RB=E，A=J，B=K，X=U，Y=I，BACK=F1，START=F2，十字键上=W、下=S、左=A、右=D。LT 在虚拟遥控器中使用 LT 滑块调到 0.5 以上；四套步态组合依次为 Q+K、Q+I、Q+J、Q+U，getup/getup2 为 Q+F2、Q+F1。
 
 注意：源码明确适配的是 F710/F310，并固定读取 /dev/input/js0；应使用驱动注释所述的非黄灯 Mode，黄灯 Mode 会交换十字键与左摇杆。普通 Xbox 手柄只有在 Linux joystick 事件编号与该布局一致时才可直接使用，不能仅凭外观为 Xbox 布局就保证兼容。项目逻辑轴把 X 定义为前后、Y 定义为左右，因此 F710 驱动中会把 Linux 物理轴转换到这套命名。RC02 使用 /dev/ttyJS。启动或实体输入掉线后重新选源时按 RC02、F710 的顺序尝试；实体源一旦锁定且在线，不会被后来接入的另一实体源动态抢占。虚拟遥控器激活后作为 override 输入覆盖当前实体输入。
 六、安全数据采集（只读） 先启动这个再启动run_t800

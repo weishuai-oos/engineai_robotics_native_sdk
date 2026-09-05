@@ -8,7 +8,7 @@ EngineAI Native SDK（T800 功能合并版）配置与调参说明
 
 - active_mode: sim 使用仿真配置，robot 使用真机配置。
 - mode.robot 和 mode.sim 把 param_tag 映射到具体 YAML。
-- 本次新增的步态、起身和动作配置均已同时加入 robot、sim。
+- 本次新增的 pd_stand_x/pd_stand_y、getup2 和四个替换击打动作配置均已同时加入 robot、sim。
 - install.sh 部署时会在远端自动把 active_mode 改为传入的 mode。
 
 2. 状态机、按键和周期
@@ -19,11 +19,19 @@ EngineAI Native SDK（T800 功能合并版）配置与调参说明
 - period：Runner 调度周期，单位秒。
 - runner.name：注册的 Runner 名称。
 - param_tag：该状态使用的参数配置标签。
-- key：统一逻辑按键组合，不是某个遥控器驱动中的原始键号。
+- key：统一逻辑按键组合，不是某个遥控器驱动中的原始键号。核心库没有 LT 字符串键；输入适配层用不可能同时出现的 CROSS_Y_LEFT+CROSS_Y_RIGHT 作为 LT 标记，所以 `[CROSS_Y_LEFT, CROSS_Y_RIGHT, A/X/Y]` 对应物理 LT+A/X/Y。
 - manual_transition：允许人工切换到的状态。
 - auto_transition：Runner 正常结束后的目标状态。
 
-普通改按键或状态关系只改此 YAML，不需要改 src。只有增加新遥控器、改变底层按键标准化或改变输入优先级时，才修改 src/runner/input_command_arbiter 或 src/hardware。
+普通改按键或状态关系只改此 YAML，不需要改 src。LT 兼容标记属于底层按键标准化，已在 src/runner/input_command_arbiter 的三类输入适配器中统一处理。
+
+pd_stand、pd_stand_x、pd_stand_y 共用 pd_stand_runner，参数分别为：
+
+  pd_stand      assets/config/t800/pd_stand/robot.yaml（robot）或 default.yaml（sim）
+  pd_stand_x    assets/config/t800/pd_stand/pose_x.yaml（趴姿）
+  pd_stand_y    assets/config/t800/pd_stand/pose_y.yaml（躺姿）
+
+三者均为 25 关节、3 秒 PD 插值；x/y 使用 urkl_exams 分支中的目标姿态和 4.0 rad 初始偏差阈值。x/y 可以互相切换，也可以切回 pd_stand/passive；只有 passive、pd_stand 能切入 x/y，其他状态不提供直接入边。
 
 3. 常驻任务
 
@@ -90,7 +98,7 @@ EngineAI Native SDK（T800 功能合并版）配置与调参说明
   代码：src/runner/rl_walking_leolab_example/（复用 Leo runner）
   状态：assets/config/t800/task_motion/default.yaml 中的 walk_leo_terrain。
 
-该部署入口用于无感知 LowCylinders-MN-StdTarget-Plus 与 LowCylinders-MN-StdOffset-Target-Plus 盲走模型。将对应导出的 MNN 复制为上述 policies/boxing_policy.mnn；模型部署时通过 task_motion 的 LB+十字键上（虚拟键盘 Q+W）进入。不要把 Mild 或其他地形任务的 MNN 当作 LowCylinders 模型使用。
+该部署入口用于无感知 LowCylinders-MN-StdTarget-Plus 与 LowCylinders-MN-StdOffset-Target-Plus 盲走模型。将对应导出的 MNN 复制为上述 policies/boxing_policy.mnn；模型部署时通过 task_motion 的 LB+X（虚拟键盘 Q+U）进入。不要把 Mild 或其他地形任务的 MNN 当作 LowCylinders 模型使用。
 
 StdTarget 与 StdOffset 使用同一套观测、动作维度、关节映射和 Leo runner，但 default_joint_pos 不同：StdTarget 保留训练中的原始 boxing-guard nominal 动作零点；StdOffset 把标准姿势文件中的上肢和头部作为动作零点，下肢与躯干仍保留 boxing-guard nominal。切换模型时必须同步切换这套动作零点，不能只替换 MNN；更不能把标准姿势 NPZ 的完整 25 维直接覆盖到部署配置。NoArmAMP 只改变训练时 AMP 判别器使用的状态，部署 actor 仍归 StdOffset 配置族。
 
@@ -106,7 +114,7 @@ Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、e
   策略：assets/config/t800/rl_supine_to_stance/policy/
   轨迹：assets/config/t800/rl_supine_to_stance/trajectory/
 
-2. new/HoST 起身 getup
+2. HoST 起身 getup
 
   配置：assets/config/t800/rl_getup_example/default.yaml
   模型：assets/config/t800/rl_getup_example/policies/policy.mnn
@@ -126,7 +134,16 @@ Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、e
 - success_hold_duration：直立且稳定条件连续保持多久才判定完成。
 - timeout_duration：最长执行时间。超时后不会自动进入步态，只允许切 passive 或 pd_stand。
 
-3. SDK 主动倒地 stance_to_supine
+3. HoST 起身 getup2
+
+  配置：assets/config/t800/rl_getup2_example/default.yaml
+  模型：assets/config/t800/rl_getup2_example/policies/policy.mnn
+  策略来源：/home/xjh/workspace/zq/t800_policy_go/rl_host_model/policies/policy.mnn
+  代码：复用 src/runner/rl_getup_example/，通过 param_tag=rl_getup2_example 加载第二套参数。
+
+getup2 与 getup 共用 HoST 456→23 ABI、观测构造、安全检查、8 秒超时和动作衔接逻辑，只替换策略模型及参数 scope。两者均允许从 passive、pd_stand 和四套步态人工切入，成功后自动进入 walk_leo，异常超时由状态机恢复到 passive。
+
+4. SDK 主动倒地 stance_to_supine
 
   配置：assets/config/t800/rl_stance_to_supine/default.yaml
   策略：assets/config/t800/rl_stance_to_supine/policy/
@@ -142,10 +159,10 @@ Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、e
 
   dance            assets/config/t800/rl_dance_example/default.yaml
   victory          assets/config/t800/rl_victory_example/default.yaml
-  punch            assets/config/t800/rl_punch_example/default.yaml
-  zhiquan_combo    assets/config/t800/rl_zhiquan_combo_example/default.yaml
-  kick_540cut      assets/config/t800/rl_540cut_example/default.yaml
-  zhiquan_base     assets/config/t800/rl_zhiquan_base_example/default.yaml
+  rl_left_front_kick_002_complete_heightfall  assets/config/t800/rl_left_front_kick_002_complete_heightfall/default.yaml
+  rl_roundhouse_kick                         assets/config/t800/rl_roundhouse_kick/default.yaml
+  rl_straight_punch_L_improved               assets/config/t800/rl_straight_punch_L_improved/default.yaml
+  rl_left_hook_001_improved                  assets/config/t800/rl_left_hook_001_improved/default.yaml
 
 - policy_file：动作追踪 MNN 模型。
 - trajectory_file_npz：参考动作轨迹。
@@ -157,9 +174,9 @@ Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、e
 - upper_body_startup_interpolation_duration：下半身启动过渡结束后，上半身到参考轨迹目标帧的过渡时间。
 - lower_body_policy_blend_duration：开始策略后，下半身从轨迹起点到策略命令的混合时间。
 - trajectory_body_index：body_quat_w 为 N×B×4 时选择第几个 body；当前 T800 轨迹统一取 0。若 body_quat_w 已是 N×4，该值必须为 0。
-- trajectory_end_behavior：exit 表示轨迹结束后触发状态机自动切换；hold 表示保持末帧，需人工切换。本工程 6 个动作轨迹和 supine_to_stance 使用 exit，正常完成后回 walk_leo；stance_to_supine 仍按任务图自动回 passive。
+- trajectory_end_behavior：exit 表示轨迹结束后触发状态机自动切换；hold 表示保持末帧，需人工切换。本工程 dance、victory 和四个新击打动作共 6 个动作轨迹使用 exit，正常完成后回 walk_leo；stance_to_supine 仍按任务图自动回 passive。
 
-替换动作模型或轨迹时，可以保持文件名覆盖，也可以把新文件放入对应目录后修改 YAML 路径。NPZ 至少需要 float32、C-order 的 joint_pos、joint_vel、body_quat_w；前两项 Runner 视图必须为 N×25，四元数 Runner 视图必须为 N×4，帧数 N 一致且四元数必须归一化。Runner 进入状态时会检查这些条件，并用全零观测做一次模型输出维度/有限值校验。模型输入、输出、观测顺序、关节顺序和轨迹采样频率必须与 Runner 配置一致。
+替换动作模型或轨迹时，可以保持文件名覆盖，也可以把新文件放入对应目录后修改 YAML 路径。NPZ 至少需要 float32、C-order 的 joint_pos、joint_vel、body_quat_w；前两项 Runner 视图必须为 N×25，四元数 Runner 视图必须为 N×4，帧数 N 一致且四元数必须归一化。Runner 只读取这三个键，body_pos_w、body_lin_vel_w、body_ang_vel_w、fps、body_names、schema 和 derived_* 等扩展键会被忽略，不影响策略执行，也不必为了适配当前 Runner 删除。Runner 进入状态时会检查这些条件，并用全零观测做一次模型输出维度/有限值校验。模型输入、输出、观测顺序、关节顺序和轨迹采样频率必须与 Runner 配置一致。
 
 五、T800 机器人资源
 
@@ -192,5 +209,5 @@ Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、e
 - 只改 YAML、MNN、NPY/NPZ/CSV 或机器人资源：不需要重新编译 C++，但要重启程序；真机还需重新部署/同步 assets。
 - 改 src、simulation 或参数类头文件：需要重新编译。
 - 新增 Runner 目录且带 CMakeLists.txt：官方构建会自动发现，仍执行 ./build.sh；不增加新的构建指令。
-- 默认全量构建会包含全部迁移功能。若自行设置 ENGINEAI_ROBOTICS_USED_RUNNERS 并选中 walk_custom、walk_leo、new/HoST getup 中任一 T800 专属 Runner，CMake 会从 task_motion/default.yaml、task_resident/robot.yaml、task_resident/sim.yaml 自动提取完整 T800 Runner 集并检查选择列表；缺少 SDK walk、SDK 起身/倒地、基础状态或 robot/sim 常驻 Runner 中任一项都会拒绝配置。仅选择其他机型 Runner 时不触发这项 T800 检查。
+- 默认全量构建会包含全部迁移功能。若自行设置 ENGINEAI_ROBOTICS_USED_RUNNERS 并选中 walk_custom、walk_leo、getup/getup2 中任一 T800 专属 Runner，CMake 会从 task_motion/default.yaml、task_resident/robot.yaml、task_resident/sim.yaml 自动提取完整 T800 Runner 集并检查选择列表；缺少 SDK walk、SDK 起身/倒地、基础状态或 robot/sim 常驻 Runner 中任一项都会拒绝配置。仅选择其他机型 Runner 时不触发这项 T800 检查。
 - aarch64 与 x86_64 使用同一套源码和配置，但必须部署与机载 CPU 架构相符的 build/<arch>/_install。
