@@ -119,3 +119,28 @@ RC02、Logitech F710/F310（Xbox/XInput 键位模式）和虚拟遥控器都会�
   LB=Q，RB=E，A=J，B=K，X=U，Y=I，START=F2，十字键上=W、下=S、左=A、右=D。因而 terrain 步态的虚拟键盘组合是 Q+W。
 
 注意：源码明确适配的是 F710/F310，并固定读取 /dev/input/js0；应使用驱动注释所述的非黄灯 Mode，黄灯 Mode 会交换十字键与左摇杆。普通 Xbox 手柄只有在 Linux joystick 事件编号与该布局一致时才可直接使用，不能仅凭外观为 Xbox 布局就保证兼容。项目逻辑轴把 X 定义为前后、Y 定义为左右，因此 F710 驱动中会把 Linux 物理轴转换到这套命名。RC02 使用 /dev/ttyJS。启动或实体输入掉线后重新选源时按 RC02、F710 的顺序尝试；实体源一旦锁定且在线，不会被后来接入的另一实体源动态抢占。虚拟遥控器激活后作为 override 输入覆盖当前实体输入。
+六、安全数据采集（只读） 先启动这个再启动run_t800
+
+采集脚本只订阅 ROS2/LCM 状态，不发布任何关节命令，也不会改变机器人当前状态。建议在启动机器人后、执行动作前先启动采集；不要为了测试而故意绕过硬件保护或撞击机械限位。
+
+在开发容器中启动：
+
+  docker exec -it engineai_robotics_env bash
+  cd /home/xjh/workspace/zq/engineai_robotics_native_sdk
+  source /opt/ros/humble/setup.bash
+  source build/x86_64/ros2_env/install/setup.bash
+  python3 tools/safety_monitor/record_safety.py --config assets/config/t800/mode.yaml
+
+也可以指定实验时长和输出目录：
+
+  python3 tools/safety_monitor/record_safety.py --duration 60 --output safety_logs/t800_getup_YYYYMMDD_HHMMSS
+
+采集输出目录包含：
+
+  metadata.json   分支、commit、模型 YAML、URDF、关节顺序、限值和采集参数
+  samples.jsonl   以 joint_state 到达为基准的原始状态、命令、诊断和动作状态
+  events.jsonl    动作切换、模型限位/速度/力矩越界、电机错误、掉线、禁用和电源错误；限位事件包含 measured_*、target_*，并在 peak 中保留最大越界时的对应值
+
+默认动作状态同时尝试 /motion/motion_state 和 LCM task_state；当前版本若 ROS2 动作状态未发布，优先看 events.jsonl 中 source=lcm 的记录。model_position_limit_violation 表示实测值超出 URDF 模型限值，不等价于硬件已经触发限位；motor_error_code 保留驱动原始错误码，需要结合硬件错误码表判断具体保护原因。
+
+默认只记录限位附近 0.02 rad 的事件。事件中的 target_source=joint_command_feedback、target_stage=post_runner_processing 表示最终下发的关节目标（可能已经经过策略运行器裁剪或动作衔接），不是 MNN 原始 action 或裁剪前 q_des；当前脚本不直接采集后两者。若需要记录命令与实测位置差异，可额外加 --tracking-error-threshold 0.75；该指标在 passive 或动作衔接期间可能是正常现象，应和动作状态、错误码一起分析。
