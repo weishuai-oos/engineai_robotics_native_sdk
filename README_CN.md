@@ -320,6 +320,8 @@ NVIDIA_GPU_AVAILABLE=y
 
 ### 1.6 真机部署
 
+> **T800 说明：** Native SDK 真机执行程序运行在 Nezha（Robot PC），不是 NVIDIA Jetson AGX Orin（AI PC）。当前已确认目标为 `user@192.168.0.163`；Nezha 和 Orin 实际都报告 `aarch64`，应通过地址/平台而不是 CPU 架构识别板卡。T800 请以仓库内的 `真机部署.txt` 为准；下方参数仅保留给其他机型示例。
+
 #### 1.6.1 配置安装目标并下发
 
 编辑 `install.sh` 中的部署目标参数：

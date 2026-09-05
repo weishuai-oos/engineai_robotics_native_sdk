@@ -7,9 +7,12 @@
 # Exits on error
 set -e
 
-# Default T800 onboard Wi-Fi target. Replace remote_host when using Ethernet.
-remote_user="ubuntu"
-remote_host="192.168.0.62"
+# Native SDK runs on the T800 Nezha Robot PC, not the Jetson Orin AI PC.
+# The current T800 hardware reports aarch64 on both boards, so use the
+# confirmed Nezha address and the platform check below to select the target.
+# Replace remote_host with the confirmed Nezha address when using Ethernet.
+remote_user="user"
+remote_host="192.168.0.163"
 remote_dir="~/projects/engineai_robotics"
 
 # Sets the remote destination
@@ -101,6 +104,32 @@ fi
 # Opens a single SSH connection (password prompted once); mkdir and rsync reuse it
 echo "Connecting to ${remote_dest} (enter password once)..."
 ssh -o ControlMaster=yes -o ControlPath="${ssh_control_path}" -o ControlPersist=60 "${remote_dest}" "echo 'Connected.'"
+
+# Refuse to copy an artifact to a board with a different CPU architecture.
+remote_arch=$(ssh -o ControlPath="${ssh_control_path}" "${remote_dest}" "uname -m" | tr -d '\r')
+case "${arch}:${remote_arch}" in
+    x86_64:x86_64|aarch64:aarch64|aarch64:arm64)
+        ;;
+    *)
+        echo "ERROR: build architecture '${arch}' does not match remote '${remote_arch}' at ${remote_dest}." >&2
+        echo "Native SDK real-robot deployment must target the confirmed Nezha Robot PC." >&2
+        exit 1
+        ;;
+esac
+echo "Remote architecture: ${remote_arch}"
+
+# T800's Nezha and Jetson boards are both aarch64. Reject Jetson by its
+# kernel/device-tree markers so a valid ARM64 artifact cannot go to the AI PC.
+if [ "${product_name}" = "t800" ]; then
+    remote_platform=$(ssh -o ControlPath="${ssh_control_path}" "${remote_dest}" \
+        "uname -r; tr -d '\\0' < /proc/device-tree/model 2>/dev/null || true")
+    if printf '%s\n' "${remote_platform}" | grep -Eiq 'tegra|jetson|orin|nvidia'; then
+        echo "ERROR: ${remote_dest} appears to be the Jetson/Orin AI PC." >&2
+        echo "Deploy the T800 Native SDK to the Nezha Robot PC instead." >&2
+        exit 1
+    fi
+    echo "Remote platform check passed for the Native SDK target."
+fi
 
 # Ensures the remote directory exists (reuses connection, no password)
 ssh -o ControlPath="${ssh_control_path}" "${remote_dest}" "mkdir -p $remote_dir"

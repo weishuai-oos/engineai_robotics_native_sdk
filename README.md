@@ -332,6 +332,8 @@ After restarting the container, GPU-accelerated rendering will be available.
 
 ### 1.6 Real-Robot Deployment
 
+> **T800 note:** The Native SDK real-robot executor runs on the Nezha Robot PC, not the Jetson AGX Orin AI PC. The current confirmed target is `user@192.168.0.163`; both T800 boards report `aarch64`, so identify the board by its address/platform rather than CPU architecture. Use the repository's `真机部署.txt` for the current T800 deployment flow. The generic values below are retained for other product examples.
+
 #### 1.6.1 Configure Deployment Target
 
 Edit the deployment target parameters in `install.sh`:

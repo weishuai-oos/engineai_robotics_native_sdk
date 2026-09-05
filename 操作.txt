@@ -46,11 +46,9 @@ MuJoCo 编译和运行：
 
 真机部署前，在 install.sh 顶部设置 remote_user、remote_host、remote_dir。部署命令：
 
-  ./install.sh t800 robot x86_64
-
-或：
-
   ./install.sh t800 robot aarch64
+
+T800 Native SDK 的真机控制程序部署到 Nezha（Robot PC）`user@192.168.0.163`。当前 Nezha 和 Orin 实际都为 aarch64，不能仅靠架构区分，目标板和网络地址确认方法见 `真机部署.txt`。
 
 机器人端运行：
 

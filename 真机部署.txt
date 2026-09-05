@@ -1,59 +1,53 @@
-T800 真机部署（feature/motion_transition）
+T800 Native SDK 真机部署（feature/motion_transition）
 
-一、部署前确认
+一、目标板
 
-1. 真机架构：已确认使用 `aarch64`。
-2. 远端目录必须是独立运行目录，不能使用源码目录；`install.sh` 使用 `rsync --delete`。
-3. 真机默认 Wi-Fi 地址为 `192.168.0.62`，登录用户为 `ubuntu`；确认 SSH 可以连通：
+T800 开发版有两块机载电脑：
 
-   `ssh ubuntu@192.168.0.62`
+- Nezha（Robot PC）：`user@192.168.0.163`，实测 `aarch64`，内核 `6.1.141-4-engineai`
+- NVIDIA Jetson AGX Orin 64GB（AI PC）：`ubuntu@192.168.0.162`，实测 `aarch64`，内核 `5.15.148-6-engine-tegra`
 
-   若改用网线，使用网线对应的实际 IP；Wi-Fi 和网线同时在线时以当前可达的 IP 为准。
+Native SDK 的 `src_executor` 真机流程部署到 Nezha，不部署到 Orin。两块板都是 aarch64，不能只用 `uname -m` 区分；`install.sh` 会检查架构，并对 T800 拒绝 Jetson/Orin 的内核或设备树特征。
 
-二、本地编译
+`192.168.0.62` 当前尚未确认属于哪块板，不作为默认部署地址。Wi-Fi 和网线同时连接时，也必须先确认地址对应的是 Nezha。
+
+二、编译与下发
+
+在开发电脑仓库根目录执行：
 
 ```bash
 cd /home/xjh/workspace/zq/engineai_robotics_native_sdk
 git switch feature/motion_transition
 
-# aarch64：在宿主机执行
-./build.sh -a aarch64
-```
+# 在宿主机执行；build.sh 会自动启动 aarch64 交叉编译容器
+./build.sh -a aarch64 -r humble -t release
 
-三、修改部署目标并下发
-
-编辑 `install.sh` 顶部：
-
-```bash
-remote_user="ubuntu"
-remote_host="192.168.0.62"  # 若走网线，替换为网线 IP
-remote_dir="~/projects/engineai_robotics"  # /home/ubuntu/projects/engineai_robotics
-```
-
-执行：
-
-```bash
+# install.sh 顶部默认已配置为 Nezha；部署目录是远端独立目录
 ./install.sh t800 robot aarch64
 ```
 
-四、真机启动
+如更换网线地址，只修改 `install.sh` 顶部的 `remote_user`、`remote_host`、`remote_dir`，不要把 `remote_dir` 设置为源码目录或用户主目录。安装脚本会把 `active_mode` 改为 `robot`，并记录本次提交信息。
+
+三、真机启动
+
+当前 Nezha 上已有系统服务运行 Native/运控程序；启动本仓库版本前，先停止它，避免两个程序同时访问电机：
 
 ```bash
-ssh ubuntu@192.168.0.62
+ssh user@192.168.0.163
 sudo systemctl stop robotics.service
-cd /home/ubuntu/projects/engineai_robotics
+cd ~/projects/engineai_robotics
 sudo ./run_robot.sh t800
 ```
 
-启动前确认急停可用、人员远离机器人；首次测试建议使用吊架。异常时按急停或切入 `passive`。
+启动前确认急停有效、人员远离机器人；首次测试建议使用吊架。异常时立即按急停或切入 `passive`。
 
-RC02 的 L2 对应 LT。完整状态和按键映射见 `操作.txt`。
+交互终端中的 `$ROS_DISTRO` 为空不一定表示 ROS 不可用，`run_robot.sh` 会自行选择并 source `/opt/ros/humble` 或 `/opt/ros/jazzy`；仍应在启动前确认对应目录存在。
 
-五、结束运行
+四、结束运行
 
 ```bash
 Ctrl-C
 sudo systemctl start robotics.service
 ```
 
-如需采集安全日志，在具备源码和 ROS2 环境的另一终端先启动 `tools/safety_monitor/record_safety.py`，再启动 `run_robot.sh`。
+官方参考：[T800 机载计算机与网络架构图](https://www.engineai.com.cn/open/docs/t800-developer/03?product=t800)、[Native SDK 开发环境与快速开始](https://www.engineai.com.cn/open/docs/native-sdk/02?product=t800)。
