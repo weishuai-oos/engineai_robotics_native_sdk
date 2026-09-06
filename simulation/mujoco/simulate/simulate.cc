@@ -104,7 +104,8 @@ constexpr double kMaxCameraMoveInput = 1.0;
 constexpr double kCameraMinDistanceScale = 0.01;
 constexpr double kCameraMaxDistanceScale = 100.0;
 
-void SanitizeCamera(const mjModel* model, mjvCamera* camera) {
+template <typename Model>
+void SanitizeCamera(const Model* model, mjvCamera* camera) {
   if (!model || !camera) {
     return;
   }
@@ -1675,14 +1676,15 @@ void UiEvent(mjuiState* state) {
       return;
     }
     const double bounded_zoom_input = std::clamp(zoom_input, -kMaxCameraZoomInput, kMaxCameraZoomInput);
-    const mjModel* camera_model = sim->m_ && !sim->is_passive_ ? sim->m_ : &sim->scnstate_.model;
-    SanitizeCamera(camera_model, &sim->cam);
     if (sim->m_ && !sim->is_passive_) {
+      SanitizeCamera(sim->m_, &sim->cam);
       mjv_moveCamera(sim->m_, mjMOUSE_ZOOM, 0, bounded_zoom_input, &sim->scn, &sim->cam);
+      SanitizeCamera(sim->m_, &sim->cam);
     } else {
+      SanitizeCamera(&sim->scnstate_.model, &sim->cam);
       mjv_moveCameraFromState(&sim->scnstate_, mjMOUSE_ZOOM, 0, bounded_zoom_input, &sim->scn, &sim->cam);
+      SanitizeCamera(&sim->scnstate_.model, &sim->cam);
     }
-    SanitizeCamera(camera_model, &sim->cam);
     return;
   }
 
@@ -1755,15 +1757,16 @@ void UiEvent(mjuiState* state) {
                                  &sim->pert);
       }
     } else {
-      const mjModel* camera_model = sim->m_ && !sim->is_passive_ ? sim->m_ : &sim->scnstate_.model;
-      SanitizeCamera(camera_model, &sim->cam);
       if (!sim->is_passive_) {
+        SanitizeCamera(sim->m_, &sim->cam);
         mjv_moveCamera(sim->m_, action, bounded_x, bounded_y, &sim->scn, &sim->cam);
+        SanitizeCamera(sim->m_, &sim->cam);
       } else {
+        SanitizeCamera(&sim->scnstate_.model, &sim->cam);
         mjv_moveCameraFromState(&sim->scnstate_, action, bounded_x, bounded_y, &sim->scn,
                                 &sim->cam);
+        SanitizeCamera(&sim->scnstate_.model, &sim->cam);
       }
-      SanitizeCamera(camera_model, &sim->cam);
     }
     return;
   }
