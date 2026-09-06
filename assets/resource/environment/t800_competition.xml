@@ -8,7 +8,7 @@
     <material name="t800_speed_bump_yellow" rgba="0.95 0.72 0.02 1"/>
     <material name="t800_speed_bump_black" rgba="0.03 0.03 0.04 1"/>
     <material name="t800_arrival_point" rgba="0.10 0.75 0.35 0.85"/>
-    <material name="t800_punch_target" rgba="0.06 0.04 0.03 1"/>
+    <material name="t800_punch_target" rgba="1.0 0.12 0.02 1" emission="0.12"/>
     <material name="t800_punch_backboard" rgba="0.22 0.24 0.27 1"/>
   </asset>
 
@@ -53,7 +53,8 @@
 
       <!-- Static punching board, now about twice as far from the triangle as
            in the original layout. The support is vertical, not diagonal. -->
-      <body name="t800_punch_target_assembly" pos="7.5 1.5 0">
+      <!-- Move the target 1 m toward the triangle, to world x=11.5 m. -->
+      <body name="t800_punch_target_assembly" pos="6.5 1.5 0">
         <!-- 1.0 m wide x 2.2 m high vertical support plate. Thickness is a
              simulation placeholder because the reference image omits depth. -->
         <geom name="t800_punch_backboard" type="box" pos="0 0 1.1" size="0.06 0.5 1.1" material="t800_punch_backboard"/>
