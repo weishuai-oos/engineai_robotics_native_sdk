@@ -1,0 +1,239 @@
+# leo_lab T800 LowCylinders-MN-StdTarget-Plus-AnkleStable-1 deployment contract.
+# Action-offset family: StdTarget (original boxing-guard nominal offset).
+# Policy observation layout:
+# base_ang_vel(3) + projected_gravity(3) + velocity_commands(3)
+# + joint_pos(25) + joint_vel(25) + previous_raw_actions(25)
+policy_file: "rl_walking_leolab_terrain_example/2026-09-06-19-30-18:t800_lowcylinders_ankle_stable_1_seed42/boxing_policy.mnn"
+policy_recurrent: true
+observation_input_name: "observation"
+hidden_input_name: "memory_in.0"
+cell_input_name: "memory_in.1"
+action_output_name: "action"
+hidden_output_name: "memory_out.0"
+cell_output_name: "memory_out.1"
+
+num_one_step_observations: 84
+num_observations: 84
+num_actions: 25
+num_include_obs_steps: 1
+
+host_joint_names:
+  [
+    "J00_HIP_PITCH_L",
+    "J01_HIP_ROLL_L",
+    "J02_HIP_YAW_L",
+    "J03_KNEE_PITCH_L",
+    "J04_ANKLE_PITCH_L",
+    "J05_ANKLE_ROLL_L",
+    "J06_HIP_PITCH_R",
+    "J07_HIP_ROLL_R",
+    "J08_HIP_YAW_R",
+    "J09_KNEE_PITCH_R",
+    "J10_ANKLE_PITCH_R",
+    "J11_ANKLE_ROLL_R",
+    "J12_TORSO_YAW",
+    "J13_SHOULDER_PITCH_L",
+    "J14_SHOULDER_ROLL_L",
+    "J15_SHOULDER_YAW_L",
+    "J16_ELBOW_PITCH_L",
+    "J17_ELBOW_YAW_L",
+    "J20_SHOULDER_PITCH_R",
+    "J21_SHOULDER_ROLL_R",
+    "J22_SHOULDER_YAW_R",
+    "J23_ELBOW_PITCH_R",
+    "J24_ELBOW_YAW_R",
+    "J27_HEAD_PITCH",
+    "J28_HEAD_YAW",
+  ]
+
+joint_names:
+  [
+    "J00_HIP_PITCH_L",
+    "J01_HIP_ROLL_L",
+    "J02_HIP_YAW_L",
+    "J03_KNEE_PITCH_L",
+    "J04_ANKLE_PITCH_L",
+    "J05_ANKLE_ROLL_L",
+    "J06_HIP_PITCH_R",
+    "J07_HIP_ROLL_R",
+    "J08_HIP_YAW_R",
+    "J09_KNEE_PITCH_R",
+    "J10_ANKLE_PITCH_R",
+    "J11_ANKLE_ROLL_R",
+    "J12_TORSO_YAW",
+    "J13_SHOULDER_PITCH_L",
+    "J14_SHOULDER_ROLL_L",
+    "J15_SHOULDER_YAW_L",
+    "J16_ELBOW_PITCH_L",
+    "J17_ELBOW_YAW_L",
+    "J18_SHOULDER_PITCH_R",
+    "J19_SHOULDER_ROLL_R",
+    "J20_SHOULDER_YAW_R",
+    "J21_ELBOW_PITCH_R",
+    "J22_ELBOW_YAW_R",
+    "J23_HEAD_PITCH",
+    "J24_HEAD_YAW",
+  ]
+
+# The policy controls all 25 joints, including the guard pose and head.
+# Keep this list empty so the deploy path does not silently remove upper-body
+# actions learned by the policy.
+override_action_joint_names: []
+override_action_value: 0.0
+
+default_joint_pos:
+  [
+    -0.548942,
+    0.220542,
+    -0.119339,
+    0.279160,
+    -0.14,
+    0.0,
+    -0.235541,
+    -0.223292,
+    -0.102872,
+    0.257664,
+    -0.14,
+    0.0,
+    0.006373,
+    -1.006467,
+    0.540767,
+    0.313282,
+    -1.331819,
+    0.124102,
+    -1.138289,
+    -0.136425,
+    0.197952,
+    -1.815755,
+    -0.623839,
+    0.052337,
+    0.621251,
+  ]
+
+joint_stiffness:
+  [
+    180,
+    100,
+    100,
+    180,
+    40,
+    40,
+    180,
+    100,
+    100,
+    180,
+    40,
+    40,
+    100,
+    40,
+    40,
+    40,
+    40,
+    50,
+    40,
+    40,
+    40,
+    40,
+    50,
+    50,
+    50,
+  ]
+
+joint_damping:
+  [
+    5.0,
+    3.0,
+    3.0,
+    5.0,
+    0.3,
+    0.3,
+    5.0,
+    3.0,
+    3.0,
+    5.0,
+    0.3,
+    0.3,
+    3.0,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+  ]
+
+action_scale:
+  [
+    0.5,
+    0.2,
+    0.2,
+    0.5,
+    0.5,
+    0.2,
+    0.5,
+    0.2,
+    0.2,
+    0.5,
+    0.5,
+    0.2,
+    0.2,
+    0.4,
+    0.3,
+    0.3,
+    0.4,
+    0.3,
+    0.4,
+    0.3,
+    0.3,
+    0.4,
+    0.4,
+    0.2,
+    0.3,
+  ]
+
+action_clip: 100.0
+observation_clip: 100.0
+control_dt: 0.02
+
+# No-gap entry bridge. The recurrent policy runs from the first cycle while
+# these parameters shape the command sent to the motors.
+entry_transition_enabled: true
+entry_transition_duration: 0.16
+entry_transition_min_duration: 0.10
+entry_transition_max_duration: 0.28
+entry_transition_max_joint_velocity: 8.0
+entry_transition_max_joint_acceleration: 120.0
+entry_transition_reference_pose_weight: 0.25
+entry_transition_source_tracking_error: 0.75
+
+# Keep LPF disabled for fixed-command test 1 so startup, stop, and reversal
+# behavior can be evaluated without filter lag or command tails.
+enable_remote_command_lpf: false
+remote_command_sampling_frequency: 50.0
+remote_command_cut_off_frequency: 0.6
+
+# Fixed-command intent thresholds on normalized stick values. A command starts
+# at activation_threshold and returns to exact zero below release_threshold.
+remote_command_activation_threshold: 0.20
+remote_command_release_threshold: 0.12
+# Keep the selected forward/lateral axis until the other axis is clearly larger.
+remote_command_translation_axis_switch_margin: 0.10
+# A direct sign reversal must remain at zero for this duration. Natural neutral
+# time counts toward the pause; translation and yaw are guarded independently.
+remote_command_reversal_pause_sec: 0.10
+
+# Raw gamepad x/y are tactical-frame commands; the runner rotates them into
+# the root-yaw observation frame used by the policy, matching leo_lab Play.
+remote_command_tactical_front_offset_deg: 37.0
+# Fixed tactical speeds: [forward/backward, left/right, yaw] in
+# [m/s, m/s, rad/s]. Positive and negative directions can be tuned separately.
+command_scale_pos: [1.00, 0.80, 1.50]
+command_scale_neg: [0.80, 0.80, 1.50]
+
+imu_install_bias: [0.0, 0.0, 0.0]
