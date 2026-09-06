@@ -18,6 +18,7 @@
 #include <atomic>
 #include <chrono>
 #include <climits>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -94,6 +95,60 @@ inline void Copy(T& dst, const T& src) {
 //------------------------------------------- global -----------------------------------------------
 
 const double zoom_increment = 0.02;  // ratio of one click-wheel zoom increment to vertical extent
+
+// Keep malformed or excessively large platform events from poisoning the camera state.  MuJoCo
+// clamps finite camera values internally, but a NaN bypasses those comparisons and then makes
+// both zooming and panning ineffective while rotation can still appear to work.
+constexpr double kMaxCameraZoomInput = 0.5;
+constexpr double kMaxCameraMoveInput = 1.0;
+constexpr double kCameraMinDistanceScale = 0.01;
+constexpr double kCameraMaxDistanceScale = 100.0;
+
+void SanitizeCamera(const mjModel* model, mjvCamera* camera) {
+  if (!model || !camera) {
+    return;
+  }
+
+  const mjtNum extent = model->stat.extent;
+  if (!std::isfinite(static_cast<double>(extent)) || extent <= 0) {
+    return;
+  }
+
+  const mjtNum min_distance = static_cast<mjtNum>(kCameraMinDistanceScale * extent);
+  const mjtNum max_distance = static_cast<mjtNum>(kCameraMaxDistanceScale * extent);
+
+  if (!std::isfinite(static_cast<double>(camera->distance))) {
+    camera->distance = static_cast<mjtNum>(1.5 * extent);
+  }
+  camera->distance = std::clamp(camera->distance, min_distance, max_distance);
+
+  for (int i = 0; i < 3; ++i) {
+    if (!std::isfinite(static_cast<double>(camera->lookat[i]))) {
+      camera->lookat[i] = std::isfinite(static_cast<double>(model->stat.center[i]))
+                             ? model->stat.center[i]
+                             : 0;
+    }
+  }
+
+  if (!std::isfinite(static_cast<double>(camera->azimuth))) {
+    camera->azimuth = std::isfinite(static_cast<double>(model->vis.global.azimuth))
+                          ? model->vis.global.azimuth
+                          : 0;
+  }
+  if (!std::isfinite(static_cast<double>(camera->elevation))) {
+    camera->elevation = std::isfinite(static_cast<double>(model->vis.global.elevation))
+                            ? model->vis.global.elevation
+                            : 0;
+  }
+
+  // Keep these values in the same range as mjv_moveCamera's normal post-update clamping.
+  double azimuth = std::fmod(static_cast<double>(camera->azimuth) + 180.0, 360.0);
+  if (azimuth < 0) {
+    azimuth += 360.0;
+  }
+  camera->azimuth = static_cast<mjtNum>(azimuth - 180.0);
+  camera->elevation = std::clamp(camera->elevation, static_cast<mjtNum>(-89), static_cast<mjtNum>(89));
+}
 
 // section ids
 enum {
@@ -1615,11 +1670,19 @@ void UiEvent(mjuiState* state) {
   // 3D scroll
   if (state->type == mjEVENT_SCROLL && state->mouserect == 3) {
     // emulate vertical mouse motion = 2% of window height
-    if (sim->m_ && !sim->is_passive_) {
-      mjv_moveCamera(sim->m_, mjMOUSE_ZOOM, 0, -zoom_increment * state->sy, &sim->scn, &sim->cam);
-    } else {
-      mjv_moveCameraFromState(&sim->scnstate_, mjMOUSE_ZOOM, 0, -zoom_increment * state->sy, &sim->scn, &sim->cam);
+    const double zoom_input = -zoom_increment * state->sy;
+    if (!std::isfinite(zoom_input)) {
+      return;
     }
+    const double bounded_zoom_input = std::clamp(zoom_input, -kMaxCameraZoomInput, kMaxCameraZoomInput);
+    const mjModel* camera_model = sim->m_ && !sim->is_passive_ ? sim->m_ : &sim->scnstate_.model;
+    SanitizeCamera(camera_model, &sim->cam);
+    if (sim->m_ && !sim->is_passive_) {
+      mjv_moveCamera(sim->m_, mjMOUSE_ZOOM, 0, bounded_zoom_input, &sim->scn, &sim->cam);
+    } else {
+      mjv_moveCameraFromState(&sim->scnstate_, mjMOUSE_ZOOM, 0, bounded_zoom_input, &sim->scn, &sim->cam);
+    }
+    SanitizeCamera(camera_model, &sim->cam);
     return;
   }
 
@@ -1674,20 +1737,33 @@ void UiEvent(mjuiState* state) {
 
     // move perturb or camera
     mjrRect r = state->rect[3];
+    if (r.height <= 0) {
+      return;
+    }
+    const double relative_x = state->dx / static_cast<double>(r.height);
+    const double relative_y = -state->dy / static_cast<double>(r.height);
+    if (!std::isfinite(relative_x) || !std::isfinite(relative_y)) {
+      return;
+    }
+    const double bounded_x = std::clamp(relative_x, -kMaxCameraMoveInput, kMaxCameraMoveInput);
+    const double bounded_y = std::clamp(relative_y, -kMaxCameraMoveInput, kMaxCameraMoveInput);
     if (sim->pert.active) {
       if (!sim->is_passive_) {
-        mjv_movePerturb(sim->m_, sim->d_, action, state->dx / r.height, -state->dy / r.height, &sim->scn, &sim->pert);
+        mjv_movePerturb(sim->m_, sim->d_, action, bounded_x, bounded_y, &sim->scn, &sim->pert);
       } else {
-        mjv_movePerturbFromState(&sim->scnstate_, action, state->dx / r.height, -state->dy / r.height, &sim->scn,
+        mjv_movePerturbFromState(&sim->scnstate_, action, bounded_x, bounded_y, &sim->scn,
                                  &sim->pert);
       }
     } else {
+      const mjModel* camera_model = sim->m_ && !sim->is_passive_ ? sim->m_ : &sim->scnstate_.model;
+      SanitizeCamera(camera_model, &sim->cam);
       if (!sim->is_passive_) {
-        mjv_moveCamera(sim->m_, action, state->dx / r.height, -state->dy / r.height, &sim->scn, &sim->cam);
+        mjv_moveCamera(sim->m_, action, bounded_x, bounded_y, &sim->scn, &sim->cam);
       } else {
-        mjv_moveCameraFromState(&sim->scnstate_, action, state->dx / r.height, -state->dy / r.height, &sim->scn,
+        mjv_moveCameraFromState(&sim->scnstate_, action, bounded_x, bounded_y, &sim->scn,
                                 &sim->cam);
       }
+      SanitizeCamera(camera_model, &sim->cam);
     }
     return;
   }

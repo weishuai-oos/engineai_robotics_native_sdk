@@ -15,8 +15,27 @@
 #include "platform_ui_adapter.h"
 
 #include <chrono>
+#include <cmath>
 
 namespace mujoco {
+namespace {
+
+double GetSafeBufferWindowRatio(const PlatformUIAdapter& adapter) {
+  const auto [framebuffer_width, framebuffer_height] = adapter.GetFramebufferSize();
+  const auto [window_width, window_height] = adapter.GetWindowSize();
+  (void)framebuffer_height;
+  (void)window_height;
+
+  if (framebuffer_width <= 0 || window_width <= 0) {
+    return 1.0;
+  }
+
+  const double ratio = static_cast<double>(framebuffer_width) / static_cast<double>(window_width);
+  return std::isfinite(ratio) && ratio > 0 ? ratio : 1.0;
+}
+
+}  // namespace
+
 PlatformUIAdapter::PlatformUIAdapter() {
   mjr_defaultContext(&con_);
 }
@@ -156,12 +175,15 @@ void PlatformUIAdapter::OnMouseMove(double x, double y) {
 }
 
 void PlatformUIAdapter::OnScroll(double xoffset, double yoffset) {
+  if (!std::isfinite(xoffset) || !std::isfinite(yoffset)) {
+    return;
+  }
+
   // update state
   UpdateMjuiState();
 
   // set scroll info, scale by buffer-to-window ratio
-  const double buffer_window_ratio =
-      static_cast<double>(GetFramebufferSize().first) / GetWindowSize().first;
+  const double buffer_window_ratio = GetSafeBufferWindowRatio(*this);
   state_.type = mjEVENT_SCROLL;
   state_.sx = xoffset * buffer_window_ratio;
   state_.sy = yoffset * buffer_window_ratio;
@@ -228,8 +250,7 @@ void PlatformUIAdapter::UpdateMjuiState() {
 
   // get mouse position, scale by buffer-to-window ratio
   auto [x, y] = GetCursorPosition();
-  const double buffer_window_ratio =
-      static_cast<double>(GetFramebufferSize().first) / GetWindowSize().first;
+  const double buffer_window_ratio = GetSafeBufferWindowRatio(*this);
   x *= buffer_window_ratio;
   y *= buffer_window_ratio;
 
