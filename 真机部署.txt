@@ -46,7 +46,7 @@ sudo ./run_robot.sh t800
 ```
 
 稳定后c掉前台后台运行
-nohup sudo ./run_robot.sh pm01_edu > nohup.out 2>&1 &
+nohup sudo ./run_robot.sh t800 > nohup.out 2>&1 &
 tail -f nohup.out
 
 ## 4. 结束运行并恢复
