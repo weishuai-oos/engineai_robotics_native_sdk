@@ -34,9 +34,9 @@ MuJoCo 编译和运行：
   ./scripts/build_mujoco.sh
   ./scripts/run_mujoco.sh t800
 
-仿真时还需在同一容器的另一个终端运行 `./run.sh t800`：run_mujoco.sh 负责 MuJoCo/LCM，run.sh 负责 executor、状态机、遥控输入和策略 Runner。assets/config/t800/mode.yaml 的 active_mode 应为 sim。T800 吊绳默认从左右肩部同时吊挂；MuJoCo 窗口中按 7 或方向键上缩短吊绳，按 8 或方向键下加长吊绳，按 9 开关吊绳。
+仿真时还需在同一容器的另一个终端运行 `./run.sh t800`：run_mujoco.sh 负责 MuJoCo/LCM，run.sh 负责 executor、状态机、遥控输入和策略 Runner。assets/config/t800/mode.yaml 的 active_mode 应为 sim。T800 吊绳默认从左右肩部同时吊挂，双肩锚点高度为 4.2m；初始底座高度为 1.25m，默认姿态脚底约离地 0.23m。MuJoCo 窗口中按 7 或方向键上缩短吊绳，按 8 或方向键下加长吊绳，按 9 开关吊绳。
 
-当前 `t800.xml` 默认还会加载 `assets/resource/environment/t800_competition.xml`：地面范围为 30 m × 30 m，三条 4 m 减速带的内边缘组成边长 4 m 的等边三角形，场内保留 8 个直径 1.1 m 的到达区域，并在三角形东侧放置 1 m × 1 m 击打板及宽 1 m、高 2.2 m 的竖直后支撑板。三角形减速带的训练生成提示词见 `docs/t800_triangle_terrain_training_prompt.md`。
+当前 `t800.xml` 默认还会加载 `assets/resource/environment/t800_competition.xml`：机器人原点及吊挂区保持在平地，比赛地形整体向东平移 5m；地面范围为 30 m × 30 m，三条 4 m 减速带的内边缘组成边长 4 m 的等边三角形，场内保留 8 个直径 1.1 m 的到达区域，击打板位于世界 x=12.5m，和三角形的间距约为原来的两倍。击打板尺寸为 1 m × 1 m，后方为宽 1 m、高 2.2 m 的竖直支撑板。三角形减速带的训练生成提示词见 `docs/t800_triangle_terrain_training_prompt.md`。
 
 本机运行 SDK：
 
@@ -126,6 +126,8 @@ RC02、Logitech F710/F310（Xbox/XInput 键位模式）和虚拟遥控器都会�
 虚拟遥控器键盘：
 
   LB=Q，RB=E，A=J，B=K，X=U，Y=I，BACK=F1，START=F2，十字键上=W、下=S、左=A、右=D。LT/RT 在虚拟遥控器中分别使用 LT/RT 滑块调到 0.5 以上；四套步态组合依次为 Q+K、Q+I、Q+J、Q+U，getup/getup2 为 Q+F2、Q+F1。
+  虚拟遥控器新增步行摇杆键：按住键盘↑/↓分别发送前进/后退，←/→分别发送左移/右移，N/M 分别发送左转/右转；松开按键后对应摇杆轴自动归零。该映射在 walk_leo 和 walk_leo_terrain 两个 Leo 步态中均生效，也适用于其他步态。
+  Quick Macros 新增 supine_to_stance（START+十字键上）、stance_to_supine（START+十字键下）、victory（RB+Y）和 rl_left_hook_001_improved（RT+十字键右）。
 
 注意：源码明确适配的是 F710/F310，并固定读取 /dev/input/js0；应使用驱动注释所述的非黄灯 Mode，黄灯 Mode 会交换十字键与左摇杆。普通 Xbox 手柄只有在 Linux joystick 事件编号与该布局一致时才可直接使用，不能仅凭外观为 Xbox 布局就保证兼容。项目逻辑轴把 X 定义为前后、Y 定义为左右，因此 F710 驱动中会把 Linux 物理轴转换到这套命名。RC02 使用 /dev/ttyJS。启动或实体输入掉线后重新选源时按 RC02、F710 的顺序尝试；实体源一旦锁定且在线，不会被后来接入的另一实体源动态抢占。虚拟遥控器激活后作为 override 输入覆盖当前实体输入。
 六、安全数据采集（只读） 先启动这个再启动run_t800

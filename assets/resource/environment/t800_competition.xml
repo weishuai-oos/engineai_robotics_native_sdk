@@ -13,50 +13,54 @@
   </asset>
 
   <worldbody>
-    <!-- Base side: inner edge A(-2,0) -> B(2,0), outward is -Y. -->
-    <body name="t800_speed_bump_side_base" pos="0 0 0" quat="0 0 0 1">
-      <geom name="t800_speed_bump_base_01" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="-1.5 0 0"/>
-      <geom name="t800_speed_bump_base_02" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="-0.5 0 0"/>
-      <geom name="t800_speed_bump_base_03" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="0.5 0 0"/>
-      <geom name="t800_speed_bump_base_04" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="1.5 0 0"/>
-    </body>
+    <!-- Keep the world origin as a flat, isolated suspension/start zone. The
+         competition layout begins 5 m to the east of that zone. -->
+    <body name="t800_competition_layout" pos="5.0 0 0">
+      <!-- Base side: inner edge A(-2,0) -> B(2,0), outward is -Y. -->
+      <body name="t800_speed_bump_side_base" pos="0 0 0" quat="0 0 0 1">
+        <geom name="t800_speed_bump_base_01" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="-1.5 0 0"/>
+        <geom name="t800_speed_bump_base_02" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="-0.5 0 0"/>
+        <geom name="t800_speed_bump_base_03" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="0.5 0 0"/>
+        <geom name="t800_speed_bump_base_04" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="1.5 0 0"/>
+      </body>
 
-    <!-- Left side: inner edge A(-2,0) -> C(0,3.4641), outward is (-sqrt(3)/2, 1/2). -->
-    <body name="t800_speed_bump_side_left" pos="-1 1.7320508 0" quat="0.8660254 0 0 0.5">
-      <geom name="t800_speed_bump_left_01" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="-1.5 0 0"/>
-      <geom name="t800_speed_bump_left_02" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="-0.5 0 0"/>
-      <geom name="t800_speed_bump_left_03" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="0.5 0 0"/>
-      <geom name="t800_speed_bump_left_04" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="1.5 0 0"/>
-    </body>
+      <!-- Left side: inner edge A(-2,0) -> C(0,3.4641), outward is (-sqrt(3)/2, 1/2). -->
+      <body name="t800_speed_bump_side_left" pos="-1 1.7320508 0" quat="0.8660254 0 0 0.5">
+        <geom name="t800_speed_bump_left_01" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="-1.5 0 0"/>
+        <geom name="t800_speed_bump_left_02" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="-0.5 0 0"/>
+        <geom name="t800_speed_bump_left_03" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="0.5 0 0"/>
+        <geom name="t800_speed_bump_left_04" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="1.5 0 0"/>
+      </body>
 
-    <!-- Right side: inner edge C(0,3.4641) -> B(2,0), outward is (sqrt(3)/2, 1/2). -->
-    <body name="t800_speed_bump_side_right" pos="1 1.7320508 0" quat="0.8660254 0 0 -0.5">
-      <geom name="t800_speed_bump_right_01" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="-1.5 0 0"/>
-      <geom name="t800_speed_bump_right_02" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="-0.5 0 0"/>
-      <geom name="t800_speed_bump_right_03" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="0.5 0 0"/>
-      <geom name="t800_speed_bump_right_04" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="1.5 0 0"/>
-    </body>
+      <!-- Right side: inner edge C(0,3.4641) -> B(2,0), outward is (sqrt(3)/2, 1/2). -->
+      <body name="t800_speed_bump_side_right" pos="1 1.7320508 0" quat="0.8660254 0 0 -0.5">
+        <geom name="t800_speed_bump_right_01" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="-1.5 0 0"/>
+        <geom name="t800_speed_bump_right_02" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="-0.5 0 0"/>
+        <geom name="t800_speed_bump_right_03" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_yellow" pos="0.5 0 0"/>
+        <geom name="t800_speed_bump_right_04" type="mesh" mesh="t800_speed_bump_segment" material="t800_speed_bump_black" pos="1.5 0 0"/>
+      </body>
 
-    <!-- Eight 1.1 m diameter, non-colliding arrival regions. Their geom names
-         are stable hooks for a later route/progress detector. -->
-    <geom name="t800_arrival_point_01" type="cylinder" pos="-1.55 2.25 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
-    <geom name="t800_arrival_point_02" type="cylinder" pos="0 -0.90 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
-    <geom name="t800_arrival_point_03" type="cylinder" pos="0 2.00 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
-    <geom name="t800_arrival_point_04" type="cylinder" pos="-2.10 0.80 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
-    <geom name="t800_arrival_point_05" type="cylinder" pos="2.10 0.80 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
-    <geom name="t800_arrival_point_06" type="cylinder" pos="1.15 3.00 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
-    <geom name="t800_arrival_point_07" type="cylinder" pos="0 0.85 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
-    <geom name="t800_arrival_point_08" type="cylinder" pos="1.75 2.15 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
+      <!-- Eight 1.1 m diameter, non-colliding arrival regions. Their geom names
+           are stable hooks for a later route/progress detector. -->
+      <geom name="t800_arrival_point_01" type="cylinder" pos="-1.55 2.25 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
+      <geom name="t800_arrival_point_02" type="cylinder" pos="0 -0.90 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
+      <geom name="t800_arrival_point_03" type="cylinder" pos="0 2.00 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
+      <geom name="t800_arrival_point_04" type="cylinder" pos="-2.10 0.80 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
+      <geom name="t800_arrival_point_05" type="cylinder" pos="2.10 0.80 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
+      <geom name="t800_arrival_point_06" type="cylinder" pos="1.15 3.00 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
+      <geom name="t800_arrival_point_07" type="cylinder" pos="0 0.85 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
+      <geom name="t800_arrival_point_08" type="cylinder" pos="1.75 2.15 0.004" size="0.55 0.004" material="t800_arrival_point" contype="0" conaffinity="0"/>
 
-    <!-- Static punching board, placed east of the triangle for the first test
-         scene. The support is a vertical plate, not a diagonal brace. -->
-    <body name="t800_punch_target_assembly" pos="5.0 1.5 0">
-      <!-- 1.0 m wide x 2.2 m high vertical support plate. Thickness is a
-           simulation placeholder because the reference image omits depth. -->
-      <geom name="t800_punch_backboard" type="box" pos="0 0 1.1" size="0.06 0.5 1.1" material="t800_punch_backboard"/>
-      <!-- 1.0 m x 1.0 m target, bottom 0.9 m and center 1.4 m above floor. -->
-      <geom name="t800_punch_target" type="box" pos="-0.10 0 1.4" size="0.08 0.5 0.5" material="t800_punch_target"/>
-      <site name="t800_punch_target_center" type="sphere" pos="-0.19 0 1.4" size="0.025" rgba="1 0.15 0.05 1"/>
+      <!-- Static punching board, now about twice as far from the triangle as
+           in the original layout. The support is vertical, not diagonal. -->
+      <body name="t800_punch_target_assembly" pos="7.5 1.5 0">
+        <!-- 1.0 m wide x 2.2 m high vertical support plate. Thickness is a
+             simulation placeholder because the reference image omits depth. -->
+        <geom name="t800_punch_backboard" type="box" pos="0 0 1.1" size="0.06 0.5 1.1" material="t800_punch_backboard"/>
+        <!-- 1.0 m x 1.0 m target, bottom 0.9 m and center 1.4 m above floor. -->
+        <geom name="t800_punch_target" type="box" pos="-0.10 0 1.4" size="0.08 0.5 0.5" material="t800_punch_target"/>
+        <site name="t800_punch_target_center" type="sphere" pos="-0.19 0 1.4" size="0.025" rgba="1 0.15 0.05 1"/>
+      </body>
     </body>
   </worldbody>
 

@@ -1,10 +1,11 @@
 import time
 
 from lcm_msgs.data import GamepadKeys
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QEvent, Qt, QTimer
 from PyQt6.QtGui import QColor, QKeySequence, QPainter, QShortcut
 from PyQt6.QtWidgets import (
     QCheckBox,
+    QApplication,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -112,15 +113,26 @@ class VirtualGamepadWidget(QWidget):
             'CROSS_Y_RIGHT': Qt.Key.Key_D
         }
         self.stick_shortcuts = {
-            "Left": ("Left Stick Y", -self.STICK_KEYBOARD_STEP),
-            "Right": ("Left Stick Y", self.STICK_KEYBOARD_STEP),
-            "Up": ("Left Stick X", self.STICK_KEYBOARD_STEP),
-            "Down": ("Left Stick X", -self.STICK_KEYBOARD_STEP),
             "Shift+Left": ("Right Stick Y", -self.STICK_KEYBOARD_STEP),
             "Shift+Right": ("Right Stick Y", self.STICK_KEYBOARD_STEP),
             "Shift+Up": ("Right Stick X", self.STICK_KEYBOARD_STEP),
             "Shift+Down": ("Right Stick X", -self.STICK_KEYBOARD_STEP),
             "Space": None,
+        }
+        # Hold-to-command keyboard mapping for walking.  The virtual gamepad
+        # adapter negates Right Stick Y before publishing the logical gamepad
+        # value, so N (left turn) intentionally writes -1.0 here, matching
+        # the existing Shift+Left shortcut.
+        self.keyboard_motion_keys = {
+            Qt.Key.Key_Up: ("Left Stick X", 1),
+            Qt.Key.Key_Down: ("Left Stick X", -1),
+            Qt.Key.Key_Left: ("Left Stick Y", -1),
+            Qt.Key.Key_Right: ("Left Stick Y", 1),
+            Qt.Key.Key_N: ("Right Stick Y", -1),
+            Qt.Key.Key_M: ("Right Stick Y", 1),
+        }
+        self.keyboard_motion_states = {
+            key: False for key in self.keyboard_motion_keys
         }
 
         # set predefined macro combinations
@@ -136,6 +148,13 @@ class VirtualGamepadWidget(QWidget):
             "getup: [LB, START]": ("LB", "START"),
             "getup2: [LB, BACK]": ("LB", "BACK"),
             "dance: [RB, B]": ("RB", "B"),
+            "supine_to_stance: [START, CROSS_X_UP]":
+                ("START", "CROSS_X_UP"),
+            "stance_to_supine: [START, CROSS_X_DOWN]":
+                ("START", "CROSS_X_DOWN"),
+            "victory: [RB, Y]": ("RB", "Y"),
+            "rl_left_hook_001_improved: [RT, CROSS_Y_RIGHT]":
+                ("RT", "CROSS_Y_RIGHT"),
         }
 
         self.init_ui()
@@ -168,6 +187,12 @@ class VirtualGamepadWidget(QWidget):
         self.setup_stick_shortcuts()
         self.setup_sliders()
         self.setup_macro_buttons()
+        # Key events may be delivered to a focused child widget (for example
+        # a slider), so observe events at the application level and limit the
+        # handling to this virtual-gamepad widget subtree.
+        self._application = QApplication.instance()
+        if self._application is not None:
+            self._application.installEventFilter(self)
         # create timer
         self.timer = QTimer()
         self.timer.timeout.connect(self.send_state)
@@ -258,7 +283,7 @@ class VirtualGamepadWidget(QWidget):
         stick_layout = QHBoxLayout()
 
         # Left Stick Group
-        left_stick_group = QGroupBox("L (Arrow)")
+        left_stick_group = QGroupBox("L (Arrow Keys)")
         left_stick_layout = QVBoxLayout()
 
         # X axis for Left Stick
@@ -287,7 +312,7 @@ class VirtualGamepadWidget(QWidget):
         stick_layout.addWidget(left_stick_group)
 
         # Right Stick Group
-        right_stick_group = QGroupBox("R (Shift+Arrow)")
+        right_stick_group = QGroupBox("R (N/M, Shift+Arrow)")
         right_stick_layout = QVBoxLayout()
 
         # X axis for Right Stick
@@ -439,6 +464,8 @@ class VirtualGamepadWidget(QWidget):
         for button_name in button_combination:
             if button_name == "LT":
                 gamepad_keys.analog_states[0] = 1.0
+            elif button_name == "RT":
+                gamepad_keys.analog_states[1] = 1.0
             elif button_name in self.button_map:
                 button, index = self.button_map[button_name]
                 gamepad_keys.digital_states[index] = 1
@@ -500,6 +527,9 @@ class VirtualGamepadWidget(QWidget):
         self.gamepad_keys = GamepadKeys()
         self.should_send_macro_count = 0
         self.shortcut_states = {name: False for name in self.shortcuts}
+        self.keyboard_motion_states = {
+            key: False for key in self.keyboard_motion_keys
+        }
 
         for button, _ in self.button_map.values():
             button.setDown(False)
@@ -507,17 +537,94 @@ class VirtualGamepadWidget(QWidget):
         for slider, _, _ in self.analog_map.values():
             slider.setValue(0)
 
+    def update_keyboard_motion_axes(self):
+        """Apply all currently held movement keys to the walking axes."""
+        for analog_name in (
+            "Left Stick X",
+            "Left Stick Y",
+            "Right Stick Y",
+        ):
+            direction = sum(
+                key_direction
+                for key, (axis, key_direction) in self.keyboard_motion_keys.items()
+                if axis == analog_name and self.keyboard_motion_states[key]
+            )
+            # Opposing keys cancel instead of allowing the last key event to
+            # leave a stale non-zero command active.
+            value = 1 if direction > 0 else -1 if direction < 0 else 0
+            slider, _, _ = self.analog_map[analog_name]
+            slider.setValue(value * 10)
+
+    def _handle_keyboard_motion_event(self, event):
+        key = event.key()
+        if key not in self.keyboard_motion_keys:
+            return False
+
+        is_shift_stick_shortcut = (
+            key in (
+                Qt.Key.Key_Up,
+                Qt.Key.Key_Down,
+                Qt.Key.Key_Left,
+                Qt.Key.Key_Right,
+            )
+            and event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+        )
+
+        if event.type() == QEvent.Type.KeyPress:
+            # Leave Shift+Arrow to the existing right-stick incremental
+            # shortcuts.  The new mapping is for plain Arrow/N/M keys.
+            if is_shift_stick_shortcut:
+                return False
+            if not event.isAutoRepeat():
+                self.keyboard_motion_states[key] = True
+                self.update_keyboard_motion_axes()
+            return True
+
+        if event.type() == QEvent.Type.KeyRelease:
+            # If the key was never owned by the hold-to-command mapping, this
+            # is the release half of Shift+Arrow and should not reset the
+            # left stick.
+            if is_shift_stick_shortcut and not self.keyboard_motion_states[key]:
+                return False
+            if not event.isAutoRepeat():
+                self.keyboard_motion_states[key] = False
+                self.update_keyboard_motion_axes()
+            return True
+
+        return False
+
+    def eventFilter(self, watched, event):
+        if (
+            isinstance(watched, QWidget)
+            and (watched is self or self.isAncestorOf(watched))
+            and event.type() in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease)
+            and self._handle_keyboard_motion_event(event)
+        ):
+            event.accept()
+            return True
+        return super().eventFilter(watched, event)
+
     def keyPressEvent(self, event):
+        if self._handle_keyboard_motion_event(event):
+            event.accept()
+            return
+
+        key = event.key()
         reverse_shortcuts = {v: k for k, v in self.shortcuts.items()}
-        if event.key() in reverse_shortcuts:
-            button_name = reverse_shortcuts[event.key()]
+        if key in reverse_shortcuts:
+            button_name = reverse_shortcuts[key]
             self.handle_shortcut_pressed(button_name)
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
+        if self._handle_keyboard_motion_event(event):
+            event.accept()
+            return
+
+        key = event.key()
         reverse_shortcuts = {v: k for k, v in self.shortcuts.items()}
-        if event.key() in reverse_shortcuts:
-            button_name = reverse_shortcuts[event.key()]
+        if key in reverse_shortcuts:
+            button_name = reverse_shortcuts[key]
             self.handle_shortcut_released(button_name)
         super().keyReleaseEvent(event)
 
@@ -583,6 +690,8 @@ class VirtualGamepadWidget(QWidget):
             self.status_light.set_blink_color(QColor("orange"))
 
     def closeEvent(self, event):
+        if self._application is not None:
+            self._application.removeEventFilter(self)
         LcmManager().remove_connection_listener(self.on_lcm_status_changed)
         super().closeEvent(event)
 

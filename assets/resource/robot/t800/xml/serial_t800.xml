@@ -148,7 +148,9 @@
 
     <worldbody>
       <light name="spotlight" mode="targetbodycom" target="LINK_BASE" pos="0 -1 2"/>
-        <body name="LINK_BASE" pos="0 0 1.03">
+        <!-- Start over the isolated flat suspension zone; with the default
+             zero joint pose this leaves the feet about 0.23 m above z=0. -->
+        <body name="LINK_BASE" pos="0 0 1.25">
             <inertial pos="0.01487209 -0.00011942 0.1673244" mass="10.083072" fullinertia="0.05060425 0.03390366 0.03284694 -7.548e-05 -0.00053095 -4.685e-05"/>
             <geom type="mesh" rgba="0.79216 0.81961 0.93333 1" mesh="LINK_BASE" material="LINK_BASE" class="visual"/>
             <geom class="collision_base"/>

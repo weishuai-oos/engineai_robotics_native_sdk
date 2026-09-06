@@ -73,10 +73,13 @@ const constexpr int kDimQuaternion = 4;
 // the assistive force.
 const constexpr mjtNum kElasticBandStiffness = 800.0;
 const constexpr mjtNum kElasticBandDamping = 200.0;
-const std::array<mjtNum, 3> kElasticBandFallbackAnchor = {0.0, 0.0, 3.0};
+// The robot starts over the flat world-origin zone. Raising the anchors keeps
+// the default feet position above the floor while the elastic band settles.
+const constexpr mjtNum kElasticBandAnchorHeight = 4.2;
+const std::array<mjtNum, 3> kElasticBandFallbackAnchor = {0.0, 0.0, kElasticBandAnchorHeight};
 const std::array<std::array<mjtNum, 3>, 2> kElasticBandShoulderAnchors = {{
-    {0.0, 0.20, 3.0},
-    {0.0, -0.20, 3.0},
+    {0.0, 0.20, kElasticBandAnchorHeight},
+    {0.0, -0.20, kElasticBandAnchorHeight},
 }};
 const constexpr mjtNum kElasticBandInitialRestLength = 1.0;
 const std::array<const char*, 2> kElasticBandShoulderBodyCandidates = {
