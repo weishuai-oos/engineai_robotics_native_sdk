@@ -159,6 +159,7 @@ int VirtualGamepadInputAdapter::UpdateKeyValue(const data::GamepadKeys& msg) con
   }
 
   AddLtTaskModifier(msg.analog_states[0], &value);
+  AddRtTaskModifier(msg.analog_states[1], &value);
 
   return value;
 }

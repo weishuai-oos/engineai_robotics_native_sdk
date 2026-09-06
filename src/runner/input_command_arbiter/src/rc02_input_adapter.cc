@@ -222,6 +222,7 @@ void Rc02InputAdapter::GetKeyInputFromRc02Raw(const hardware::Rc02InputData& raw
   if (raw.CROSS_LEFT) key_value |= gamepad_tool_.KeyStringToValue("CROSS_Y_LEFT");
   if (raw.CROSS_RIGHT) key_value |= gamepad_tool_.KeyStringToValue("CROSS_Y_RIGHT");
   AddLtTaskModifier(raw.L2, &key_value);
+  AddRtTaskModifier(raw.R2, &key_value);
   rc02_input_.combined_key_value = key_value;
 }
 

@@ -8,7 +8,7 @@ EngineAI Native SDK（T800 功能合并版）配置与调参说明
 
 - active_mode: sim 使用仿真配置，robot 使用真机配置。
 - mode.robot 和 mode.sim 把 param_tag 映射到具体 YAML。
-- 本次新增的 pd_stand_x/pd_stand_y、getup2 和四个替换击打动作配置均已同时加入 robot、sim。
+- 本次新增的 pd_stand_x/pd_stand_y、getup2 和五个击打动作配置均已同时加入 robot、sim。
 - install.sh 部署时会在远端自动把 active_mode 改为传入的 mode。
 
 2. 状态机、按键和周期
@@ -19,11 +19,11 @@ EngineAI Native SDK（T800 功能合并版）配置与调参说明
 - period：Runner 调度周期，单位秒。
 - runner.name：注册的 Runner 名称。
 - param_tag：该状态使用的参数配置标签。
-- key：统一逻辑按键组合，不是某个遥控器驱动中的原始键号。核心库没有 LT 字符串键；输入适配层用不可能同时出现的 CROSS_Y_LEFT+CROSS_Y_RIGHT 作为 LT 标记，所以 `[CROSS_Y_LEFT, CROSS_Y_RIGHT, A/X/Y]` 对应物理 LT+A/X/Y。
+- key：统一逻辑按键组合，不是某个遥控器驱动中的原始键号。核心库没有 LT/RT 字符串键；输入适配层用不可能同时出现的 CROSS_Y_LEFT+CROSS_Y_RIGHT 作为 LT 标记、CROSS_X_UP+CROSS_X_DOWN 作为 RT 标记，所以 `[CROSS_Y_LEFT, CROSS_Y_RIGHT, A/X/Y]` 对应物理 LT+A/X/Y，`[CROSS_X_UP, CROSS_X_DOWN, CROSS_Y_RIGHT]` 对应物理 RT+十字键右。
 - manual_transition：允许人工切换到的状态。
 - auto_transition：Runner 正常结束后的目标状态。
 
-普通改按键或状态关系只改此 YAML，不需要改 src。LT 兼容标记属于底层按键标准化，已在 src/runner/input_command_arbiter 的三类输入适配器中统一处理。
+普通改按键或状态关系只改此 YAML，不需要改 src。LT/RT 兼容标记属于底层按键标准化，已在 src/runner/input_command_arbiter 的三类输入适配器中统一处理。
 
 pd_stand、pd_stand_x、pd_stand_y 共用 pd_stand_runner，参数分别为：
 
@@ -163,6 +163,7 @@ getup2 与 getup 共用 HoST 456→23 ABI、观测构造、安全检查、8 秒�
   rl_roundhouse_kick                         assets/config/t800/rl_roundhouse_kick/default.yaml
   rl_straight_punch_L_improved               assets/config/t800/rl_straight_punch_L_improved/default.yaml
   rl_left_hook_001_improved                  assets/config/t800/rl_left_hook_001_improved/default.yaml
+  rl_punch_example                            assets/config/t800/rl_punch_example/default.yaml
 
 - policy_file：动作追踪 MNN 模型。
 - trajectory_file_npz：参考动作轨迹。
@@ -174,7 +175,7 @@ getup2 与 getup 共用 HoST 456→23 ABI、观测构造、安全检查、8 秒�
 - upper_body_startup_interpolation_duration：下半身启动过渡结束后，上半身到参考轨迹目标帧的过渡时间。
 - lower_body_policy_blend_duration：开始策略后，下半身从轨迹起点到策略命令的混合时间。
 - trajectory_body_index：body_quat_w 为 N×B×4 时选择第几个 body；当前 T800 轨迹统一取 0。若 body_quat_w 已是 N×4，该值必须为 0。
-- trajectory_end_behavior：exit 表示轨迹结束后触发状态机自动切换；hold 表示保持末帧，需人工切换。本工程 dance、victory 和四个新击打动作共 6 个动作轨迹使用 exit，正常完成后回 walk_leo；stance_to_supine 仍按任务图自动回 passive。
+- trajectory_end_behavior：exit 表示轨迹结束后触发状态机自动切换；hold 表示保持末帧，需人工切换。本工程 dance、victory 和五个击打动作共 7 个动作轨迹使用 exit，正常完成后回 walk_leo；stance_to_supine 仍按任务图自动回 passive。
 
 替换动作模型或轨迹时，可以保持文件名覆盖，也可以把新文件放入对应目录后修改 YAML 路径。NPZ 至少需要 float32、C-order 的 joint_pos、joint_vel、body_quat_w；前两项 Runner 视图必须为 N×25，四元数 Runner 视图必须为 N×4，帧数 N 一致且四元数必须归一化。Runner 只读取这三个键，body_pos_w、body_lin_vel_w、body_ang_vel_w、fps、body_names、schema 和 derived_* 等扩展键会被忽略，不影响策略执行，也不必为了适配当前 Runner 删除。Runner 进入状态时会检查这些条件，并用全零观测做一次模型输出维度/有限值校验。模型输入、输出、观测顺序、关节顺序和轨迹采样频率必须与 Runner 配置一致。
 
@@ -198,9 +199,13 @@ getup2 与 getup 共用 HoST 456→23 ABI、观测构造、安全检查、8 秒�
 
 - kElasticBandStiffness：弹簧刚度，增大后支撑更强，也更容易引入高频振荡。
 - kElasticBandDamping：沿吊绳方向的阻尼，增大可抑制摆动，过大会让运动发黏。
-- kElasticBandAnchor：世界坐标系挂点 [x,y,z]。
+- kElasticBandShoulderAnchors：T800 左右肩部吊点的世界坐标，默认 `[0, 0.20, 3]` 和 `[0, -0.20, 3]`。
+- kElasticBandFallbackAnchor：找不到双肩部 body 时的单点回退挂点 `[0, 0, 3]`。
 - kElasticBandInitialRestLength：初始自然长度。
-- kElasticBandBodyCandidates：按顺序查找机器人挂接 body。
+- kElasticBandShoulderBodyCandidates：优先查找 `LINK_SHOULDER_PITCH_L/R`，两者同时存在时双肩部同时受力。
+- kElasticBandBodyCandidates：双肩部不可用时按顺序查找单点回退 body。
+
+当前 T800 资源没有单独命名的“后背把手/肩部吊环” site，双肩吊挂使用左右 `LINK_SHOULDER_PITCH_L/R` 的 body 原点作为肩部吊环近似挂接点；非 T800 模型或缺少任一肩部 body 时回退到腰部候选 body。双点模式会平分总刚度和阻尼，不会把支撑力翻倍。
 
 模型加载成功后吊绳默认开启。运行时 7/方向上每次缩短 0.1 m，8/方向下每次加长 0.1 m，9 切换开关。
 

@@ -1,8 +1,9 @@
 # ----------------------- Motion Tasks ----------------------- #
 #
-# The SDK core task parser has no symbolic LT key. The input adapters encode a
-# pressed LT as the impossible simultaneous CROSS_Y_LEFT+CROSS_Y_RIGHT marker,
-# so [CROSS_Y_LEFT, CROSS_Y_RIGHT, A/X/Y] below means physical LT + A/X/Y.
+# The SDK core task parser has no symbolic LT/RT keys. The input adapters encode
+# pressed LT as the impossible simultaneous CROSS_Y_LEFT+CROSS_Y_RIGHT marker
+# and pressed RT as CROSS_X_UP+CROSS_X_DOWN. The marker pairs below therefore
+# represent physical trigger + key combinations.
 # LB + BACK remains the real getup2 combination.
 
 cpu:
@@ -53,6 +54,7 @@ tasks:
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
       - rl_left_hook_001_improved
+      - rl_punch_example
       - supine_to_stance
       - getup
       - getup2
@@ -80,6 +82,7 @@ tasks:
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
       - rl_left_hook_001_improved
+      - rl_punch_example
       - supine_to_stance
       - getup
       - getup2
@@ -105,6 +108,7 @@ tasks:
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
       - rl_left_hook_001_improved
+      - rl_punch_example
       - supine_to_stance
       - getup
       - getup2
@@ -131,6 +135,7 @@ tasks:
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
       - rl_left_hook_001_improved
+      - rl_punch_example
     key: [LB, B]
 
   - motion: walk_custom
@@ -154,6 +159,7 @@ tasks:
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
       - rl_left_hook_001_improved
+      - rl_punch_example
     key: [LB, Y]
 
   - motion: walk_leo
@@ -177,6 +183,7 @@ tasks:
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
       - rl_left_hook_001_improved
+      - rl_punch_example
     key: [LB, A]
 
   - motion: walk_leo_terrain
@@ -200,6 +207,7 @@ tasks:
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
       - rl_left_hook_001_improved
+      - rl_punch_example
     key: [LB, X]
 
   - motion: dance
@@ -288,6 +296,22 @@ tasks:
       - name: rl_dance_example_runner
         enabled: true
         param_tag: rl_left_hook_001_improved
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+      - walk_leo_terrain
+    auto_transition: walk_leo
+    key: [CROSS_X_UP, CROSS_X_DOWN, CROSS_Y_RIGHT]  # physical RT + d-pad right
+
+  - motion: rl_punch_example
+    period: 0.02
+    runner:
+      - name: rl_dance_example_runner
+        enabled: true
+        param_tag: rl_punch_example
     manual_transition:
       - passive
       - pd_stand

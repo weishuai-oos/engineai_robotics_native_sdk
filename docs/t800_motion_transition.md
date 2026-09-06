@@ -2,7 +2,7 @@
 
 ## 1. 目标和结论
 
-本次修改为 T800 的四个行走状态和六种参考动作策略增加了统一的“目标状态入口衔接”。`walk_leo` 与 `walk_leo_terrain` 复用同一个 Leo runner，仅通过 `param_tag` 加载不同配置。核心原则是：
+本次修改为 T800 的四个行走状态和七种参考动作策略增加了统一的“目标状态入口衔接”。`walk_leo` 与 `walk_leo_terrain` 复用同一个 Leo runner，仅通过 `param_tag` 加载不同配置。核心原则是：
 
 1. 切换后，下一个策略从第一个控制周期就开始推理，不设置“等待策略启动”的空挡阶段。
 2. 电机命令从上一个状态最后实际下发的完整命令平滑过渡到下一个策略的实时输出。
@@ -25,7 +25,7 @@
 
 四种 walk 状态所用的三个 runner 都在入口应用统一衔接，因此只要状态机允许切入，来源可以是参考动作、getup、SDK 起身、`pd_stand` 或另一种 walk；衔接不依赖来源状态名称。terrain 状态复用 Leo runner 后会自动走同一套入口逻辑，无需复制一份衔接实现。
 
-### 2.2 六种参考动作状态
+### 2.2 七种参考动作状态
 
 | 状态 | 按键 | runner | 控制周期 | 控制频率 |
 | --- | --- | --- | ---: | ---: |
@@ -34,9 +34,10 @@
 | `rl_left_front_kick_002_complete_heightfall` | `RB + 十字键上` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 | `rl_roundhouse_kick` | `RB + 十字键下` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 | `rl_straight_punch_L_improved` | `RB + 十字键左` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
-| `rl_left_hook_001_improved` | `RB + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
+| `rl_left_hook_001_improved` | `RT + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
+| `rl_punch_example` | `RB + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 
-六种动作共用同一个 runner，通过不同的 `param_tag` 加载模型和参考轨迹。它们的入口统一使用参考轨迹第 0 帧作为短时姿态引导。
+七种动作共用同一个 runner，通过不同的 `param_tag` 加载模型和参考轨迹。它们的入口统一使用参考轨迹第 0 帧作为短时姿态引导。
 
 ## 3. 状态机与衔接覆盖
 
@@ -51,7 +52,7 @@ flowchart LR
   W4[walk_leo_terrain]
   PX[pd_stand_x]
   PY[pd_stand_y]
-  A[六种参考动作]
+  A[七种参考动作]
   G[getup / getup2]
   S[supine_to_stance]
 
@@ -102,13 +103,13 @@ flowchart LR
 | 切换方向 | 是否衔接 | 入口参考 | 说明 |
 | --- | --- | --- | --- |
 | 四种 walk 相互切换 | 是 | 目标 walk 的默认姿势 | 目标 walk 策略从第一个周期运行 |
-| 四种 walk → 六种参考动作 | 是 | 目标动作参考轨迹第 0 帧 | 动作策略运行，但轨迹帧暂时保持在第 0 帧 |
+| 四种 walk → 七种参考动作 | 是 | 目标动作参考轨迹第 0 帧 | 动作策略运行，但轨迹帧暂时保持在第 0 帧 |
 | `pd_stand` → 四种 walk | 是 | 目标 walk 默认姿势 | 来源是 `pd_stand` 最后实际命令 |
-| `pd_stand` → 六种参考动作 | 是 | 目标动作第 0 帧 | 由动作 runner 在入口衔接 |
+| `pd_stand` → 七种参考动作 | 是 | 目标动作第 0 帧 | 由动作 runner 在入口衔接 |
 | `passive`/`pd_stand` → `pd_stand_x`/`pd_stand_y` | 否 | 目标 PD 姿态 | 使用 `pd_stand_runner` 自身的三秒姿态插值 |
 | `pd_stand_x` ↔ `pd_stand_y` | 否 | 目标 PD 姿态 | 使用 `pd_stand_runner` 自身的三秒姿态插值 |
-| 六种参考动作 → 四种 walk（手动提前） | 是 | 目标 walk 默认姿势 | 使用按键生效时动作的实时末端命令，不要求动作到固定末帧 |
-| 六种参考动作正常完成 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 状态机自动切换，来源是动作最后实际下发的命令 |
+| 七种参考动作 → 四种 walk（手动提前） | 是 | 目标 walk 默认姿势 | 使用按键生效时动作的实时末端命令，不要求动作到固定末帧 |
+| 七种参考动作正常完成 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 状态机自动切换，来源是动作最后实际下发的命令 |
 | `getup`/`getup2` → 四种 walk（手动） | 是 | 目标 walk 默认姿势 | 无论起身是否成功，状态机允许人工切换；动态可行性由操作者负责判断 |
 | `getup`/`getup2` 成功 → `walk_leo`（自动） | 是 | `walk_leo` 默认姿势 | 保留当前自动目标 |
 | `supine_to_stance` 正常完成 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 由 `walk_leo` 入口完成衔接 |
@@ -169,7 +170,7 @@ flowchart LR
 
 ### 4.4 参考动作正常结束时
 
-六种参考动作使用 `trajectory_end_behavior: exit`。轨迹到末帧后 runner 请求退出，状态机自动进入 `walk_leo`。`walk_leo` 捕获的是动作末尾真正下发的命令，而不是另存的一份固定末帧，因此自动结束和手动提前结束走同一套入口衔接逻辑。
+七种参考动作使用 `trajectory_end_behavior: exit`。轨迹到末帧后 runner 请求退出，状态机自动进入 `walk_leo`。`walk_leo` 捕获的是动作末尾真正下发的命令，而不是另存的一份固定末帧，因此自动结束和手动提前结束走同一套入口衔接逻辑。
 
 ## 5. 衔接算法
 
@@ -229,7 +230,7 @@ T800 配置显式开启了该功能。其他机型如果没有配置这些新字
 对应控制周期数量：
 
 - `walk` / `walk_custom`：名义 16 个周期，范围 10～28 个周期。
-- `walk_leo`、`walk_leo_terrain` 和六种参考动作：名义 8 个周期，范围 5～14 个周期。
+- `walk_leo`、`walk_leo_terrain` 和七种参考动作：名义 8 个周期，范围 5～14 个周期。
 
 当关节差过大、理论所需时间超过 0.28 s 时，系统会打印 `Entry transition required ... capped at 0.28s`。这是“不要让策略被压制太久”的主动上限；此时速度/加速度估算约束不再保证满足。实机若频繁出现该日志，优先检查切换时机和两个策略的姿态兼容性，再考虑适当增加 `entry_transition_max_duration`。
 
@@ -288,10 +289,10 @@ T800 配置显式开启了该功能。其他机型如果没有配置这些新字
 ## 10. 实机验证顺序
 
 1. 仿真中将遥控速度置零，逐一验证四种 walk 相互切换。
-2. 验证四种 walk 分别进入六种参考动作，并等待动作自动回 `walk_leo`。
+2. 验证四种 walk 分别进入七种参考动作，并等待动作自动回 `walk_leo`。
 3. 在参考动作前半段和后半段分别手动切回四种 walk，观察是否出现 0.28 s 封顶或 tracking error 日志。
 4. 吊架/保护绳下实机测试 `pd_stand → walk_leo`、`walk_leo ↔ walk_custom`。
-5. 再测试低动态动作，最后测试四个新击打动作的手动提前退出。
+5. 再测试低动态动作，最后测试五个击打动作的手动提前退出。
 6. 只有在零速切换稳定后，再逐步加入行走速度命令。
 
 重点记录：切换来源/目标、切换时动作帧、双脚接触、`q_cmd-q_real` 最大值、衔接实际 duration、是否触发封顶警告，以及是否触发电机限流。
@@ -302,7 +303,7 @@ T800 配置显式开启了该功能。其他机型如果没有配置这些新字
 - 普通 walk 接入：`src/runner/rl_walking_example/`
 - custom walk 接入：`src/runner/rl_walking_custom_example/`
 - Leo Lab recurrent walk 接入：`src/runner/rl_walking_leolab_example/`
-- 六种参考动作接入：`src/runner/rl_dance_example/`
+- 七种参考动作接入：`src/runner/rl_dance_example/`
 - T800 参数：`assets/config/t800/rl_*_example/default.yaml`
 - T800 状态机：`assets/config/t800/task_motion/default.yaml`
 

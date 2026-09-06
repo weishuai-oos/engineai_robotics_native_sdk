@@ -31,6 +31,7 @@
 docker/artifacts/
 *.tmp
 /core/lib
+docs/
 
 # Isaac-Sim packman
 _isaac_sim*

@@ -156,6 +156,7 @@ int GamepadInputAdapter::UpdateKeyValue() {
   }
 
   AddLtTaskModifier(gamepad_driver_.logitech_data_res.LT, &value);
+  AddRtTaskModifier(gamepad_driver_.logitech_data_res.RT, &value);
 
   return value;
 }

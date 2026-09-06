@@ -22,4 +22,4 @@ damping:
   - [1, 1]
 duration: 3.0
 
-initial_joint_position_bias_threshold: 1.2
+initial_joint_position_bias_threshold: 4.0

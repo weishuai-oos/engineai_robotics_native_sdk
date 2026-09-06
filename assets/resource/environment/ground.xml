@@ -23,7 +23,9 @@
 
   <worldbody>
     <light pos="0 0 10" dir="0 0 -1" directional="true"/>
-    <geom name="floor" size="0 5 0.125" type="plane" material="groundplane" conaffinity="7" condim="3" friction="1.0"/>
+    <!-- A 30 m x 30 m visible floor keeps the competition layout and its
+         approach/exit space away from the untextured black background. -->
+    <geom name="floor" size="15 15 0.125" type="plane" material="groundplane" conaffinity="7" condim="3" friction="1.0"/>
   </worldbody>
 
 </mujoco>

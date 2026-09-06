@@ -68,10 +68,21 @@ const constexpr int kNumFloatingBaseJoints = 7;
 const constexpr int kDimQuaternion = 4;
 // T800 is roughly 85 kg in the MJCF, so Unitree's 200 N/m default is too weak
 // to visibly support the upper body. These defaults provide a usable safety tether.
+// The stiffness and damping are the total budget shared by the active tether
+// points, so switching from one fallback point to two shoulders does not double
+// the assistive force.
 const constexpr mjtNum kElasticBandStiffness = 800.0;
 const constexpr mjtNum kElasticBandDamping = 200.0;
-const std::array<mjtNum, 3> kElasticBandAnchor = {0.0, 0.0, 3.0};
+const std::array<mjtNum, 3> kElasticBandFallbackAnchor = {0.0, 0.0, 3.0};
+const std::array<std::array<mjtNum, 3>, 2> kElasticBandShoulderAnchors = {{
+    {0.0, 0.20, 3.0},
+    {0.0, -0.20, 3.0},
+}};
 const constexpr mjtNum kElasticBandInitialRestLength = 1.0;
+const std::array<const char*, 2> kElasticBandShoulderBodyCandidates = {
+    "LINK_SHOULDER_PITCH_L",
+    "LINK_SHOULDER_PITCH_R",
+};
 const std::array<const char*, 3> kElasticBandBodyCandidates = {
     "LINK_WAIST_YAW",
     "LINK_TORSO_YAW",
@@ -84,8 +95,10 @@ const std::unordered_map<data::ContactType, int> single_contact_dimensions_map =
 
 struct ElasticBandState {
   std::mutex mutex;
-  int body_id = -1;
-  const char* body_name = nullptr;
+  std::array<int, 2> body_ids = {-1, -1};
+  std::array<const char*, 2> body_names = {nullptr, nullptr};
+  std::array<std::array<mjtNum, 3>, 2> anchors = {};
+  int attachment_count = 0;
   bool available = false;
   bool enabled = false;
   mjtNum rest_length = kElasticBandInitialRestLength;
@@ -96,8 +109,10 @@ ElasticBandState elastic_band_state;
 
 void ResolveElasticBandBody(const mjModel* m) {
   std::lock_guard<std::mutex> lock(elastic_band_state.mutex);
-  elastic_band_state.body_id = -1;
-  elastic_band_state.body_name = nullptr;
+  elastic_band_state.body_ids.fill(-1);
+  elastic_band_state.body_names.fill(nullptr);
+  elastic_band_state.anchors = {};
+  elastic_band_state.attachment_count = 0;
   elastic_band_state.available = false;
   elastic_band_state.enabled = false;
   elastic_band_state.rest_length = kElasticBandInitialRestLength;
@@ -106,43 +121,71 @@ void ResolveElasticBandBody(const mjModel* m) {
     return;
   }
 
-  int body_id = -1;
-  const char* body_name = nullptr;
-  for (const char* candidate : kElasticBandBodyCandidates) {
-    body_id = mj_name2id(m, mjOBJ_BODY, candidate);
-    if (body_id >= 0) {
-      body_name = candidate;
-      break;
+  auto add_attachment = [&](const int body_id, const char* body_name, const std::array<mjtNum, 3>& anchor) {
+    if (elastic_band_state.attachment_count >= static_cast<int>(elastic_band_state.body_ids.size())) {
+      return;
+    }
+    const int index = elastic_band_state.attachment_count++;
+    elastic_band_state.body_ids[index] = body_id;
+    elastic_band_state.body_names[index] = body_name;
+    elastic_band_state.anchors[index] = anchor;
+  };
+
+  const int left_shoulder_id = mj_name2id(m, mjOBJ_BODY, kElasticBandShoulderBodyCandidates[0]);
+  const int right_shoulder_id = mj_name2id(m, mjOBJ_BODY, kElasticBandShoulderBodyCandidates[1]);
+  if (left_shoulder_id >= 0 && right_shoulder_id >= 0) {
+    // The shoulder-pitch body frames are the closest stable attachment frames
+    // available in the shipped T800 model for the two physical shoulder rings.
+    add_attachment(left_shoulder_id, kElasticBandShoulderBodyCandidates[0], kElasticBandShoulderAnchors[0]);
+    add_attachment(right_shoulder_id, kElasticBandShoulderBodyCandidates[1], kElasticBandShoulderAnchors[1]);
+  } else {
+    int fallback_body_id = -1;
+    const char* fallback_body_name = nullptr;
+    for (const char* candidate : kElasticBandBodyCandidates) {
+      fallback_body_id = mj_name2id(m, mjOBJ_BODY, candidate);
+      if (fallback_body_id >= 0) {
+        fallback_body_name = candidate;
+        break;
+      }
+    }
+    if (fallback_body_id >= 0) {
+      add_attachment(fallback_body_id, fallback_body_name, kElasticBandFallbackAnchor);
     }
   }
 
-  if (body_id < 0) {
+  if (elastic_band_state.attachment_count == 0) {
     LOG(ERROR) << "Elastic band disabled: failed to find upper body attachment in current model.";
     return;
   }
 
-  elastic_band_state.body_id = body_id;
-  elastic_band_state.body_name = body_name;
   elastic_band_state.available = true;
   elastic_band_state.enabled = true;
-  LOG(INFO) << "Elastic band attached to " << body_name << " (body id " << body_id << ")."
-            << " Anchor: [0, 0, 3], rest length: " << kElasticBandInitialRestLength
-            << ", stiffness: " << kElasticBandStiffness
-            << ", damping: " << kElasticBandDamping;
+  for (int i = 0; i < elastic_band_state.attachment_count; ++i) {
+    const auto& anchor = elastic_band_state.anchors[i];
+    LOG(INFO) << "Elastic band attached to " << elastic_band_state.body_names[i] << " (body id "
+              << elastic_band_state.body_ids[i] << "). Anchor: [" << anchor[0] << ", " << anchor[1] << ", "
+              << anchor[2] << "], rest length: " << kElasticBandInitialRestLength;
+  }
+  LOG(INFO) << "Elastic band total stiffness: " << kElasticBandStiffness
+            << ", total damping: " << kElasticBandDamping;
 }
 
 void ElasticBandPassiveCallback(const mjModel* m, mjData* d) {
-  int body_id = -1;
+  std::array<int, 2> body_ids = {-1, -1};
+  std::array<std::array<mjtNum, 3>, 2> anchors = {};
+  int attachment_count = 0;
   bool enabled = false;
   mjtNum rest_length = 0.0;
   {
     std::lock_guard<std::mutex> lock(elastic_band_state.mutex);
-    body_id = elastic_band_state.body_id;
+    body_ids = elastic_band_state.body_ids;
+    anchors = elastic_band_state.anchors;
+    attachment_count = elastic_band_state.attachment_count;
     enabled = elastic_band_state.available && elastic_band_state.enabled;
     rest_length = elastic_band_state.rest_length;
   }
 
-  if (!m || !d || body_id < 0 || body_id >= m->nbody) {
+  if (!m || !d || attachment_count <= 0) {
     return;
   }
 
@@ -150,47 +193,56 @@ void ElasticBandPassiveCallback(const mjModel* m, mjData* d) {
     return;
   }
 
-  const mjtNum* body_position = d->xpos + 3 * body_id;
-  mjtNum anchor_delta[3] = {
-      kElasticBandAnchor[0] - body_position[0],
-      kElasticBandAnchor[1] - body_position[1],
-      kElasticBandAnchor[2] - body_position[2],
-  };
-  const mjtNum distance = std::sqrt(anchor_delta[0] * anchor_delta[0] + anchor_delta[1] * anchor_delta[1] +
-                                    anchor_delta[2] * anchor_delta[2]);
-  if (distance <= mjMINVAL) {
-    return;
+  const mjtNum per_attachment_stiffness = kElasticBandStiffness / attachment_count;
+  const mjtNum per_attachment_damping = kElasticBandDamping / attachment_count;
+  for (int i = 0; i < attachment_count; ++i) {
+    const int body_id = body_ids[i];
+    if (body_id < 0 || body_id >= m->nbody) {
+      continue;
+    }
+
+    const mjtNum* body_position = d->xpos + 3 * body_id;
+    mjtNum anchor_delta[3] = {
+        anchors[i][0] - body_position[0],
+        anchors[i][1] - body_position[1],
+        anchors[i][2] - body_position[2],
+    };
+    const mjtNum distance = std::sqrt(anchor_delta[0] * anchor_delta[0] + anchor_delta[1] * anchor_delta[1] +
+                                      anchor_delta[2] * anchor_delta[2]);
+    if (distance <= mjMINVAL) {
+      continue;
+    }
+
+    const mjtNum extension = distance - rest_length;
+    if (extension <= 0.0) {
+      continue;
+    }
+
+    const mjtNum inverse_distance = 1.0 / distance;
+    const mjtNum direction[3] = {
+        anchor_delta[0] * inverse_distance,
+        anchor_delta[1] * inverse_distance,
+        anchor_delta[2] * inverse_distance,
+    };
+
+    mjtNum body_velocity[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    mj_objectVelocity(m, d, mjOBJ_BODY, body_id, body_velocity, 0);
+    const mjtNum velocity_toward_anchor = direction[0] * body_velocity[3] + direction[1] * body_velocity[4] +
+                                          direction[2] * body_velocity[5];
+    const mjtNum tension = std::max<mjtNum>(0.0, per_attachment_stiffness * extension -
+                                                     per_attachment_damping * velocity_toward_anchor);
+    if (tension <= 0.0) {
+      continue;
+    }
+
+    const mjtNum force[3] = {
+        tension * direction[0],
+        tension * direction[1],
+        tension * direction[2],
+    };
+    const mjtNum torque[3] = {0.0, 0.0, 0.0};
+    mj_applyFT(m, d, force, torque, body_position, body_id, d->qfrc_passive);
   }
-
-  const mjtNum extension = distance - rest_length;
-  if (extension <= 0.0) {
-    return;
-  }
-
-  const mjtNum inverse_distance = 1.0 / distance;
-  const mjtNum direction[3] = {
-      anchor_delta[0] * inverse_distance,
-      anchor_delta[1] * inverse_distance,
-      anchor_delta[2] * inverse_distance,
-  };
-
-  mjtNum body_velocity[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-  mj_objectVelocity(m, d, mjOBJ_BODY, body_id, body_velocity, 0);
-  const mjtNum velocity_toward_anchor = direction[0] * body_velocity[3] + direction[1] * body_velocity[4] +
-                                        direction[2] * body_velocity[5];
-  const mjtNum tension = std::max<mjtNum>(0.0, kElasticBandStiffness * extension -
-                                                   kElasticBandDamping * velocity_toward_anchor);
-  if (tension <= 0.0) {
-    return;
-  }
-
-  const mjtNum force[3] = {
-      tension * direction[0],
-      tension * direction[1],
-      tension * direction[2],
-  };
-  const mjtNum torque[3] = {0.0, 0.0, 0.0};
-  mj_applyFT(m, d, force, torque, body_position, body_id, d->qfrc_passive);
 }
 
 void AdjustElasticBandRestLength(const mjtNum delta) {
