@@ -54,7 +54,7 @@ flowchart LR
   PY[pd_stand_y]
   A[七种参考动作]
   G[getup / getup2]
-  S[supine_to_stance]
+  S[supine_to_stance / prone_to_stance]
 
   PD --> W1
   PD --> W2
@@ -112,13 +112,13 @@ flowchart LR
 | 七种参考动作正常完成 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 状态机自动切换，来源是动作最后实际下发的命令 |
 | `getup`/`getup2` → 四种 walk（手动） | 是 | 目标 walk 默认姿势 | 无论起身是否成功，状态机允许人工切换；动态可行性由操作者负责判断 |
 | `getup`/`getup2` 成功 → `walk_leo`（自动） | 是 | `walk_leo` 默认姿势 | 保留当前自动目标 |
-| `supine_to_stance` 正常完成 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 由 `walk_leo` 入口完成衔接 |
+| `supine_to_stance` / `prone_to_stance` 轨迹播放结束 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 由 `walk_leo` 入口完成衔接；两种 SDK 起身的状态切换权限相同 |
 
 ### 3.2 本次未接入统一衔接的边
 
 以下目标状态没有接入本次共享入口衔接，继续使用其自身原有逻辑：
 
-- 切入 `passive`、`idle`、`pd_stand`、`pd_stand_x`、`pd_stand_y`、`getup`、`getup2`、`stance_to_supine`、`supine_to_stance`。
+- 切入 `passive`、`idle`、`pd_stand`、`pd_stand_x`、`pd_stand_y`、`getup`、`getup2`、`stance_to_supine`、`supine_to_stance`、`prone_to_stance`。
 - `pd_stand_x`/`pd_stand_y` 之间互切，以及切回 `passive`/`pd_stand`，使用各自的 PD 插值，不走本次策略入口衔接。
 - 参考动作手动切到 `passive` 或 `pd_stand`。
 - walk 手动切到 `passive`、`pd_stand`、`getup` 或 `stance_to_supine`。

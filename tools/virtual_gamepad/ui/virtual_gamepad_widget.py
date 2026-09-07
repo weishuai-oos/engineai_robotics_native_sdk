@@ -150,6 +150,8 @@ class VirtualGamepadWidget(QWidget):
             "dance: [RB, B]": ("RB", "B"),
             "supine_to_stance: [START, CROSS_X_UP]":
                 ("START", "CROSS_X_UP"),
+            "prone_to_stance: [START, CROSS_Y_RIGHT]":
+                ("START", "CROSS_Y_RIGHT"),
             "stance_to_supine: [START, CROSS_X_DOWN]":
                 ("START", "CROSS_X_DOWN"),
             "victory: [RB, Y]": ("RB", "Y"),

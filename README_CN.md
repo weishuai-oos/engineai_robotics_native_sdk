@@ -234,6 +234,7 @@ python3 tools/virtual_gamepad/virtual_gamepad.py
 | walk | 行走任务，机器人执行步态运动。 |
 | dance | 跳舞任务，机器人执行预设编排动作序列。 |
 | supine_to_stance | 起身任务。机器人从仰卧姿态过渡到站立姿态。|
+| prone_to_stance | 俯卧起身任务。使用官方策略和参考轨迹从俯卧姿态起身，按键为 START + 十字键右；状态切换权限与 supine_to_stance 相同。|
 | stance_to_supine | 躺倒任务。机器人从站立姿态过渡到仰卧姿态。|
 
 **状态机配置：** `assets/config/t800/task_motion/default.yaml`

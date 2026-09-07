@@ -32,6 +32,7 @@ tasks:
       - pd_stand_x
       - pd_stand_y
       - supine_to_stance
+      - prone_to_stance
       - getup
       - getup2
     key: [LB, RB]
@@ -56,6 +57,7 @@ tasks:
       - rl_left_hook_001_improved
       - rl_punch_example
       - supine_to_stance
+      - prone_to_stance
       - getup
       - getup2
       - pd_stand_x
@@ -84,6 +86,7 @@ tasks:
       - rl_left_hook_001_improved
       - rl_punch_example
       - supine_to_stance
+      - prone_to_stance
       - getup
       - getup2
     key: [CROSS_Y_LEFT, CROSS_Y_RIGHT, X]  # physical LT + X
@@ -110,6 +113,7 @@ tasks:
       - rl_left_hook_001_improved
       - rl_punch_example
       - supine_to_stance
+      - prone_to_stance
       - getup
       - getup2
     key: [CROSS_Y_LEFT, CROSS_Y_RIGHT, Y]  # physical LT + Y
@@ -333,6 +337,18 @@ tasks:
       - pd_stand
     auto_transition: walk_leo
     key: [START, CROSS_X_UP]
+
+  - motion: prone_to_stance
+    period: 0.01
+    runner:
+      - name: rl_mimic_trajectory_runner
+        enabled: true
+        param_tag: rl_prone_to_stance
+    manual_transition:
+      - passive
+      - pd_stand
+    auto_transition: walk_leo
+    key: [START, CROSS_Y_RIGHT]
 
   - motion: getup
     period: 0.02

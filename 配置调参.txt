@@ -106,13 +106,22 @@ terrain example 默认启用根目录中的 StdTarget 配置：mode.yaml 中 rob
 
 Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、entry_transition_duration、entry_transition_min_duration、entry_transition_max_duration、entry_transition_max_joint_velocity、entry_transition_max_joint_acceleration、entry_transition_reference_pose_weight、entry_transition_source_tracking_error 的含义和行为一致：进入步态时捕获来源状态最后实际下发的命令，并结合切换瞬间的实测关节状态生成短时过渡，减少从动作或其他步态切入时的突变。max_joint_velocity 与 max_joint_acceleration 共同用于估算自适应时长，其中速度还会用于 qd 裁剪；当前 acceleration 不是逐周期硬 qdd 限制。若某个 terrain profile 不包含这些字段，runner 使用代码中的安全默认值；建议实际使用的 profile 显式保留它们并与已验证的 Leo 配置一致。
 
-三、两套起身和主动倒地
+三、SDK / HoST 起身和主动倒地
 
-1. SDK 起身 supine_to_stance
+1. SDK 起身 supine_to_stance / prone_to_stance
 
+  仰卧起身（START + 十字键上）：
   配置：assets/config/t800/rl_supine_to_stance/default.yaml
   策略：assets/config/t800/rl_supine_to_stance/policy/
   轨迹：assets/config/t800/rl_supine_to_stance/trajectory/
+
+  俯卧起身（START + 十字键右）：
+  配置：assets/config/t800/rl_prone_to_stance/default.yaml
+  策略：assets/config/t800/rl_prone_to_stance/policy/T800_prone_to_stance.mnn
+  轨迹：assets/config/t800/rl_prone_to_stance/trajectory/T800_prone_to_stance.csv
+  来源记录：assets/config/t800/rl_prone_to_stance/resource_manifest.json
+
+两者共用 rl_mimic_trajectory_runner，每个 motion 创建独立实例；均为 100 Hz、25 关节、430 维输入，残差目标为 q_ref + 0.25 × action。俯卧资源来自官方 rl_mimic_prone_to_stance 的 prone_to_stance_lm 配置，保留其非零 default_joint_q、joint_kp_lm/joint_kd_lm 数值及限矩参数；不能直接套用仰卧的默认姿态或 PD 增益。俯卧 CSV 为 150 个数据帧，traj_frame=[10,-55] 选取零基 10–95 帧，csv_dt=0.033333，插值到 100 Hz 后约 2.83 秒，入口过渡 0.1 秒。轨迹播放结束后按 task_motion 自动进入 walk_leo，未额外添加站稳判断。
 
 2. HoST 起身 getup
 
