@@ -58,6 +58,7 @@ class RlWalkingLeolabExampleParam : public BasicParam {
   double LOAD_PARAM(remote_command_cut_off_frequency);
   double LOAD_PARAM(remote_command_activation_threshold);
   double LOAD_PARAM(remote_command_release_threshold);
+  std::optional<double> LOAD_PARAM(remote_command_activation_debounce_sec);
   double LOAD_PARAM(remote_command_translation_axis_switch_margin);
   double LOAD_PARAM(remote_command_reversal_pause_sec);
   double LOAD_PARAM(remote_command_tactical_front_offset_deg);
@@ -82,6 +83,7 @@ class RlWalkingLeolabExampleParam : public BasicParam {
     LOAD_PARAM(remote_command_cut_off_frequency);
     LOAD_PARAM(remote_command_activation_threshold);
     LOAD_PARAM(remote_command_release_threshold);
+    LOAD_PARAM(remote_command_activation_debounce_sec);
     LOAD_PARAM(remote_command_translation_axis_switch_margin);
     LOAD_PARAM(remote_command_reversal_pause_sec);
     LOAD_PARAM(remote_command_tactical_front_offset_deg);

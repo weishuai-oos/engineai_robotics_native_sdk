@@ -21,7 +21,11 @@ void FixedRemoteCommandShaper::Configure(const FixedRemoteCommandShaperConfig& c
 
 void FixedRemoteCommandShaper::Reset() {
   active_translation_axis_ = TranslationAxis::kNone;
+  translation_activation_candidate_ = TranslationAxis::kNone;
+  translation_activation_elapsed_sec_ = 0.0;
   yaw_active_ = false;
+  yaw_activation_candidate_sign_ = 0;
+  yaw_activation_elapsed_sec_ = 0.0;
   last_nonzero_sign_.setZero();
   zero_elapsed_sec_.setConstant(config_.reversal_pause_sec);
 }
@@ -62,6 +66,8 @@ void FixedRemoteCommandShaper::UpdateTranslationAxis(const Eigen::Vector3d& raw_
     } else if (lateral_magnitude >= config_.activation_threshold &&
                lateral_magnitude > forward_magnitude + config_.translation_axis_switch_margin) {
       active_translation_axis_ = TranslationAxis::kLateral;
+      translation_activation_candidate_ = TranslationAxis::kNone;
+      translation_activation_elapsed_sec_ = 0.0;
     }
   } else if (active_translation_axis_ == TranslationAxis::kLateral) {
     if (lateral_magnitude <= config_.release_threshold) {
@@ -69,23 +75,73 @@ void FixedRemoteCommandShaper::UpdateTranslationAxis(const Eigen::Vector3d& raw_
     } else if (forward_magnitude >= config_.activation_threshold &&
                forward_magnitude > lateral_magnitude + config_.translation_axis_switch_margin) {
       active_translation_axis_ = TranslationAxis::kForward;
+      translation_activation_candidate_ = TranslationAxis::kNone;
+      translation_activation_elapsed_sec_ = 0.0;
     }
   }
 
   if (active_translation_axis_ != TranslationAxis::kNone) return;
   if (forward_magnitude < config_.activation_threshold && lateral_magnitude < config_.activation_threshold) {
+    translation_activation_candidate_ = TranslationAxis::kNone;
+    translation_activation_elapsed_sec_ = 0.0;
     return;
   }
-  active_translation_axis_ = forward_magnitude >= lateral_magnitude ? TranslationAxis::kForward
-                                                                    : TranslationAxis::kLateral;
+
+  const TranslationAxis candidate =
+      forward_magnitude >= lateral_magnitude ? TranslationAxis::kForward : TranslationAxis::kLateral;
+  if (candidate != translation_activation_candidate_) {
+    translation_activation_candidate_ = candidate;
+    translation_activation_elapsed_sec_ = 0.0;
+  }
+  if (config_.activation_debounce_sec <= 0.0) {
+    active_translation_axis_ = candidate;
+    translation_activation_candidate_ = TranslationAxis::kNone;
+    translation_activation_elapsed_sec_ = 0.0;
+    return;
+  }
+
+  translation_activation_elapsed_sec_ += config_.control_dt;
+  if (translation_activation_elapsed_sec_ >= config_.activation_debounce_sec) {
+    active_translation_axis_ = candidate;
+    translation_activation_candidate_ = TranslationAxis::kNone;
+    translation_activation_elapsed_sec_ = 0.0;
+  }
 }
 
 void FixedRemoteCommandShaper::UpdateYawActive(double raw_yaw) {
   const double yaw_magnitude = std::abs(raw_yaw);
   if (yaw_active_) {
-    if (yaw_magnitude <= config_.release_threshold) yaw_active_ = false;
-  } else if (yaw_magnitude >= config_.activation_threshold) {
+    if (yaw_magnitude <= config_.release_threshold) {
+      yaw_active_ = false;
+      yaw_activation_candidate_sign_ = 0;
+      yaw_activation_elapsed_sec_ = 0.0;
+    }
+    return;
+  }
+
+  if (yaw_magnitude < config_.activation_threshold) {
+    yaw_activation_candidate_sign_ = 0;
+    yaw_activation_elapsed_sec_ = 0.0;
+    return;
+  }
+
+  const int candidate_sign = Sign(raw_yaw);
+  if (candidate_sign != yaw_activation_candidate_sign_) {
+    yaw_activation_candidate_sign_ = candidate_sign;
+    yaw_activation_elapsed_sec_ = 0.0;
+  }
+  if (config_.activation_debounce_sec <= 0.0) {
     yaw_active_ = true;
+    yaw_activation_candidate_sign_ = 0;
+    yaw_activation_elapsed_sec_ = 0.0;
+    return;
+  }
+
+  yaw_activation_elapsed_sec_ += config_.control_dt;
+  if (yaw_activation_elapsed_sec_ >= config_.activation_debounce_sec) {
+    yaw_active_ = true;
+    yaw_activation_candidate_sign_ = 0;
+    yaw_activation_elapsed_sec_ = 0.0;
   }
 }
 

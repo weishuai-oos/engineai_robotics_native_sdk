@@ -96,6 +96,7 @@ bool RlWalkingLeolabExampleRunner::Enter() {
       .speed_neg = param_->command_scale_neg,
       .activation_threshold = param_->remote_command_activation_threshold,
       .release_threshold = param_->remote_command_release_threshold,
+      .activation_debounce_sec = param_->remote_command_activation_debounce_sec.value_or(0.04),
       .translation_axis_switch_margin = param_->remote_command_translation_axis_switch_margin,
       .reversal_pause_sec = param_->remote_command_reversal_pause_sec,
       .control_dt = param_->control_dt,
@@ -183,6 +184,11 @@ bool RlWalkingLeolabExampleRunner::ValidateParam() const {
       param_->remote_command_release_threshold < 0.0 ||
       param_->remote_command_release_threshold >= param_->remote_command_activation_threshold) {
     LOG(ERROR) << "[RlWalkingLeolabExampleRunner] command thresholds require 0 <= release < activation <= 1";
+    return false;
+  }
+  const double activation_debounce_sec = param_->remote_command_activation_debounce_sec.value_or(0.04);
+  if (!std::isfinite(activation_debounce_sec) || activation_debounce_sec < 0.0) {
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] command activation debounce must be finite and >= 0";
     return false;
   }
   if (!std::isfinite(param_->remote_command_translation_axis_switch_margin) ||

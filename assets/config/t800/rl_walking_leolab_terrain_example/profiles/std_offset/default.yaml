@@ -223,6 +223,9 @@ remote_command_cut_off_frequency: 0.6
 # at activation_threshold and returns to exact zero below release_threshold.
 remote_command_activation_threshold: 0.20
 remote_command_release_threshold: 0.12
+# Ignore a brief stick spike across the activation threshold. Release remains
+# immediate, so this does not delay stopping or the existing reversal guard.
+remote_command_activation_debounce_sec: 0.04
 # Keep the selected forward/lateral axis until the other axis is clearly larger.
 remote_command_translation_axis_switch_margin: 0.10
 # A direct sign reversal must remain at zero for this duration. Natural neutral

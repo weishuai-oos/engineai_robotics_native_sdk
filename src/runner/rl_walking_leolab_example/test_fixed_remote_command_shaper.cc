@@ -7,13 +7,14 @@
 namespace runner {
 namespace {
 
-FixedRemoteCommandShaper MakeShaper(double reversal_pause_sec = 0.1) {
+FixedRemoteCommandShaper MakeShaper(double reversal_pause_sec = 0.1, double activation_debounce_sec = 0.0) {
   FixedRemoteCommandShaper shaper;
   shaper.Configure({
       .speed_pos = Eigen::Vector3d(0.8, 0.7, 1.0),
       .speed_neg = Eigen::Vector3d(0.6, 0.5, 0.9),
       .activation_threshold = 0.2,
       .release_threshold = 0.12,
+      .activation_debounce_sec = activation_debounce_sec,
       .translation_axis_switch_margin = 0.1,
       .reversal_pause_sec = reversal_pause_sec,
       .control_dt = 0.02,
@@ -35,6 +36,24 @@ TEST(FixedRemoteCommandShaperTest, UsesActivationReleaseAndExactZero) {
   EXPECT_TRUE(shaper.Update(Eigen::Vector3d(0.21, 0.0, 0.21)).isApprox(Eigen::Vector3d(0.8, 0.0, 1.0)));
   EXPECT_TRUE(shaper.Update(Eigen::Vector3d(0.13, 0.0, 0.13)).isApprox(Eigen::Vector3d(0.8, 0.0, 1.0)));
   EXPECT_TRUE(shaper.Update(Eigen::Vector3d(0.11, 0.0, 0.11)).isZero(0.0));
+}
+
+TEST(FixedRemoteCommandShaperTest, RequiresStableStickActivationButReleasesImmediately) {
+  auto shaper = MakeShaper(0.1, 0.04);
+
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d(0.8, 0.0, 0.0)).isZero(0.0));
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d::Zero()).isZero(0.0));
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d(0.8, 0.0, 0.0)).isZero(0.0));
+  EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(0.8, 0.0, 0.0)).x(), 0.8);
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d::Zero()).isZero(0.0));
+}
+
+TEST(FixedRemoteCommandShaperTest, DebouncesYawActivationIndependently) {
+  auto shaper = MakeShaper(0.1, 0.04);
+
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d(0.0, 0.0, 0.8)).isZero(0.0));
+  EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(0.0, 0.0, 0.8)).z(), 1.0);
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d::Zero()).isZero(0.0));
 }
 
 TEST(FixedRemoteCommandShaperTest, UsesMarginBeforeSwitchingTranslationAxis) {

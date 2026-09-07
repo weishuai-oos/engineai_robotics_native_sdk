@@ -67,6 +67,9 @@ void InputCommandArbiterRunner::Run() {
     }
   }
 
+  // Keep the raw hardware publisher unchanged for diagnostics/ROS2, while the
+  // command consumed by motion runners receives debounced digital inputs.
+  result = gamepad_input_debouncer_.Update(result);
   data_store_->gamepad_info.Set(result);
 }
 

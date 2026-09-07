@@ -77,7 +77,8 @@ contact:
       - [0.126295, -0.053555, 0]
       - [-0.126295, -0.053555, 0]
       - [-0.126295, 0.053555, 0]
-    friction: 0.8
+    # Nominal foot-ground friction coefficient; tune this value for the real floor.
+    friction: 1.5
     confidence_interval: 0.2
   - name: right_foot_contact
     belonging: right_leg
@@ -88,7 +89,8 @@ contact:
       - [0.126295, -0.053555, 0]
       - [-0.126295, -0.053555, 0]
       - [-0.126295, 0.053555, 0]
-    friction: 0.8
+    # Nominal foot-ground friction coefficient; tune this value for the real floor.
+    friction: 1.5
     confidence_interval: 0.2
   - name: left_elbow_end_contact
     belonging: left_arm

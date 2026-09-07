@@ -9,6 +9,9 @@ struct FixedRemoteCommandShaperConfig {
   Eigen::Vector3d speed_neg = Eigen::Vector3d::Ones();
   double activation_threshold = 0.2;
   double release_threshold = 0.12;
+  // Require the stick to remain above activation_threshold before issuing a
+  // fixed-speed command. Zero preserves the historical one-sample behavior.
+  double activation_debounce_sec = 0.0;
   double translation_axis_switch_margin = 0.1;
   double reversal_pause_sec = 0.1;
   double control_dt = 0.02;
@@ -31,7 +34,11 @@ class FixedRemoteCommandShaper {
 
   FixedRemoteCommandShaperConfig config_;
   TranslationAxis active_translation_axis_ = TranslationAxis::kNone;
+  TranslationAxis translation_activation_candidate_ = TranslationAxis::kNone;
+  double translation_activation_elapsed_sec_ = 0.0;
   bool yaw_active_ = false;
+  int yaw_activation_candidate_sign_ = 0;
+  double yaw_activation_elapsed_sec_ = 0.0;
   Eigen::Vector3i last_nonzero_sign_ = Eigen::Vector3i::Zero();
   Eigen::Vector3d zero_elapsed_sec_ = Eigen::Vector3d::Zero();
 };
