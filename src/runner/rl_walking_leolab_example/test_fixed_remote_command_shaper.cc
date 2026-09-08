@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cmath>
 #include <limits>
 #include <random>
 
@@ -133,6 +135,62 @@ TEST(FixedRemoteCommandShaperTest, TranslationStartsWithBoundedAccelerationAndRe
   }
   EXPECT_DOUBLE_EQ(previous, 0.8);
   EXPECT_DOUBLE_EQ(shaper.TargetCommand().x(), 0.8);
+}
+
+FixedRemoteCommandShaper MakeFastFixedShaper(bool terrain) {
+  FixedRemoteCommandShaper shaper;
+  EXPECT_TRUE(shaper.Configure({
+      .speed_pos = terrain ? Eigen::Vector3d(1.0, 0.8, 1.5) : Eigen::Vector3d(0.5, 0.5, 1.0),
+      .speed_neg = terrain ? Eigen::Vector3d(0.8, 0.8, 1.5) : Eigen::Vector3d(0.5, 0.5, 1.0),
+      .activation_debounce_sec = 0.04,
+      .translation_proportional = false,
+      .translation_slew_enabled = true,
+      .translation_acceleration = 5.0,
+      .translation_deceleration = 2.0,
+  }));
+  return shaper;
+}
+
+TEST(FixedRemoteCommandShaperTest, FastFixedTranslationUsesSameTargetForLightAndFullSticks) {
+  for (bool terrain : {false, true}) {
+    for (int axis : {0, 1}) {
+      for (double sign : {-1.0, 1.0}) {
+        for (double magnitude : {0.21, 1.0}) {
+          auto shaper = MakeFastFixedShaper(terrain);
+          Eigen::Vector3d stick = Eigen::Vector3d::Zero();
+          stick(axis) = sign * magnitude;
+          const double target = terrain ? (axis == 0 && sign > 0.0 ? 1.0 : 0.8) : 0.5;
+          EXPECT_TRUE(shaper.Update(stick).isZero(0.0));  // Existing activation confirmation.
+          for (int step = 1; step <= 10; ++step) {
+            const auto output = shaper.Update(stick);
+            EXPECT_NEAR(output(axis), sign * std::min(target, step * 0.1), 1e-12);
+            EXPECT_DOUBLE_EQ(output(1 - axis), 0.0);
+            EXPECT_DOUBLE_EQ(shaper.TargetCommand()(axis), sign * target);
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST(FixedRemoteCommandShaperTest, FastStartupRetainsOriginalBrakingRateAndIndependentYaw) {
+  for (bool terrain : {false, true}) {
+    auto shaper = MakeFastFixedShaper(terrain);
+    const double target = terrain ? 1.0 : 0.5;
+    const double yaw = terrain ? 1.5 : 1.0;
+    const Eigen::Vector3d stick(1.0, 0.0, 1.0);
+    EXPECT_TRUE(shaper.Update(stick).isZero(0.0));
+    for (int step = 1; step <= 10; ++step) {
+      EXPECT_DOUBLE_EQ(shaper.Update(stick).z(), yaw);  // Yaw does not ramp.
+    }
+    const int braking_steps = static_cast<int>(std::ceil(target / 0.04));
+    for (int step = 1; step <= braking_steps; ++step) {
+      const auto output = shaper.Update(Eigen::Vector3d::Zero());
+      EXPECT_NEAR(output.x(), std::max(0.0, target - step * 0.04), 1e-12);
+      EXPECT_DOUBLE_EQ(output.z(), 0.0);  // Yaw still releases immediately.
+    }
+    EXPECT_TRUE(shaper.Update(Eigen::Vector3d::Zero()).isZero(0.0));
+  }
 }
 
 TEST(FixedRemoteCommandShaperTest, ReleaseBrakesMonotonicallyToExactZeroInFiniteTime) {

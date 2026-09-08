@@ -230,22 +230,22 @@ remote_command_translation_axis_switch_margin: 0.10
 # time counts toward the pause AFTER braking; yaw keeps its original guard.
 remote_command_reversal_pause_sec: 0.10
 
-# Proportional translation: active stick (0.20, 1.00] -> target (0.50, max].
+# Fixed translation: an activated stick requests 0.50 m/s in any direction.
 # User MuJoCo test: 0.20 m/s cannot walk, 0.40 marginal, 0.50 usable. This is a
-# target floor, NOT a proven hardware-safe speed; startup/braking cross it.
-remote_command_translation_proportional: true
-remote_command_translation_min_speed: 0.50
+# target, NOT a proven hardware-safe speed; startup/braking cross lower speeds.
+remote_command_translation_proportional: false
+remote_command_translation_min_speed: 0.0
 remote_command_translation_slew_enabled: true
-# m/s^2; at 50 Hz these bound each step to +0.02 / -0.04 m/s in magnitude.
-remote_command_translation_acceleration: 1.0
+# Fast startup only: +0.10 m/s per 50 Hz step; braking stays at -0.04 m/s.
+remote_command_translation_acceleration: 5.0
 remote_command_translation_deceleration: 2.0
 
 # Raw gamepad x/y are tactical-frame commands; the runner rotates them into
 # the root-yaw observation frame used by the policy, matching leo_lab Play.
 remote_command_tactical_front_offset_deg: 37.0
-# Maximum tactical translation speeds and unchanged fixed yaw speed in
+# Fixed tactical translation speeds and unchanged fixed yaw speed in
 # [m/s, m/s, rad/s]. Positive and negative directions can be tuned separately.
-command_scale_pos: [0.80, 0.80, 1.00]
-command_scale_neg: [0.80, 0.80, 1.00]
+command_scale_pos: [0.50, 0.50, 1.00]
+command_scale_neg: [0.50, 0.50, 1.00]
 
 imu_install_bias: [0.0, 0.0, 0.0]

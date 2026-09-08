@@ -234,8 +234,8 @@ remote_command_reversal_pause_sec: 0.10
 remote_command_translation_proportional: false
 remote_command_translation_min_speed: 0.0
 remote_command_translation_slew_enabled: true
-# m/s^2; at 50 Hz these bound each step to +0.02 / -0.04 m/s in magnitude.
-remote_command_translation_acceleration: 1.0
+# Fast startup only: +0.10 m/s per 50 Hz step; braking stays at -0.04 m/s.
+remote_command_translation_acceleration: 5.0
 remote_command_translation_deceleration: 2.0
 
 # Raw gamepad x/y are tactical-frame commands; the runner rotates them into
