@@ -1,5 +1,5 @@
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.12)
 project(interface_protocol)
 
 option(GEN_MESSAGE "Generate ROS message files" ON)
@@ -13,7 +13,7 @@ if(GEN_MESSAGE)
     find_package(geometry_msgs REQUIRED)
     find_package(action_msgs REQUIRED)
     # 使用 GLOB 查找文件
-    file(GLOB MSG_FILES "msg/*.msg")
+    file(GLOB MSG_FILES CONFIGURE_DEPENDS "msg/*.msg")
     file(GLOB SRV_FILES "srv/*.srv")
     file(GLOB ACTION_FILES "action/*.action")
 

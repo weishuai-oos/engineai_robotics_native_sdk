@@ -18,6 +18,8 @@ InputCommandArbiterRunner::InputCommandArbiterRunner(std::string_view name,
   selected_hardware_idx_ = -1;
   hardware_input_publisher_ =
       data::VariantStore::GetInstance().CreatePublisher<data::GamepadInfo>("hardware/gamepad_info");
+  input_available_publisher_ =
+      data::VariantStore::GetInstance().CreatePublisher<bool>("control/input_available");
   for (int i = 0; i < static_cast<int>(hardware_sources_.size()); ++i) {
     if (!hardware_sources_[i]->Init()) {
       LOG(WARNING) << "InputCommandArbiterRunner: Init failed for hardware source '"
@@ -60,10 +62,12 @@ void InputCommandArbiterRunner::Run() {
   // adapters must not overwrite it for ROS2 and other hardware consumers.
   hardware_input_publisher_.Publish(result);
 
+  bool input_available = active_hardware_idx >= 0;
   for (auto& source : override_sources_) {
     static_cast<void>(source->Run());
     if (source->IsActive()) {
       source->Process(result);
+      input_available = true;
     }
   }
 
@@ -71,6 +75,9 @@ void InputCommandArbiterRunner::Run() {
   // command consumed by motion runners receives debounced digital inputs.
   result = gamepad_input_debouncer_.Update(result);
   data_store_->gamepad_info.Set(result);
+  // Distinguish a live centered stick from lost input, including virtual input
+  // whose hardware_connected flag intentionally stays false.
+  input_available_publisher_.Publish(input_available);
 }
 
 void InputCommandArbiterRunner::RegisterHardwareSource(const std::string& name,

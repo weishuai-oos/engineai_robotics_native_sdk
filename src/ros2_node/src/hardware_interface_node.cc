@@ -1,4 +1,7 @@
 #include "ros2_node/hardware_interface_node.h"
+
+#include <chrono>
+
 #include "math/constants.h"
 #include "ros2_node/ros2_message_convertor.h"
 #include "variant_store/variant_store.h"
@@ -13,6 +16,8 @@ bool HardwareInterfaceNode::Init() {
   gamepad_subscriber_ = variant_store.CreateSubscriber<data::GamepadInfo>("hardware/gamepad_info");
   motor_debug_subscriber_ = variant_store.CreateSubscriber<data::MotorDebug>("hardware/motor_debug");
   power_info_subscriber_ = variant_store.CreateSubscriber<data::PowerInfo>("hardware/power_info");
+  leo_command_diagnostics_subscriber_ =
+      variant_store.CreateSubscriber<data::LeoCommandDiagnostics>("motion/leo_command_diagnostics");
 
   if (!CreatePublisher() || !CreateSubscription()) {
     return false;
@@ -68,6 +73,7 @@ void HardwareInterfaceNode::TimerCallback() {
   PublishMotorCommand();
   PublishJointState();
   PublishJointCommandFeedback();
+  PublishLeoCommandDiagnostics();
 }
 
 bool HardwareInterfaceNode::CreateTimer() {  // 检查参数是否存在
@@ -162,6 +168,11 @@ bool HardwareInterfaceNode::CreatePublisher() {
       joint_command_feedback_pub_ = this->create_publisher<interface_protocol::msg::JointCommand>(
           publish_topics.at("joint_command_feedback"), qos);
       LOG(INFO) << "Create " << publish_topics.at("joint_command_feedback") << " publisher success";
+    }
+    if (publish_topics.contains("leo_command_diagnostics")) {
+      leo_command_diagnostics_pub_ = this->create_publisher<interface_protocol::msg::LeoCommandDiagnostics>(
+          publish_topics.at("leo_command_diagnostics"), qos);
+      LOG(INFO) << "Create " << publish_topics.at("leo_command_diagnostics") << " publisher success";
     }
     return true;
   } catch (const std::exception& e) {
@@ -401,6 +412,34 @@ void HardwareInterfaceNode::PublishJointCommandFeedback() {
   // Sets header and publishes message
   joint_command_feedback_msg_->header.stamp = this->now();
   joint_command_feedback_pub_->publish(*joint_command_feedback_msg_);
+}
+
+void HardwareInterfaceNode::PublishLeoCommandDiagnostics() {
+  // Poll with the main timer, but publish only new runner snapshots (50 Hz).
+  // Re-stamping an unchanged snapshot would disguise a stalled source.
+  if (!leo_command_diagnostics_pub_ || !leo_command_diagnostics_subscriber_.IsValid()) {
+    return;
+  }
+
+  const auto diagnostics = leo_command_diagnostics_subscriber_.Get();
+  if (!diagnostics || diagnostics->source_monotonic_ns <= last_leo_command_source_monotonic_ns_) {
+    return;
+  }
+
+  const auto now = std::chrono::steady_clock::now().time_since_epoch();
+  const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
+  leo_command_diagnostics_msg_.header.stamp = this->now();
+  leo_command_diagnostics_msg_.source_monotonic_ns = diagnostics->source_monotonic_ns;
+  leo_command_diagnostics_msg_.source_param_tag = diagnostics->source_param_tag;
+  leo_command_diagnostics_msg_.active = diagnostics->active;
+  leo_command_diagnostics_msg_.raw_stick = diagnostics->raw_stick;
+  leo_command_diagnostics_msg_.target_tactical = diagnostics->target_tactical;
+  leo_command_diagnostics_msg_.shaped_tactical = diagnostics->shaped_tactical;
+  leo_command_diagnostics_msg_.policy_command = diagnostics->policy_command;
+  leo_command_diagnostics_msg_.source_age_ms =
+      static_cast<double>(now_ns - diagnostics->source_monotonic_ns) / 1'000'000.0;
+  leo_command_diagnostics_pub_->publish(leo_command_diagnostics_msg_);
+  last_leo_command_source_monotonic_ns_ = diagnostics->source_monotonic_ns;
 }
 
 }  // namespace ros2

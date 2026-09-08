@@ -33,6 +33,10 @@ LCM_TASK_STATE_HASH = 0x104561AA026A2B0E
 DEFAULT_LCM_URL = "udpm://239.255.76.67:7667?ttl=0"
 IMU_GRAVITY_MPS2 = 9.80665
 WALK_MOTIONS = frozenset({"walk", "walk_custom", "walk_leo", "walk_leo_terrain"})
+LEO_MOTION_PARAM_TAGS = {
+    "walk_leo": "rl_walking_leolab_example",
+    "walk_leo_terrain": "rl_walking_leolab_terrain_example",
+}
 POSTURE_EVENT_TYPES = frozenset(
     {
         "model_position_limit_violation",
@@ -75,6 +79,62 @@ def vector_norm(values: list[Optional[float]]) -> Optional[float]:
     if len(values) < 3 or any(value is None for value in values[:3]):
         return None
     return math.sqrt(sum(float(value) ** 2 for value in values[:3]))
+
+
+def leo_command_diagnostics_record(message: Any, monotonic_ns: int, ros_time_ns: int) -> dict[str, Any]:
+    """Record the runner's command speed chain without mixing clock domains."""
+    return {
+        "receive_monotonic_ns": monotonic_ns,
+        "receive_ros_time_ns": ros_time_ns,
+        "ros_stamp_ns": message_stamp_ns(message),
+        "source_monotonic_ns": int(getattr(message, "source_monotonic_ns", 0)),
+        "source_param_tag": str(getattr(message, "source_param_tag", "")),
+        "active": bool(getattr(message, "active", False)),
+        "raw_stick": finite_float_list(getattr(message, "raw_stick", [])),
+        "target_tactical": finite_float_list(getattr(message, "target_tactical", [])),
+        "shaped_tactical": finite_float_list(getattr(message, "shaped_tactical", [])),
+        "policy_command": finite_float_list(getattr(message, "policy_command", [])),
+        "source_age_ms": finite_float(getattr(message, "source_age_ms", None)),
+    }
+
+
+def is_new_leo_command_diagnostics(record: dict[str, Any], previous_source_ns: Optional[int]) -> bool:
+    source_ns = record.get("source_monotonic_ns")
+    return isinstance(source_ns, int) and source_ns > (previous_source_ns or 0)
+
+
+def leo_command_diagnostics_freshness(
+    record: Optional[dict[str, Any]], sample_monotonic_ns: int,
+    max_age_ms: Optional[float] = 100.0, motion: Optional[str] = None,
+) -> dict[str, Any]:
+    if record is None:
+        return {"available": False, "fresh": False, "age_ms": None}
+    receive_ns = record.get("receive_monotonic_ns")
+    receive_age_ms = (
+        (sample_monotonic_ns - receive_ns) / 1_000_000.0
+        if isinstance(receive_ns, int) and receive_ns >= 0
+        else None
+    )
+    source_age_ms = finite_float(record.get("source_age_ms"))
+    # The publisher measures source age on its own host. Add elapsed receipt
+    # time on this host; never subtract two machines' monotonic timestamps.
+    # Transport delay is not measured, so this is an age estimate, not a bound.
+    valid_ages = (receive_age_ms is not None and receive_age_ms >= 0.0
+                  and source_age_ms is not None and source_age_ms >= 0.0)
+    age_ms = receive_age_ms + source_age_ms if valid_ages else None
+    expected_tag = LEO_MOTION_PARAM_TAGS.get(motion)
+    motion_matches = expected_tag is not None and record.get("source_param_tag") == expected_tag
+    active = record.get("active") is True
+    return {
+        "available": True,
+        "fresh": (active and motion_matches and age_ms is not None
+                  and (max_age_ms is None or age_ms <= max_age_ms)),
+        "active": active,
+        "motion_matches": motion_matches,
+        "age_ms": age_ms,
+        "receive_age_ms": receive_age_ms,
+        "source_age_ms": source_age_ms,
+    }
 
 
 def quaternion_tilt_rad(quaternion: list[Optional[float]]) -> Optional[float]:
@@ -250,7 +310,7 @@ class SafetyRecorder:
         self,
         node: Any,
         args: argparse.Namespace,
-        message_types: tuple[Any, Any, Any, Any, Any, Any],
+        message_types: tuple[Any, Any, Any, Any, Any, Any, Any],
         joint_names: list[str],
         limits: dict[str, dict[str, Optional[float]]],
         qos_profile: Any,
@@ -311,6 +371,7 @@ class SafetyRecorder:
                 "power_info": args.power_info_topic,
                 "motion_state": args.motion_topic,
                 "imu_info": args.imu_topic,
+                "leo_command_diagnostics": args.leo_command_diagnostics_topic,
             },
             "lcm": {
                 "enabled": not args.no_lcm,
@@ -323,6 +384,7 @@ class SafetyRecorder:
                 "expected_joint_rate_hz": args.expected_joint_rate,
                 "gap_factor": args.gap_factor,
                 "imu_max_age_ms": args.imu_max_age_ms,
+                "leo_command_max_age_ms": args.leo_command_max_age_ms,
                 "posture_tilt_threshold_deg": args.posture_tilt_threshold_deg,
                 "posture_fallen_threshold_deg": args.posture_fallen_threshold_deg,
                 "posture_angular_speed_threshold_rad_s": args.posture_angular_speed_threshold,
@@ -342,6 +404,7 @@ class SafetyRecorder:
             power_info_type,
             motion_state_type,
             imu_info_type,
+            leo_command_diagnostics_type,
         ) = message_types
         self.subscriptions = [
             node.create_subscription(joint_state_type, args.joint_state_topic, self.on_joint_state, qos_profile),
@@ -355,6 +418,15 @@ class SafetyRecorder:
         if motion_state_type is not None:
             self.subscriptions.append(
                 node.create_subscription(motion_state_type, args.motion_topic, self.on_motion_state, qos_profile)
+            )
+        if leo_command_diagnostics_type is not None:
+            self.subscriptions.append(
+                node.create_subscription(
+                    leo_command_diagnostics_type,
+                    args.leo_command_diagnostics_topic,
+                    self.on_leo_command_diagnostics,
+                    qos_profile,
+                )
             )
 
         self.duration_deadline_ns = (
@@ -427,6 +499,11 @@ class SafetyRecorder:
                 if self.motion_time_ns is None
                 else (monotonic_ns - self.motion_time_ns) / 1_000_000.0
             )
+            leo_diagnostics = self.copy_latest("leo_command_diagnostics")
+            if leo_diagnostics is not None:
+                leo_diagnostics["freshness"] = leo_command_diagnostics_freshness(
+                    leo_diagnostics, monotonic_ns, self.args.leo_command_max_age_ms, self.motion
+                )
             sample = {
                 "schema_version": 1,
                 "sample_index": self.sample_count,
@@ -445,6 +522,7 @@ class SafetyRecorder:
                 "motor_debug": self.copy_latest("motor_debug"),
                 "power_info": self.copy_latest("power_info"),
                 "imu_info": self.copy_latest("imu_info"),
+                "leo_command_diagnostics": leo_diagnostics,
             }
             self.last_sample = sample
             self.write_line(self.samples_file, sample)
@@ -514,6 +592,17 @@ class SafetyRecorder:
         with self.lock:
             if not self.closed:
                 self.latest["imu_info"] = imu_record(message, monotonic_ns, ros_time_ns)
+
+    def on_leo_command_diagnostics(self, message: Any) -> None:
+        monotonic_ns, ros_time_ns = self.receipt_times()
+        record = leo_command_diagnostics_record(message, monotonic_ns, ros_time_ns)
+        with self.lock:
+            if self.closed:
+                return
+            previous = self.latest.get("leo_command_diagnostics")
+            previous_source_ns = previous.get("source_monotonic_ns") if previous else None
+            if is_new_leo_command_diagnostics(record, previous_source_ns):
+                self.latest["leo_command_diagnostics"] = record
 
     def on_motion_state(self, message: Any) -> None:
         _, ros_time_ns = self.receipt_times()
@@ -635,6 +724,20 @@ class SafetyRecorder:
             "quaternion_wxyz": imu.get("quaternion_wxyz"),
             "linear_acceleration_mps2": imu.get("linear_acceleration_mps2"),
             "angular_velocity_rad_s": imu.get("angular_velocity_rad_s"),
+        }
+
+    def add_leo_command_evidence(self, details: dict[str, Any], sample: dict[str, Any]) -> None:
+        diagnostics = sample.get("leo_command_diagnostics")
+        details["leo_command_diagnostics"] = {
+            **(diagnostics or {}),
+            "freshness": leo_command_diagnostics_freshness(
+                diagnostics,
+                int(sample["receive_monotonic_ns"]),
+                self.args.leo_command_max_age_ms,
+                sample.get("motion"),
+            ),
+            "command_provenance": "runner_speed_chain_diagnostics",
+            "raw_actor_action": "not_recorded",
         }
 
     def update_motion(self, name: str, source: str, available: list[str], ros_time_ns: int) -> None:
@@ -944,6 +1047,7 @@ class SafetyRecorder:
 
         for details in conditions.values():
             self.add_command_evidence(details, sample)
+            self.add_leo_command_evidence(details, sample)
             if details.get("event_type") in POSTURE_EVENT_TYPES:
                 self.add_posture_evidence(details, sample)
         for key, details in conditions.items():
@@ -1053,6 +1157,15 @@ def build_parser(repo_root: Path) -> argparse.ArgumentParser:
     parser.add_argument("--power-info-topic", default="/hardware/power_info")
     parser.add_argument("--imu-topic", default="/hardware/imu_info")
     parser.add_argument("--motion-topic", default="/motion/motion_state")
+    parser.add_argument(
+        "--leo-command-diagnostics-topic", default="/motion/leo_command_diagnostics"
+    )
+    parser.add_argument(
+        "--leo-command-max-age-ms",
+        type=positive_float,
+        default=100.0,
+        help="source plus receipt age limit; current evidence also requires active/matching Leo motion",
+    )
     parser.add_argument("--duration", type=positive_float, default=None)
     parser.add_argument("--position-margin", type=non_negative_float, default=0.02)
     parser.add_argument("--tracking-error-threshold", type=non_negative_float, default=0.0)
@@ -1163,6 +1276,10 @@ def main() -> int:
             from interface_protocol.msg import MotionState
         except ImportError:
             MotionState = None
+        try:
+            from interface_protocol.msg import LeoCommandDiagnostics
+        except ImportError:
+            LeoCommandDiagnostics = None
         from rclpy.node import Node
         from rclpy.qos import QoSDurabilityPolicy, QoSProfile, QoSReliabilityPolicy
     except ImportError as error:
@@ -1183,7 +1300,15 @@ def main() -> int:
         recorder = SafetyRecorder(
             node,
             args,
-            (JointState, JointCommand, MotorDebug, PowerInfo, MotionState, ImuInfo),
+            (
+                JointState,
+                JointCommand,
+                MotorDebug,
+                PowerInfo,
+                MotionState,
+                ImuInfo,
+                LeoCommandDiagnostics,
+            ),
             joint_names,
             limits,
             qos_profile,

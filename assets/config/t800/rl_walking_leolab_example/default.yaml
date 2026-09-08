@@ -212,29 +212,38 @@ entry_transition_max_joint_acceleration: 120.0
 entry_transition_reference_pose_weight: 0.25
 entry_transition_source_tracking_error: 0.75
 
-# Keep LPF disabled for fixed-command test 1 so startup, stop, and reversal
-# behavior can be evaluated without filter lag or command tails.
+# Keep the three-axis LPF disabled to preserve yaw behavior. Translation has
+# its own finite-time acceleration/deceleration limiter below.
 enable_remote_command_lpf: false
 remote_command_sampling_frequency: 50.0
 remote_command_cut_off_frequency: 0.6
 
-# Fixed-command intent thresholds on normalized stick values. A command starts
-# at activation_threshold and returns to exact zero below release_threshold.
+# Intent thresholds on normalized stick values. Release clears the TARGET;
+# the translation output then brakes to exact zero at the configured rate.
 remote_command_activation_threshold: 0.20
 remote_command_release_threshold: 0.12
-# Ignore a brief stick spike across the activation threshold. Release remains
-# immediate, so this does not delay stopping or the existing reversal guard.
+# Ignore a brief stick spike across the activation threshold; no release debounce.
 remote_command_activation_debounce_sec: 0.04
 # Keep the selected forward/lateral axis until the other axis is clearly larger.
 remote_command_translation_axis_switch_margin: 0.10
 # A direct sign reversal must remain at zero for this duration. Natural neutral
-# time counts toward the pause; translation and yaw are guarded independently.
+# time counts toward the pause AFTER braking; yaw keeps its original guard.
 remote_command_reversal_pause_sec: 0.10
+
+# Proportional translation: active stick (0.20, 1.00] -> target (0.50, max].
+# User MuJoCo test: 0.20 m/s cannot walk, 0.40 marginal, 0.50 usable. This is a
+# target floor, NOT a proven hardware-safe speed; startup/braking cross it.
+remote_command_translation_proportional: true
+remote_command_translation_min_speed: 0.50
+remote_command_translation_slew_enabled: true
+# m/s^2; at 50 Hz these bound each step to +0.02 / -0.04 m/s in magnitude.
+remote_command_translation_acceleration: 1.0
+remote_command_translation_deceleration: 2.0
 
 # Raw gamepad x/y are tactical-frame commands; the runner rotates them into
 # the root-yaw observation frame used by the policy, matching leo_lab Play.
 remote_command_tactical_front_offset_deg: 37.0
-# Fixed tactical speeds: [forward/backward, left/right, yaw] in
+# Maximum tactical translation speeds and unchanged fixed yaw speed in
 # [m/s, m/s, rad/s]. Positive and negative directions can be tuned separately.
 command_scale_pos: [0.80, 0.80, 1.00]
 command_scale_neg: [0.80, 0.80, 1.00]

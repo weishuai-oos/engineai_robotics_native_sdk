@@ -12,11 +12,23 @@ int Sign(double value) {
   return 0;
 }
 
+double MoveTowards(double current, double target, double max_delta) {
+  const double delta = target - current;
+  // Assign the target exactly, including zero at the end of normal braking.
+  if (std::abs(delta) <= max_delta + 1e-12) return target;
+  return current + std::copysign(max_delta, delta);
+}
+
 }  // namespace
 
-void FixedRemoteCommandShaper::Configure(const FixedRemoteCommandShaperConfig& config) {
+bool FixedRemoteCommandShaper::Configure(const FixedRemoteCommandShaperConfig& config) {
+  if (config.translation_proportional && !config.translation_slew_enabled) {
+    Reset();
+    return false;
+  }
   config_ = config;
   Reset();
+  return true;
 }
 
 void FixedRemoteCommandShaper::Reset() {
@@ -28,10 +40,12 @@ void FixedRemoteCommandShaper::Reset() {
   yaw_activation_elapsed_sec_ = 0.0;
   last_nonzero_sign_.setZero();
   zero_elapsed_sec_.setConstant(config_.reversal_pause_sec);
+  target_command_.setZero();
+  translation_command_.setZero();
 }
 
-Eigen::Vector3d FixedRemoteCommandShaper::Update(const Eigen::Vector3d& raw_command) {
-  if (!raw_command.allFinite()) {
+Eigen::Vector3d FixedRemoteCommandShaper::Update(const Eigen::Vector3d& raw_command, bool input_available) {
+  if (!input_available || !raw_command.allFinite()) {
     Reset();
     return Eigen::Vector3d::Zero();
   }
@@ -39,21 +53,71 @@ Eigen::Vector3d FixedRemoteCommandShaper::Update(const Eigen::Vector3d& raw_comm
   UpdateTranslationAxis(raw_command);
   UpdateYawActive(raw_command.z());
 
-  Eigen::Vector3d desired_command = Eigen::Vector3d::Zero();
+  target_command_.setZero();
   if (active_translation_axis_ == TranslationAxis::kForward) {
-    desired_command.x() = raw_command.x() > 0.0 ? config_.speed_pos.x() : -config_.speed_neg.x();
+    target_command_.x() = TranslationTarget(0, raw_command.x());
   } else if (active_translation_axis_ == TranslationAxis::kLateral) {
-    desired_command.y() = raw_command.y() > 0.0 ? config_.speed_pos.y() : -config_.speed_neg.y();
+    target_command_.y() = TranslationTarget(1, raw_command.y());
   }
   if (yaw_active_) {
-    desired_command.z() = raw_command.z() > 0.0 ? config_.speed_pos.z() : -config_.speed_neg.z();
+    target_command_.z() = raw_command.z() > 0.0 ? config_.speed_pos.z() : -config_.speed_neg.z();
   }
 
   Eigen::Vector3d shaped_command;
-  for (int axis = 0; axis < shaped_command.size(); ++axis) {
-    shaped_command(axis) = ApplyReversalPause(axis, desired_command(axis));
+  if (config_.translation_slew_enabled) {
+    shaped_command.head<2>() = ShapeTranslation(target_command_.head<2>());
+  } else {
+    for (int axis = 0; axis < 2; ++axis) {
+      shaped_command(axis) = ApplyReversalPause(axis, target_command_(axis));
+    }
   }
+  shaped_command.z() = ApplyReversalPause(2, target_command_.z());
   return shaped_command;
+}
+
+double FixedRemoteCommandShaper::TranslationTarget(int axis, double raw_command) const {
+  const double speed = raw_command > 0.0 ? config_.speed_pos(axis) : -config_.speed_neg(axis);
+  if (!config_.translation_proportional) return speed;
+  // Remap the active part of the stick. A configured target floor avoids
+  // sustained commands below the policy's usable speed; the output ramp still
+  // starts at zero, so this floor must be used with translation slew enabled.
+  const double magnitude = std::clamp(std::abs(raw_command), 0.0, 1.0);
+  if (magnitude <= config_.activation_threshold) return 0.0;
+  const double fraction = std::clamp((magnitude - config_.activation_threshold) /
+                                        (1.0 - config_.activation_threshold),
+                                    0.0, 1.0);
+  const double target_speed = config_.translation_min_speed +
+                              (std::abs(speed) - config_.translation_min_speed) * fraction;
+  return std::copysign(target_speed, speed);
+}
+
+Eigen::Vector2d FixedRemoteCommandShaper::ShapeTranslation(Eigen::Vector2d desired_command) {
+  // Brake the old direction fully before starting a different axis or sign.
+  // In particular, the reversal pause counts actual zero-command time, not
+  // the time spent decelerating toward zero.
+  for (int axis = 0; axis < 2; ++axis) {
+    if (translation_command_(axis) != 0.0 &&
+        Sign(desired_command(axis)) != Sign(translation_command_(axis))) {
+      desired_command.setZero();
+      break;
+    }
+  }
+  for (int axis = 0; axis < 2; ++axis) {
+    const double current = translation_command_(axis);
+    if (current == 0.0) {
+      const double guarded_target = ApplyReversalPause(axis, desired_command(axis));
+      translation_command_(axis) =
+          MoveTowards(0.0, guarded_target, config_.translation_acceleration * config_.control_dt);
+    } else {
+      const double rate = std::abs(desired_command(axis)) > std::abs(current)
+                              ? config_.translation_acceleration
+                              : config_.translation_deceleration;
+      translation_command_(axis) = MoveTowards(current, desired_command(axis), rate * config_.control_dt);
+      zero_elapsed_sec_(axis) = 0.0;
+      if (translation_command_(axis) != 0.0) last_nonzero_sign_(axis) = Sign(translation_command_(axis));
+    }
+  }
+  return translation_command_;
 }
 
 void FixedRemoteCommandShaper::UpdateTranslationAxis(const Eigen::Vector3d& raw_command) {

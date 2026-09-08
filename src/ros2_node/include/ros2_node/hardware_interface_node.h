@@ -8,8 +8,10 @@
 #include "interface_protocol/msg/joint_command.hpp"
 #include "interface_protocol/msg/joint_state.hpp"
 #include "interface_protocol/msg/led_control.hpp"
+#include "interface_protocol/msg/leo_command_diagnostics.hpp"
 #include "interface_protocol/msg/motor_debug.hpp"
 #include "interface_protocol/msg/power_info.hpp"
+#include "leo_command_diagnostics/leo_command_diagnostics.h"
 #include "motor_debug/motor_debug.h"
 #include "power_info/power_info.h"
 #include "variant_store/variant_store.h"
@@ -40,6 +42,7 @@ class HardwareInterfaceNode final : public LogicNode {
   void PublishMotorCommand();
   void PublishJointState();
   void PublishJointCommandFeedback();
+  void PublishLeoCommandDiagnostics();
 
   void LedControlCallback(const interface_protocol::msg::LedControl::SharedPtr msg);
 
@@ -52,6 +55,7 @@ class HardwareInterfaceNode final : public LogicNode {
   rclcpp::Publisher<interface_protocol::msg::JointCommand>::SharedPtr motor_command_publisher_;
   rclcpp::Publisher<interface_protocol::msg::JointState>::SharedPtr joint_state_pub_;
   rclcpp::Publisher<interface_protocol::msg::JointCommand>::SharedPtr joint_command_feedback_pub_;
+  rclcpp::Publisher<interface_protocol::msg::LeoCommandDiagnostics>::SharedPtr leo_command_diagnostics_pub_;
 
   // Subscription
   rclcpp::Subscription<interface_protocol::msg::LedControl>::SharedPtr led_control_sub_;
@@ -65,6 +69,7 @@ class HardwareInterfaceNode final : public LogicNode {
   interface_protocol::msg::JointCommand motor_command_;
   std::shared_ptr<interface_protocol::msg::JointState> joint_state_msg_;
   std::shared_ptr<interface_protocol::msg::JointCommand> joint_command_feedback_msg_;
+  interface_protocol::msg::LeoCommandDiagnostics leo_command_diagnostics_msg_;
 
   // Timer
   rclcpp::TimerBase::SharedPtr gamepad_timer_;
@@ -78,6 +83,8 @@ class HardwareInterfaceNode final : public LogicNode {
   data::Subscriber<data::GamepadInfo> gamepad_subscriber_;
   data::Subscriber<data::MotorDebug> motor_debug_subscriber_;
   data::Subscriber<data::PowerInfo> power_info_subscriber_;
+  data::Subscriber<data::LeoCommandDiagnostics> leo_command_diagnostics_subscriber_;
+  int64_t last_leo_command_source_monotonic_ns_ = 0;
 };
 
 REGISTER_LOGIC_NODE_TYPE(HardwareInterfaceNode, "hardware_interface_node");

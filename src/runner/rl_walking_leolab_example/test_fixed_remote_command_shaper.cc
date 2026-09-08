@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <limits>
+#include <random>
 
 namespace runner {
 namespace {
@@ -102,6 +103,187 @@ TEST(FixedRemoteCommandShaperTest, NonFiniteInputStopsAndResetsTheShaper) {
   EXPECT_TRUE(
       shaper.Update(Eigen::Vector3d(std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0)).isZero(0.0));
   EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(-0.8, 0.0, 0.0)).x(), -0.6);
+}
+
+FixedRemoteCommandShaper MakeTranslationShaper(bool proportional = false, double debounce = 0.0,
+                                              double min_speed = 0.0) {
+  FixedRemoteCommandShaper shaper;
+  shaper.Configure({
+      .speed_pos = Eigen::Vector3d(0.8, 0.7, 1.0),
+      .speed_neg = Eigen::Vector3d(0.6, 0.5, 0.9),
+      .activation_debounce_sec = debounce,
+      .translation_proportional = proportional,
+      .translation_slew_enabled = true,
+      .translation_acceleration = 1.0,
+      .translation_deceleration = 2.0,
+      .translation_min_speed = min_speed,
+  });
+  return shaper;
+}
+
+TEST(FixedRemoteCommandShaperTest, TranslationStartsWithBoundedAccelerationAndReachesExistingSpeed) {
+  auto shaper = MakeTranslationShaper();
+  double previous = 0.0;
+  for (int i = 0; i < 40; ++i) {
+    const auto command = shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0));
+    EXPECT_GE(command.x(), previous);
+    EXPECT_LE(command.x() - previous, 0.02 + 1e-12);
+    EXPECT_DOUBLE_EQ(command.y(), 0.0);
+    previous = command.x();
+  }
+  EXPECT_DOUBLE_EQ(previous, 0.8);
+  EXPECT_DOUBLE_EQ(shaper.TargetCommand().x(), 0.8);
+}
+
+TEST(FixedRemoteCommandShaperTest, ReleaseBrakesMonotonicallyToExactZeroInFiniteTime) {
+  auto shaper = MakeTranslationShaper();
+  for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0));
+  double previous = 0.8;
+  for (int i = 0; i < 20; ++i) {
+    const auto command = shaper.Update(Eigen::Vector3d::Zero());
+    EXPECT_LE(command.x(), previous);
+    EXPECT_GE(command.x(), 0.0);
+    EXPECT_LE(previous - command.x(), 0.04 + 1e-12);
+    EXPECT_TRUE(shaper.TargetCommand().isZero(0.0));
+    previous = command.x();
+  }
+  EXPECT_DOUBLE_EQ(previous, 0.0);
+  for (int i = 0; i < 50; ++i) EXPECT_TRUE(shaper.Update(Eigen::Vector3d::Zero()).isZero(0.0));
+}
+
+TEST(FixedRemoteCommandShaperTest, ProportionalTranslationRemapsDeadzoneAndRespectsAsymmetricMaxima) {
+  auto shaper = MakeTranslationShaper(true);
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d(0.2, 0.0, 0.0)).isZero(0.0));
+  shaper.Update(Eigen::Vector3d(0.21, 0.0, 0.0));
+  EXPECT_NEAR(shaper.TargetCommand().x(), 0.01, 1e-12);
+  for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d(0.6, 0.0, 0.0));
+  EXPECT_NEAR(shaper.Update(Eigen::Vector3d(0.6, 0.0, 0.0)).x(), 0.4, 1e-12);
+  shaper.Reset();
+  for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d(-1.2, 0.0, 0.0));
+  EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(-1.2, 0.0, 0.0)).x(), -0.6);
+  shaper.Reset();
+  for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d(0.0, -0.6, 0.0));
+  EXPECT_NEAR(shaper.Update(Eigen::Vector3d(0.0, -0.6, 0.0)).y(), -0.25, 1e-12);
+}
+
+TEST(FixedRemoteCommandShaperTest, ShortTapIsSmallAndDebounceStillRejectsSingleSampleSpikes) {
+  auto shaper = MakeTranslationShaper(true, 0.04);
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0)).isZero(0.0));
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d::Zero()).isZero(0.0));
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0)).isZero(0.0));
+  EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0)).x(), 0.02);
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d::Zero()).isZero(0.0));
+}
+
+TEST(FixedRemoteCommandShaperTest, NonzeroTargetFloorDoesNotJumpTheShapedCommand) {
+  auto shaper = MakeTranslationShaper(true, 0.0, 0.5);
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d(0.2, 0.0, 0.0)).isZero(0.0));
+  EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(0.21, 0.0, 0.0)).x(), 0.02);
+  EXPECT_NEAR(shaper.TargetCommand().x(), 0.50375, 1e-12);
+  for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d(0.21, 0.0, 0.0));
+  EXPECT_NEAR(shaper.Update(Eigen::Vector3d(0.21, 0.0, 0.0)).x(), 0.50375, 1e-12);
+  for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d(0.6, 0.0, 0.0));
+  EXPECT_NEAR(shaper.TargetCommand().x(), 0.65, 1e-12);
+  // The target returns to zero inside the deadzone; the output still brakes.
+  EXPECT_GT(shaper.Update(Eigen::Vector3d(0.19, 0.0, 0.0)).x(), 0.0);
+  EXPECT_TRUE(shaper.TargetCommand().isZero(0.0));
+  for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d::Zero());
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d::Zero()).isZero(0.0));
+  for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d(0.0, -0.21, 0.0));
+  EXPECT_DOUBLE_EQ(shaper.TargetCommand().y(), -0.5);
+}
+
+TEST(FixedRemoteCommandShaperTest, ProportionalModeRequiresSlewEvenWithZeroMinimum) {
+  for (double min_speed : {0.0, 0.5}) {
+    auto shaper = MakeTranslationShaper();
+    EXPECT_GT(shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0)).x(), 0.0);
+    EXPECT_FALSE(shaper.Configure({.translation_proportional = true,
+                                  .translation_slew_enabled = false,
+                                  .translation_min_speed = min_speed}));
+    EXPECT_TRUE(shaper.TargetCommand().isZero(0.0));
+    EXPECT_TRUE(shaper.Update(Eigen::Vector3d::Zero()).isZero(0.0));
+  }
+  FixedRemoteCommandShaper shaper;
+  EXPECT_TRUE(shaper.Configure({.translation_proportional = false, .translation_slew_enabled = false}));
+  EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0)).x(), 1.0);
+  EXPECT_TRUE(shaper.Configure({.translation_proportional = true, .translation_slew_enabled = true}));
+  EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0)).x(), 0.02);
+}
+
+TEST(FixedRemoteCommandShaperTest, ReversalBrakesBeforeCountingTheZeroPause) {
+  auto shaper = MakeTranslationShaper();
+  for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0));
+  for (int i = 0; i < 20; ++i) {
+    EXPECT_NEAR(shaper.Update(Eigen::Vector3d(-1.0, 0.0, 0.0)).x(), 0.8 - (i + 1) * 0.04, 1e-12);
+  }
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(-1.0, 0.0, 0.0)).x(), 0.0);
+  }
+  EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(-1.0, 0.0, 0.0)).x(), -0.02);
+}
+
+TEST(FixedRemoteCommandShaperTest, AxisSwitchBrakesBeforeStartingTheOtherAxis) {
+  auto shaper = MakeTranslationShaper();
+  for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0));
+  for (int i = 0; i < 20; ++i) {
+    const auto command = shaper.Update(Eigen::Vector3d(0.0, 1.0, 0.0));
+    EXPECT_NEAR(command.x(), 0.8 - (i + 1) * 0.04, 1e-12);
+    EXPECT_DOUBLE_EQ(command.y(), 0.0);
+  }
+  EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(0.0, 1.0, 0.0)).y(), 0.02);
+}
+
+TEST(FixedRemoteCommandShaperTest, ReturningToOriginalDirectionCancelsPendingReversal) {
+  auto shaper = MakeTranslationShaper();
+  for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0));
+  EXPECT_NEAR(shaper.Update(Eigen::Vector3d(-1.0, 0.0, 0.0)).x(), 0.76, 1e-12);
+  EXPECT_NEAR(shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0)).x(), 0.78, 1e-12);
+}
+
+TEST(FixedRemoteCommandShaperTest, ReentryDiscardsOldTranslationAndStartsHeldInputFromZero) {
+  auto shaper = MakeTranslationShaper(true, 0.04);
+  for (int i = 0; i < 50; ++i) shaper.Update(Eigen::Vector3d(1.0, 0.0, 1.0));
+  shaper.Reset();
+  EXPECT_TRUE(shaper.TargetCommand().isZero(0.0));
+  for (int i = 0; i < 100; ++i) EXPECT_TRUE(shaper.Update(Eigen::Vector3d::Zero()).isZero(0.0));
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0)).isZero(0.0));
+  EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0)).x(), 0.02);
+  // Configure is also used on every Enter, including switching Leo profiles.
+  shaper.Configure({.translation_slew_enabled = true});
+  EXPECT_TRUE(shaper.TargetCommand().isZero(0.0));
+  EXPECT_TRUE(shaper.Update(Eigen::Vector3d::Zero()).isZero(0.0));
+}
+
+TEST(FixedRemoteCommandShaperTest, InputLossAndNonfiniteInputStopImmediatelyWithoutRampTail) {
+  for (const bool lost : {true, false}) {
+    auto shaper = MakeTranslationShaper();
+    for (int i = 0; i < 40; ++i) shaper.Update(Eigen::Vector3d(1.0, 0.0, 1.0));
+    const Eigen::Vector3d invalid = lost ? Eigen::Vector3d(1.0, 0.0, 1.0)
+                                       : Eigen::Vector3d(std::numeric_limits<double>::infinity(), 0.0, 0.0);
+    EXPECT_TRUE(shaper.Update(invalid, !lost).isZero(0.0));
+    EXPECT_TRUE(shaper.TargetCommand().isZero(0.0));
+    EXPECT_DOUBLE_EQ(shaper.Update(Eigen::Vector3d(1.0, 0.0, 0.0)).x(), 0.02);
+  }
+}
+
+TEST(FixedRemoteCommandShaperTest, YawMatchesLegacyExactlyForMixedInputsIncludingReversals) {
+  auto legacy = MakeShaper(0.1, 0.04);
+  auto proportional = MakeTranslationShaper(true, 0.04);
+  auto fixed = MakeTranslationShaper(false, 0.04);
+  std::mt19937 random(42);
+  std::uniform_real_distribution<double> stick(-1.0, 1.0);
+  for (int i = 0; i < 500; ++i) {
+    const Eigen::Vector3d raw(stick(random), stick(random), stick(random));
+    for (int frame = 0; frame < 10; ++frame) {
+      const double yaw = legacy.Update(raw).z();
+      const auto a = proportional.Update(raw);
+      const auto b = fixed.Update(raw);
+      EXPECT_DOUBLE_EQ(a.z(), yaw);
+      EXPECT_DOUBLE_EQ(b.z(), yaw);
+      EXPECT_TRUE(a.x() == 0.0 || a.y() == 0.0);
+      EXPECT_TRUE(b.x() == 0.0 || b.y() == 0.0);
+    }
+  }
 }
 
 }  // namespace

@@ -61,6 +61,11 @@ class RlWalkingLeolabExampleParam : public BasicParam {
   std::optional<double> LOAD_PARAM(remote_command_activation_debounce_sec);
   double LOAD_PARAM(remote_command_translation_axis_switch_margin);
   double LOAD_PARAM(remote_command_reversal_pause_sec);
+  std::optional<bool> LOAD_PARAM(remote_command_translation_proportional);
+  std::optional<bool> LOAD_PARAM(remote_command_translation_slew_enabled);
+  std::optional<double> LOAD_PARAM(remote_command_translation_acceleration);
+  std::optional<double> LOAD_PARAM(remote_command_translation_deceleration);
+  std::optional<double> LOAD_PARAM(remote_command_translation_min_speed);
   double LOAD_PARAM(remote_command_tactical_front_offset_deg);
   Eigen::Vector3d LOAD_PARAM(command_scale_pos);
   Eigen::Vector3d LOAD_PARAM(command_scale_neg);
@@ -86,6 +91,11 @@ class RlWalkingLeolabExampleParam : public BasicParam {
     LOAD_PARAM(remote_command_activation_debounce_sec);
     LOAD_PARAM(remote_command_translation_axis_switch_margin);
     LOAD_PARAM(remote_command_reversal_pause_sec);
+    LOAD_PARAM(remote_command_translation_proportional);
+    LOAD_PARAM(remote_command_translation_slew_enabled);
+    LOAD_PARAM(remote_command_translation_acceleration);
+    LOAD_PARAM(remote_command_translation_deceleration);
+    LOAD_PARAM(remote_command_translation_min_speed);
     LOAD_PARAM(remote_command_tactical_front_offset_deg);
     LOAD_PARAM(command_scale_pos);
     LOAD_PARAM(command_scale_neg);

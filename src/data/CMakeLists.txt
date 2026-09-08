@@ -17,7 +17,9 @@ if(SDK_FRAMEWORK_MODE)
   # src::data is prebuilt in core, supplement with source-distributed params
   # Add _param include path to the imported target so it propagates to all linked targets
   set_property(TARGET EngineAICore::src_data APPEND PROPERTY
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/_param"
+    INTERFACE_INCLUDE_DIRECTORIES
+      "${CMAKE_CURRENT_SOURCE_DIR}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/_param"
   )
 
   # Compile supplementary source files if any exist

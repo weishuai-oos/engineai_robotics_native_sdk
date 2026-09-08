@@ -15,15 +15,24 @@ struct FixedRemoteCommandShaperConfig {
   double translation_axis_switch_margin = 0.1;
   double reversal_pause_sec = 0.1;
   double control_dt = 0.02;
+  // Opt-in so existing profiles retain their fixed-speed behavior.
+  bool translation_proportional = false;
+  bool translation_slew_enabled = false;
+  double translation_acceleration = 1.0;  // m/s^2
+  double translation_deceleration = 2.0;  // m/s^2
+  double translation_min_speed = 0.0;     // nonzero proportional target floor, m/s
 };
 
-// Converts analog tactical-frame sticks into fixed-speed tactical commands.
-// Translation is limited to one dominant axis; yaw remains independent.
+// Shapes tactical-frame sticks. Translation supports proportional speeds and
+// finite-time ramps; yaw retains the original fixed-speed/debounce behavior.
+// Only one translation axis moves at a time, including during axis changes.
 class FixedRemoteCommandShaper {
  public:
-  void Configure(const FixedRemoteCommandShaperConfig& config);
+  // Returns false (and clears state) for proportional mode without slew.
+  bool Configure(const FixedRemoteCommandShaperConfig& config);
   void Reset();
-  Eigen::Vector3d Update(const Eigen::Vector3d& raw_command);
+  Eigen::Vector3d Update(const Eigen::Vector3d& raw_command, bool input_available = true);
+  const Eigen::Vector3d& TargetCommand() const { return target_command_; }
 
  private:
   enum class TranslationAxis { kNone, kForward, kLateral };
@@ -31,6 +40,8 @@ class FixedRemoteCommandShaper {
   void UpdateTranslationAxis(const Eigen::Vector3d& raw_command);
   void UpdateYawActive(double raw_yaw);
   double ApplyReversalPause(int axis, double desired_command);
+  double TranslationTarget(int axis, double raw_command) const;
+  Eigen::Vector2d ShapeTranslation(Eigen::Vector2d desired_command);
 
   FixedRemoteCommandShaperConfig config_;
   TranslationAxis active_translation_axis_ = TranslationAxis::kNone;
@@ -41,6 +52,8 @@ class FixedRemoteCommandShaper {
   double yaw_activation_elapsed_sec_ = 0.0;
   Eigen::Vector3i last_nonzero_sign_ = Eigen::Vector3i::Zero();
   Eigen::Vector3d zero_elapsed_sec_ = Eigen::Vector3d::Zero();
+  Eigen::Vector3d target_command_ = Eigen::Vector3d::Zero();
+  Eigen::Vector2d translation_command_ = Eigen::Vector2d::Zero();
 };
 
 }  // namespace runner

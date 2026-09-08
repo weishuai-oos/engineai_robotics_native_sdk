@@ -7,6 +7,7 @@
 
 #include "basic/motion_runner.h"
 #include "basic/runner_registry.h"
+#include "leo_command_diagnostics/leo_command_diagnostics.h"
 #include "math/first_order_low_pass_filter.h"
 #include "math/mnn_model.h"
 #include "motion_transition/entry_command_transition.h"
@@ -14,6 +15,7 @@
 #include "rl_walking_leolab_example/fixed_remote_command_shaper.h"
 #include "rl_walking_leolab_example/mnn_recurrent_model.h"
 #include "rl_walking_leolab_example_param/rl_walking_leolab_example_param.h"
+#include "variant_store/variant_store.h"
 
 namespace runner {
 
@@ -37,6 +39,8 @@ class RlWalkingLeolabExampleRunner : public MotionRunner {
   bool BuildOverrideActionIndices();
   bool ComputeBaseState(Eigen::Vector3d* base_ang_vel, Eigen::Vector3d* projected_gravity) const;
   void UpdateRemoteCommand();
+  void PublishCommandDiagnostics(const Eigen::Vector3d& raw_command,
+                                 const Eigen::Vector3d& tactical_command, bool active);
   void CalculateObservation();
   void CalculateMotorCommand();
   bool InitializeEntryTransition();
@@ -78,6 +82,8 @@ class RlWalkingLeolabExampleRunner : public MotionRunner {
   Eigen::Vector3d imu_install_bias_ = Eigen::Vector3d::Zero();
   Eigen::Vector3d command_ = Eigen::Vector3d::Zero();
   FixedRemoteCommandShaper remote_command_shaper_;
+  data::Subscriber<bool> input_available_subscriber_;
+  data::Publisher<data::LeoCommandDiagnostics> command_diagnostics_publisher_;
   std::unique_ptr<math::FirstOrderLowPassFilter<Eigen::Vector3d>> lpf_command_;
 };
 

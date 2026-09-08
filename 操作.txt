@@ -86,7 +86,9 @@ YAML 中使用的是统一逻辑键。CROSS_X_UP/DOWN 表示十字键上/下，C
 
 idle 是上电初始/故障恢复状态，不再占用 LB+START；程序进入 idle 后会自动转 passive。
 
-四套步态的摇杆控制相同：左摇杆前后控制前后速度，左摇杆左右控制横向速度，右摇杆左右控制转向角速度。walk_leo_terrain 使用 LowCylinders-MN-StdTarget-Plus 或 LowCylinders-MN-StdOffset-Target-Plus 模型，面向无感知的盲走地形测试。
+四套步态的摇杆方向映射相同：左摇杆前后控制前后速度，左摇杆左右控制横向速度，右摇杆左右控制转向角速度。当前 walk_leo 与 walk_leo_terrain 均使用 LowCylinders-AnkleStable-1 模型。walk_leo 非零平移目标随摇杆在约 0.5～0.8 m/s 间变化；terrain 保持前进 1.0、其余平移 0.8 m/s 固定目标。两个 Leo 都对平移加减速，转向不变，仍只选一个平移主轴；walk/walk_custom 不受本次修改影响。配置位置和参数见《配置调参.txt》的 Leo 段落。
+
+注意：松杆是平滑收速，不是立即停车，默认从 0.8 m/s 指令收至零约 0.4 秒。极短点按可能达不到模型可行走的速度，不保证微调效果；切 passive 不等收速。0.5 下限来自 MuJoCo 初测，仍需实机验证。本次更新须重新编译 SDK（含 ROS2 消息），不能只复制 YAML 到旧程序。
 
 四、状态切换关系
 
@@ -160,3 +162,5 @@ RC02、Logitech F710/F310（Xbox/XInput 键位模式）和虚拟遥控器都会�
 walk、walk_custom、walk_leo、walk_leo_terrain 的关节限位/速度/力矩事件会额外写入 posture_context：posture_class（upright、tilted、fallen_suspected、unknown）、倾角、角速度和加速度异常标志，以及事件发生时的 IMU 原始值。默认阈值为倾斜 35°、疑似倒地 60°、角速度 6 rad/s、加速度偏离 1g 3 m/s²，IMU 数据超过 20 ms 会标记 fresh=false，可用 --imu-max-age-ms、--posture-* 参数调整。
 
 当前接口没有可直接订阅的足端接触测量，因此 posture_context 中 foot_contact 固定为 not_recorded；角速度和加速度只能辅助判断“倒地/冲击/剧烈运动”，不能单独证明脚离地。若要确认脚离地，后续还需要接入足端力传感器、接触开关或经过验证的足端接触估计。
+
+新版采集启动命令不变，额外订阅 /motion/leo_command_diagnostics：记录仲裁后的摇杆 raw_stick、平滑前目标 target_tactical、平滑后的 shaped_tactical，以及旋转到根坐标系后供策略观测使用的 policy_command，均含来源时间/配置标签。它们是机身速度指令，不是关节 action。结合 samples/events 中的 leo_command_diagnostics、新鲜度与动作匹配结果，可对照启停时的速度突变和关节目标/实测异常；缺少新消息或没有新话题时仍能采集原数据，不能把缺失当作零速度。

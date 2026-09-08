@@ -32,6 +32,7 @@ class InputCommandArbiterRunner : public BasicRunner {
   std::vector<std::shared_ptr<BaseInputAdapter>> hardware_sources_;
   std::vector<std::shared_ptr<BaseInputAdapter>> override_sources_;
   data::Publisher<data::GamepadInfo> hardware_input_publisher_;
+  data::Publisher<bool> input_available_publisher_;
   GamepadInputDebouncer gamepad_input_debouncer_;
   int selected_hardware_idx_{-1};
 };

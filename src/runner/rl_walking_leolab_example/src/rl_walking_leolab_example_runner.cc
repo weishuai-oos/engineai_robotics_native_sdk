@@ -1,6 +1,7 @@
 #include "rl_walking_leolab_example/rl_walking_leolab_example_runner.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <unordered_set>
@@ -27,6 +28,10 @@ RlWalkingLeolabExampleRunner::RlWalkingLeolabExampleRunner(
     std::string_view name, const std::shared_ptr<data::DataStore>& data_store)
     : MotionRunner(name, data_store) {
   param_ = data::ParamManager::create<data::RlWalkingLeolabExampleParam>();
+  input_available_subscriber_ =
+      data::VariantStore::GetInstance().CreateSubscriber<bool>("control/input_available");
+  command_diagnostics_publisher_ = data::VariantStore::GetInstance().CreatePublisher<data::LeoCommandDiagnostics>(
+      "motion/leo_command_diagnostics");
 }
 
 void RlWalkingLeolabExampleRunner::SetupContext() { data_store_->parallel_by_classic_parser.store(false); }
@@ -91,7 +96,7 @@ bool RlWalkingLeolabExampleRunner::Enter() {
   action_scale_ = param_->action_scale;
 
   imu_install_bias_ = param_->imu_install_bias.value_or(Eigen::Vector3d::Zero());
-  remote_command_shaper_.Configure({
+  if (!remote_command_shaper_.Configure({
       .speed_pos = param_->command_scale_pos,
       .speed_neg = param_->command_scale_neg,
       .activation_threshold = param_->remote_command_activation_threshold,
@@ -100,7 +105,15 @@ bool RlWalkingLeolabExampleRunner::Enter() {
       .translation_axis_switch_margin = param_->remote_command_translation_axis_switch_margin,
       .reversal_pause_sec = param_->remote_command_reversal_pause_sec,
       .control_dt = param_->control_dt,
-  });
+      .translation_proportional = param_->remote_command_translation_proportional.value_or(false),
+      .translation_slew_enabled = param_->remote_command_translation_slew_enabled.value_or(false),
+      .translation_acceleration = param_->remote_command_translation_acceleration.value_or(1.0),
+      .translation_deceleration = param_->remote_command_translation_deceleration.value_or(2.0),
+      .translation_min_speed = param_->remote_command_translation_min_speed.value_or(0.0),
+  })) {
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] proportional translation requires slew";
+    return false;
+  }
   lpf_command_.reset();
   if (param_->enable_remote_command_lpf) {
     lpf_command_ = std::make_unique<math::FirstOrderLowPassFilter<Eigen::Vector3d>>(
@@ -187,6 +200,23 @@ bool RlWalkingLeolabExampleRunner::ValidateParam() const {
     return false;
   }
   const double activation_debounce_sec = param_->remote_command_activation_debounce_sec.value_or(0.04);
+  if (param_->remote_command_translation_proportional.value_or(false) &&
+      !param_->remote_command_translation_slew_enabled.value_or(false)) {
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] proportional translation requires slew";
+    return false;
+  }
+  if (param_->remote_command_translation_proportional.value_or(false) &&
+      param_->remote_command_activation_threshold >= 1.0) {
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] proportional translation requires activation threshold < 1";
+    return false;
+  }
+  const double translation_acceleration = param_->remote_command_translation_acceleration.value_or(1.0);
+  const double translation_deceleration = param_->remote_command_translation_deceleration.value_or(2.0);
+  if (!std::isfinite(translation_acceleration) || translation_acceleration <= 0.0 ||
+      !std::isfinite(translation_deceleration) || translation_deceleration <= 0.0) {
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] translation acceleration/deceleration must be finite and > 0";
+    return false;
+  }
   if (!std::isfinite(activation_debounce_sec) || activation_debounce_sec < 0.0) {
     LOG(ERROR) << "[RlWalkingLeolabExampleRunner] command activation debounce must be finite and >= 0";
     return false;
@@ -201,7 +231,15 @@ bool RlWalkingLeolabExampleRunner::ValidateParam() const {
   }
   if (!param_->command_scale_pos.allFinite() || !param_->command_scale_neg.allFinite() ||
       (param_->command_scale_pos.array() <= 0.0).any() || (param_->command_scale_neg.array() <= 0.0).any()) {
-    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] fixed command speeds must be finite and > 0";
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] command speeds must be finite and > 0";
+    return false;
+  }
+  const double translation_min_speed = param_->remote_command_translation_min_speed.value_or(0.0);
+  if (!std::isfinite(translation_min_speed) || translation_min_speed < 0.0 ||
+      (param_->remote_command_translation_proportional.value_or(false) &&
+       (translation_min_speed > param_->command_scale_pos.head<2>().minCoeff() ||
+        translation_min_speed > param_->command_scale_neg.head<2>().minCoeff()))) {
+    LOG(ERROR) << "[RlWalkingLeolabExampleRunner] proportional minimum speed must fit all translation maxima";
     return false;
   }
   if (!std::isfinite(param_->remote_command_tactical_front_offset_deg)) {
@@ -343,6 +381,9 @@ TransitionState RlWalkingLeolabExampleRunner::TryExit() {
 }
 
 bool RlWalkingLeolabExampleRunner::Exit() {
+  remote_command_shaper_.Reset();
+  command_.setZero();
+  PublishCommandDiagnostics(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), false);
   recurrent_hidden_.setZero();
   recurrent_cell_.setZero();
   mlp_net_action_.setZero();
@@ -354,7 +395,9 @@ void RlWalkingLeolabExampleRunner::End() {}
 void RlWalkingLeolabExampleRunner::UpdateRemoteCommand() {
   const auto& gamepad = data_store_->gamepad_info.Get();
   const Eigen::Vector3d raw_command(gamepad->LeftStick_X, gamepad->LeftStick_Y, gamepad->RightStick_Y);
-  const Eigen::Vector3d tactical_command = remote_command_shaper_.Update(raw_command);
+  const auto input_available = input_available_subscriber_.Get();
+  const bool input_valid = (!input_available || *input_available) && raw_command.allFinite();
+  const Eigen::Vector3d tactical_command = remote_command_shaper_.Update(raw_command, input_valid);
 
   // leo_lab samples/teleoperates in a tactical frame, while the policy
   // observation consumes root-yaw-frame velocity. Match its +37 deg rotation.
@@ -364,9 +407,30 @@ void RlWalkingLeolabExampleRunner::UpdateRemoteCommand() {
   command_.x() = cosine * tactical_command.x() - sine * tactical_command.y();
   command_.y() = sine * tactical_command.x() + cosine * tactical_command.y();
   command_.z() = tactical_command.z();
-  if (param_->enable_remote_command_lpf && lpf_command_) {
+  if (!input_valid) {
+    command_.setZero();
+    if (lpf_command_) lpf_command_->Reset();
+  } else if (param_->enable_remote_command_lpf && lpf_command_) {
     command_ = lpf_command_->Update(command_);
   }
+  PublishCommandDiagnostics(raw_command, tactical_command, true);
+}
+
+void RlWalkingLeolabExampleRunner::PublishCommandDiagnostics(
+    const Eigen::Vector3d& raw_command, const Eigen::Vector3d& tactical_command, bool active) {
+  data::LeoCommandDiagnostics snapshot;
+  snapshot.source_monotonic_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                     std::chrono::steady_clock::now().time_since_epoch())
+                                     .count();
+  snapshot.source_param_tag = param_tag_.empty() ? "rl_walking_leolab_example" : param_tag_;
+  snapshot.active = active;
+  for (int axis = 0; axis < 3; ++axis) {
+    snapshot.raw_stick[axis] = raw_command(axis);
+    snapshot.target_tactical[axis] = remote_command_shaper_.TargetCommand()(axis);
+    snapshot.shaped_tactical[axis] = tactical_command(axis);
+    snapshot.policy_command[axis] = command_(axis);
+  }
+  command_diagnostics_publisher_.Publish(std::move(snapshot));
 }
 
 void RlWalkingLeolabExampleRunner::CalculateObservation() {
