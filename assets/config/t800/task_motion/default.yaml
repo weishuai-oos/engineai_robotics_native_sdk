@@ -183,6 +183,7 @@ tasks:
       - walk
       - walk_custom
       - walk_leo_terrain
+      - leo_taunt
       - getup
       - getup2
       - stance_to_supine
@@ -195,6 +196,19 @@ tasks:
       - rl_left_hook_001_improved
       - rl_punch_example
     key: [LB, A]
+
+  - motion: leo_taunt
+    period: 0.02
+    runner:
+      - name: rl_walking_leolab_example_runner
+        enabled: true
+        param_tag: rl_walking_leolab_taunt
+    # This action is intentionally reachable only from the standard Leo gait.
+    manual_transition:
+      - walk_leo
+    auto_transition: walk_leo
+    # Physical LT+B; the paired d-pad entries are the virtual-remote LT marker.
+    key: [CROSS_Y_LEFT, CROSS_Y_RIGHT, B]
 
   - motion: walk_leo_terrain
     period: 0.02

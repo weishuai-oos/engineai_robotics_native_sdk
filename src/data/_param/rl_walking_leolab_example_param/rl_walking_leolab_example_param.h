@@ -44,6 +44,15 @@ class RlWalkingLeolabExampleParam : public BasicParam {
   double LOAD_PARAM(observation_clip);
   double LOAD_PARAM(control_dt);
 
+  // Optional deterministic upper-body overlay used by derived Leo motions.
+  // Keeping these fields optional preserves the existing walk_leo contract.
+  std::optional<bool> LOAD_PARAM(taunt_enabled);
+  std::optional<double> LOAD_PARAM(taunt_duration_sec);
+  std::optional<double> LOAD_PARAM(taunt_frequency_hz);
+  std::optional<Eigen::VectorXd> LOAD_PARAM(taunt_arm_amplitude);
+  std::optional<Eigen::VectorXd> LOAD_PARAM(taunt_arm_phase);
+  std::optional<bool> LOAD_PARAM(taunt_observation_use_default_arm_pose);
+
   std::optional<bool> LOAD_PARAM(entry_transition_enabled);
   std::optional<double> LOAD_PARAM(entry_transition_duration);
   std::optional<double> LOAD_PARAM(entry_transition_min_duration);
@@ -77,6 +86,12 @@ class RlWalkingLeolabExampleParam : public BasicParam {
     LOAD_PARAM(joint_stiffness);
     LOAD_PARAM(joint_damping);
     LOAD_PARAM(action_scale);
+    LOAD_PARAM(taunt_enabled);
+    LOAD_PARAM(taunt_duration_sec);
+    LOAD_PARAM(taunt_frequency_hz);
+    LOAD_PARAM(taunt_arm_amplitude);
+    LOAD_PARAM(taunt_arm_phase);
+    LOAD_PARAM(taunt_observation_use_default_arm_pose);
     LOAD_PARAM(entry_transition_enabled);
     LOAD_PARAM(entry_transition_duration);
     LOAD_PARAM(entry_transition_min_duration);

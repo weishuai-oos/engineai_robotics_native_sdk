@@ -1,9 +1,11 @@
 #include "rl_walking_leolab_example/rl_walking_leolab_example_runner.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <iterator>
 #include <unordered_set>
 #include <utility>
 
@@ -13,6 +15,13 @@
 
 namespace runner {
 namespace {
+
+constexpr int kTauntArmJointCount = 10;
+constexpr double kTwoPi = 6.28318530717958647692;
+constexpr std::array<std::string_view, kTauntArmJointCount> kTauntArmHostJointNames = {
+    "J13_SHOULDER_PITCH_L", "J14_SHOULDER_ROLL_L", "J15_SHOULDER_YAW_L", "J16_ELBOW_PITCH_L",
+    "J17_ELBOW_YAW_L",      "J20_SHOULDER_PITCH_R", "J21_SHOULDER_ROLL_R", "J22_SHOULDER_YAW_R",
+    "J23_ELBOW_PITCH_R",    "J24_ELBOW_YAW_R"};
 
 Eigen::VectorXd SelectByIndex(const Eigen::VectorXd& values, const Eigen::VectorXi& indices) {
   Eigen::VectorXd selected(indices.size());
@@ -67,7 +76,7 @@ bool RlWalkingLeolabExampleRunner::Enter() {
     }
   }
 
-  if (!BuildJointMapping() || !BuildOverrideActionIndices()) {
+  if (!BuildJointMapping() || !BuildOverrideActionIndices() || !BuildTauntArmMapping()) {
     return false;
   }
 
@@ -250,7 +259,7 @@ bool RlWalkingLeolabExampleRunner::ValidateParam() const {
     LOG(ERROR) << "[RlWalkingLeolabExampleRunner] imu_install_bias contains non-finite values";
     return false;
   }
-  return true;
+  return ValidateTauntConfig();
 }
 
 bool RlWalkingLeolabExampleRunner::ValidatePolicyContract() {
@@ -342,6 +351,58 @@ bool RlWalkingLeolabExampleRunner::BuildOverrideActionIndices() {
   return true;
 }
 
+bool RlWalkingLeolabExampleRunner::BuildTauntArmMapping() {
+  const bool taunt_enabled = param_->taunt_enabled.value_or(false);
+  const bool observation_override = param_->taunt_observation_use_default_arm_pose.value_or(false);
+  if (!taunt_enabled && !observation_override) {
+    taunt_arm_action_idx_.resize(0);
+    return true;
+  }
+
+  taunt_arm_action_idx_.resize(kTauntArmJointCount);
+  for (int arm_idx = 0; arm_idx < kTauntArmJointCount; ++arm_idx) {
+    const auto it = std::find(param_->host_joint_names.begin(), param_->host_joint_names.end(),
+                              kTauntArmHostJointNames[static_cast<std::size_t>(arm_idx)]);
+    if (it == param_->host_joint_names.end()) {
+      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] Taunt arm joint is not in host_joint_names: "
+                 << kTauntArmHostJointNames[static_cast<std::size_t>(arm_idx)];
+      return false;
+    }
+    taunt_arm_action_idx_(arm_idx) = static_cast<int>(std::distance(param_->host_joint_names.begin(), it));
+  }
+  return true;
+}
+
+bool RlWalkingLeolabExampleRunner::ValidateTauntConfig() const {
+  const bool taunt_enabled = param_->taunt_enabled.value_or(false);
+  const bool observation_override = param_->taunt_observation_use_default_arm_pose.value_or(false);
+  if (!taunt_enabled && !observation_override) {
+    return true;
+  }
+
+  if (taunt_enabled) {
+    const double duration = param_->taunt_duration_sec.value_or(8.0);
+    const double frequency = param_->taunt_frequency_hz.value_or(0.0);
+    if (!std::isfinite(duration) || duration <= 0.0 || !std::isfinite(frequency) || frequency <= 0.0) {
+      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] taunt duration and frequency must be finite and > 0";
+      return false;
+    }
+    if (!param_->taunt_arm_amplitude.has_value() ||
+        param_->taunt_arm_amplitude->size() != kTauntArmJointCount ||
+        !param_->taunt_arm_amplitude->allFinite() ||
+        (param_->taunt_arm_amplitude->array() < 0.0).any()) {
+      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] taunt_arm_amplitude must contain 10 finite non-negative values";
+      return false;
+    }
+    if (param_->taunt_arm_phase.has_value() &&
+        (param_->taunt_arm_phase->size() != kTauntArmJointCount || !param_->taunt_arm_phase->allFinite())) {
+      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] taunt_arm_phase must contain 10 finite values";
+      return false;
+    }
+  }
+  return true;
+}
+
 bool RlWalkingLeolabExampleRunner::ComputeBaseState(Eigen::Vector3d* base_ang_vel,
                                                     Eigen::Vector3d* projected_gravity) const {
   if (!base_ang_vel || !projected_gravity) return false;
@@ -369,6 +430,7 @@ void RlWalkingLeolabExampleRunner::Run() {
   SendMotorCommand();
 
   time_ += param_->control_dt;
+  UpdateTauntCompletion();
 }
 
 TransitionState RlWalkingLeolabExampleRunner::TryExit() {
@@ -442,11 +504,13 @@ void RlWalkingLeolabExampleRunner::CalculateObservation() {
     return;
   }
 
-  const Eigen::VectorXd joint_pos_obs = SelectByIndex(q_real_, policy2deploy_joint_idx_);
-  const Eigen::VectorXd joint_vel_obs = SelectByIndex(qd_real_, policy2deploy_joint_idx_);
+  Eigen::VectorXd joint_pos_obs = SelectByIndex(q_real_, policy2deploy_joint_idx_);
+  Eigen::VectorXd joint_vel_obs = SelectByIndex(qd_real_, policy2deploy_joint_idx_);
+  Eigen::VectorXd previous_action_obs = mlp_net_action_;
+  ApplyTauntObservationOverride(&joint_pos_obs, &joint_vel_obs, &previous_action_obs);
 
   Eigen::VectorXd observation_single(param_->num_one_step_observations);
-  observation_single << base_ang_vel, projected_gravity, command_, joint_pos_obs, joint_vel_obs, mlp_net_action_;
+  observation_single << base_ang_vel, projected_gravity, command_, joint_pos_obs, joint_vel_obs, previous_action_obs;
   observation_single = observation_single.cwiseMax(-param_->observation_clip).cwiseMin(param_->observation_clip);
 
   if (is_first_time_) {
@@ -509,6 +573,57 @@ void RlWalkingLeolabExampleRunner::CalculateMotorCommand() {
   q_des_(policy2deploy_joint_idx_) += controlled_action.cwiseProduct(action_scale_);
   qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  ApplyTauntArmOverlay();
+}
+
+void RlWalkingLeolabExampleRunner::ApplyTauntObservationOverride(
+    Eigen::VectorXd* joint_pos_obs, Eigen::VectorXd* joint_vel_obs,
+    Eigen::VectorXd* previous_action_obs) const {
+  if (!param_->taunt_observation_use_default_arm_pose.value_or(false) ||
+      taunt_arm_action_idx_.size() != kTauntArmJointCount || !joint_pos_obs || !joint_vel_obs ||
+      !previous_action_obs) {
+    return;
+  }
+
+  for (int i = 0; i < taunt_arm_action_idx_.size(); ++i) {
+    const int action_idx = taunt_arm_action_idx_(i);
+    const int deploy_idx = policy2deploy_joint_idx_(action_idx);
+    // Zero action is the policy's nominal offset around default_joint_q_. Keep
+    // all three arm-related observation groups at that nominal boxing pose so
+    // this experiment does not leak the measured arm motion back to the policy.
+    (*joint_pos_obs)(action_idx) = default_joint_q_(deploy_idx);
+    (*joint_vel_obs)(action_idx) = 0.0;
+    (*previous_action_obs)(action_idx) = 0.0;
+  }
+}
+
+void RlWalkingLeolabExampleRunner::ApplyTauntArmOverlay() {
+  if (!param_->taunt_enabled.value_or(false) || taunt_arm_action_idx_.size() != kTauntArmJointCount) {
+    return;
+  }
+
+  const double frequency = param_->taunt_frequency_hz.value_or(0.0);
+  const Eigen::VectorXd& amplitude = param_->taunt_arm_amplitude.value();
+  const Eigen::VectorXd zero_phase = Eigen::VectorXd::Zero(kTauntArmJointCount);
+  const Eigen::VectorXd& phase = param_->taunt_arm_phase.value_or(zero_phase);
+  const double angle = kTwoPi * frequency * time_;
+  for (int i = 0; i < taunt_arm_action_idx_.size(); ++i) {
+    const int action_idx = taunt_arm_action_idx_(i);
+    const int deploy_idx = policy2deploy_joint_idx_(action_idx);
+    // Add a bounded, phase-configured offset to the live Leo arm command. The
+    // policy still owns the legs, torso, head, and the arm's boxing-guard base.
+    q_des_(deploy_idx) += amplitude(i) * std::sin(angle + phase(i));
+  }
+}
+
+void RlWalkingLeolabExampleRunner::UpdateTauntCompletion() {
+  if (!param_->taunt_enabled.value_or(false)) {
+    return;
+  }
+  const double duration = param_->taunt_duration_sec.value_or(8.0);
+  if (time_ >= duration) {
+    SetRunnerState(RunnerState::kTryExit);
+  }
 }
 
 bool RlWalkingLeolabExampleRunner::InitializeEntryTransition() {

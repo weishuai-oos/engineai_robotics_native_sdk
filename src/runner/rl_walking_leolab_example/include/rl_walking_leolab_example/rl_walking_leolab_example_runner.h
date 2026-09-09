@@ -37,12 +37,19 @@ class RlWalkingLeolabExampleRunner : public MotionRunner {
   bool ValidatePolicyContract();
   bool BuildJointMapping();
   bool BuildOverrideActionIndices();
+  bool BuildTauntArmMapping();
+  bool ValidateTauntConfig() const;
   bool ComputeBaseState(Eigen::Vector3d* base_ang_vel, Eigen::Vector3d* projected_gravity) const;
   void UpdateRemoteCommand();
   void PublishCommandDiagnostics(const Eigen::Vector3d& raw_command,
                                  const Eigen::Vector3d& tactical_command, bool active);
   void CalculateObservation();
   void CalculateMotorCommand();
+  void ApplyTauntObservationOverride(Eigen::VectorXd* joint_pos_obs,
+                                     Eigen::VectorXd* joint_vel_obs,
+                                     Eigen::VectorXd* previous_action_obs) const;
+  void ApplyTauntArmOverlay();
+  void UpdateTauntCompletion();
   bool InitializeEntryTransition();
   void ApplyEntryTransition();
   void HoldCurrentPose();
@@ -69,6 +76,7 @@ class RlWalkingLeolabExampleRunner : public MotionRunner {
   Eigen::VectorXd tau_ff_des_;
   Eigen::VectorXi policy2deploy_joint_idx_;
   Eigen::VectorXi override_action_idx_;
+  Eigen::VectorXi taunt_arm_action_idx_;
 
   Eigen::VectorXd default_joint_q_;
   Eigen::VectorXd joint_kp_;
