@@ -207,12 +207,19 @@ control_dt: 0.02
 # so the two arms move in a regular alternating rhythm.
 taunt_enabled: true
 taunt_duration_sec: 8.0
-# Frequency is in Hz; arm amplitudes are joint offsets in radians.
+# Frequency is in Hz; pose offsets and arm amplitudes are joint offsets in radians.
 taunt_frequency_hz: 0.35
 taunt_arm_amplitude:
   [
-    0.10, 0.05, 0.04, 0.12, 0.04,
-    0.10, 0.05, 0.04, 0.12, 0.04,
+    0.15, 0.08, 0.06, 0.20, 0.06,
+    0.15, 0.08, 0.06, 0.20, 0.06,
+  ]
+# Lower the hands by opening both elbows from the original high boxing guard.
+# Order: left J13~J17, right J20~J24; +0.45 rad is toward the lower pose.
+taunt_arm_pose_offset:
+  [
+    0.0, 0.0, 0.0, 0.45, 0.0,
+    0.0, 0.0, 0.0, 0.45, 0.0,
   ]
 taunt_arm_phase:
   [

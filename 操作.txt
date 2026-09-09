@@ -136,7 +136,7 @@ RC02、Logitech F710/F310（Xbox/XInput 键位模式）和虚拟遥控器都会�
 
   LB=Q，RB=E，A=J，B=K，X=U，Y=I，BACK=F1，START=F2，十字键上=W、下=S、左=A、右=D。LT/RT 在虚拟遥控器中分别使用 LT/RT 滑块调到 0.5 以上；四套步态组合依次为 Q+K、Q+I、Q+J、Q+U，getup/getup2 为 Q+F2、Q+F1。
   虚拟遥控器新增步行摇杆键：按住键盘↑/↓分别发送前进/后退，←/→分别发送左移/右移，N/M 分别发送左转/右转；松开按键后对应摇杆轴自动归零。该映射在 walk_leo 和 walk_leo_terrain 两个 Leo 步态中均生效，也适用于其他步态。
-  Quick Macros 包含 supine_to_stance（START+十字键上）、prone_to_stance（START+十字键右）、stance_to_supine（START+十字键下）、victory（RB+Y）、ridicule（RB+X）、celebration（RB+A）和 rl_left_hook_001_improved（RT+十字键右）。俯卧起身也可用键盘 F2+D 触发；celebration 仍需补齐模型、轨迹并开放状态机进入边后才能执行。
+  Quick Macros 包含 leo_taunt（LT+B）、supine_to_stance（START+十字键上）、prone_to_stance（START+十字键右）、stance_to_supine（START+十字键下）、victory（RB+Y）、ridicule（RB+X）、celebration（RB+A）和 rl_left_hook_001_improved（RT+十字键右）。俯卧起身也可用键盘 F2+D 触发；celebration 仍需补齐模型、轨迹并开放状态机进入边后才能执行。
 
 注意：源码明确适配的是 F710/F310，并固定读取 /dev/input/js0；应使用驱动注释所述的非黄灯 Mode，黄灯 Mode 会交换十字键与左摇杆。普通 Xbox 手柄只有在 Linux joystick 事件编号与该布局一致时才可直接使用，不能仅凭外观为 Xbox 布局就保证兼容。项目逻辑轴把 X 定义为前后、Y 定义为左右，因此 F710 驱动中会把 Linux 物理轴转换到这套命名。RC02 使用 /dev/ttyJS。启动或实体输入掉线后重新选源时按 RC02、F710 的顺序尝试；实体源一旦锁定且在线，不会被后来接入的另一实体源动态抢占。虚拟遥控器激活后作为 override 输入覆盖当前实体输入。
 六、安全数据采集（只读） 先启动这个再启动run_t800

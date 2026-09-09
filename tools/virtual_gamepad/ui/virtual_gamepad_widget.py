@@ -145,6 +145,7 @@ class VirtualGamepadWidget(QWidget):
             "walk_custom: [LB, Y]": ("LB", "Y"),
             "walk_leo: [LB, A]": ("LB", "A"),
             "walk_leo_terrain: [LB, X]": ("LB", "X"),
+            "leo_taunt: [LT, B]": ("LT", "B"),
             "getup: [LB, START]": ("LB", "START"),
             "getup2: [LB, BACK]": ("LB", "BACK"),
             "dance: [RB, B]": ("RB", "B"),

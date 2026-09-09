@@ -394,6 +394,12 @@ bool RlWalkingLeolabExampleRunner::ValidateTauntConfig() const {
       LOG(ERROR) << "[RlWalkingLeolabExampleRunner] taunt_arm_amplitude must contain 10 finite non-negative values";
       return false;
     }
+    if (param_->taunt_arm_pose_offset.has_value() &&
+        (param_->taunt_arm_pose_offset->size() != kTauntArmJointCount ||
+         !param_->taunt_arm_pose_offset->allFinite())) {
+      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] taunt_arm_pose_offset must contain 10 finite values";
+      return false;
+    }
     if (param_->taunt_arm_phase.has_value() &&
         (param_->taunt_arm_phase->size() != kTauntArmJointCount || !param_->taunt_arm_phase->allFinite())) {
       LOG(ERROR) << "[RlWalkingLeolabExampleRunner] taunt_arm_phase must contain 10 finite values";
@@ -604,6 +610,8 @@ void RlWalkingLeolabExampleRunner::ApplyTauntArmOverlay() {
 
   const double frequency = param_->taunt_frequency_hz.value_or(0.0);
   const Eigen::VectorXd& amplitude = param_->taunt_arm_amplitude.value();
+  const Eigen::VectorXd zero_pose_offset = Eigen::VectorXd::Zero(kTauntArmJointCount);
+  const Eigen::VectorXd& pose_offset = param_->taunt_arm_pose_offset.value_or(zero_pose_offset);
   const Eigen::VectorXd zero_phase = Eigen::VectorXd::Zero(kTauntArmJointCount);
   const Eigen::VectorXd& phase = param_->taunt_arm_phase.value_or(zero_phase);
   const double angle = kTwoPi * frequency * time_;
@@ -612,7 +620,7 @@ void RlWalkingLeolabExampleRunner::ApplyTauntArmOverlay() {
     const int deploy_idx = policy2deploy_joint_idx_(action_idx);
     // Add a bounded, phase-configured offset to the live Leo arm command. The
     // policy still owns the legs, torso, head, and the arm's boxing-guard base.
-    q_des_(deploy_idx) += amplitude(i) * std::sin(angle + phase(i));
+    q_des_(deploy_idx) += pose_offset(i) + amplitude(i) * std::sin(angle + phase(i));
   }
 }
 
