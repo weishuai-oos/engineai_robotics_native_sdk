@@ -126,9 +126,9 @@ StdTarget 与 StdOffset 使用同一套观测、动作维度、关节映射和 L
 
 terrain example 默认启用根目录中的 StdTarget 配置：mode.yaml 中 robot、sim 的 scope 都是 rl_walking_leolab_terrain_example/default。部署 StdOffset 时，将这两处 scope 同步改成 rl_walking_leolab_terrain_example/profiles/std_offset/default；切回 StdTarget 时改回根 default。根配置与 profile 的 policy_file 可以不同，必须分别核对所指模型；scope、动作零点与 MNN 要匹配，并且 robot、sim 不要只改一处。
 
-Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、entry_transition_duration、entry_transition_min_duration、entry_transition_max_duration、entry_transition_max_joint_velocity、entry_transition_max_joint_acceleration、entry_transition_reference_pose_weight、entry_transition_source_tracking_error 的含义和行为一致：进入步态时捕获来源状态最后实际下发的命令，并结合切换瞬间的实测关节状态生成短时过渡，减少从动作或其他步态切入时的突变。max_joint_velocity 与 max_joint_acceleration 共同用于估算自适应时长，其中速度还会用于 qd 裁剪；当前 acceleration 不是逐周期硬 qdd 限制。若某个 terrain profile 不包含这些字段，runner 使用代码中的安全默认值；建议实际使用的 profile 显式保留它们并与已验证的 Leo 配置一致。
+Leo 与 terrain Leo 共用同一个 runner。除已有的 entry_transition_enabled、entry_transition_duration、entry_transition_min_duration、entry_transition_max_duration、entry_transition_max_joint_velocity、entry_transition_max_joint_acceleration、entry_transition_reference_pose_weight、entry_transition_source_tracking_error 外，`entry_transition_direct_source_motions` 用于列出需要直接接管的来源状态。当前两个 T800 根配置都列出 `getup`、`getup2`、`supine_to_stance`、`prone_to_stance`，命中这些来源时跳过目标步态的 bridge；动作、pd_stand 和其他步态进入时仍捕获来源状态最后实际下发的命令，并结合切换瞬间的实测关节状态生成短时过渡。将名单改为空列表即可恢复所有来源的 bridge；将 entry_transition_enabled 设为 false 则关闭该目标步态的全部 bridge。max_joint_velocity 与 max_joint_acceleration 共同用于估算自适应时长，其中速度还会用于 qd 裁剪；当前 acceleration 不是逐周期硬 qdd 限制。若某个 terrain profile 不包含这些字段，runner 使用代码中的安全默认值；建议实际使用的 profile 显式保留它们并与已验证的 Leo 配置一致。
 
-本次平移处理与 entry_transition 独立：切入/切出时清空遥控斜坡状态，不继承上一次 Leo 的残留速度。摇杆回中切入时，策略从第一周期仍收到零速度，原关节衔接和循环网络初始化不变；不是等过渡结束才启动策略。若带着非零摇杆切入，新的速度指令会从零加速，这会改变策略响应，不能保证动态恢复能力完全不变。仍需验证起身、击打动作结束及其他步态切入后的稳定性；本次没有新增姿态保护或改变动作切换许可。
+本次平移处理与 entry_transition 独立：切入/切出时清空遥控斜坡状态，不继承上一次 Leo 的残留速度。摇杆回中切入时，策略从第一周期仍收到零速度；四个名单来源还会从第一周期直接下发步态策略命令，其他来源继续经过 bridge。若带着非零摇杆切入，新的速度指令会从零加速，这会改变策略响应，不能保证动态恢复能力完全不变。仍需验证起身、击打动作结束及其他步态切入后的稳定性；本次没有新增姿态保护或改变动作切换许可。
 
 三、SDK / HoST 起身和主动倒地
 

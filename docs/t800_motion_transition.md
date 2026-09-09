@@ -2,13 +2,13 @@
 
 ## 1. 目标和结论
 
-本次修改为 T800 的四个行走状态、八种普通动作策略（包括新增嘲讽动作）和两套 SDK 起身策略增加了统一的“目标状态入口衔接”。`walk_leo` 与 `walk_leo_terrain` 复用同一个 Leo runner；动作和起身状态复用 `rl_dance_example_runner`，仅通过 `param_tag` 加载不同配置。庆祝动作目前只有预留参数模板和 RB+A 快捷键，模型、轨迹未导出，状态机也未开放进入。核心原则按目标状态区分：
+本次修改为 T800 的四个行走状态、八种普通动作策略（包括新增嘲讽动作）和两套 SDK 起身策略增加了统一的“目标状态入口衔接”。`walk_leo` 与 `walk_leo_terrain` 复用同一个 Leo runner；动作和起身状态复用 `rl_dance_example_runner`，仅通过 `param_tag` 加载不同配置。当前四个步态配置只对 `getup`、`getup2`、`supine_to_stance` 和 `prone_to_stance` 关闭入口 bridge，其他来源进入步态仍保留衔接。庆祝动作目前只有预留参数模板和 RB+A 快捷键，模型、轨迹未导出，状态机也未开放进入。核心原则按目标状态区分：
 
 1. 对普通 walk 和动作策略，切换后目标策略从第一个控制周期就开始推理，不设置“等待策略启动”的空挡阶段。
 2. 对仰卧/俯卧起身，先执行首帧 PD 过渡和连续误差检查；误差连续达标后，策略才从轨迹第 0 帧开始推理。
-3. 电机命令从上一个状态最后实际下发的完整命令平滑过渡到下一个策略的实时输出。
-4. 下一个动作的参考首帧或 walk 默认姿势只作为短时、衰减的姿态引导，不替代普通策略输出。
-5. 衔接时间根据切换瞬间的最大关节位置差自动调整，同时由最大时长限制，避免过慢切换长时间压制策略。
+3. 对启用入口 bridge 的来源，电机命令从上一个状态最后实际下发的完整命令平滑过渡到下一个策略的实时输出；四个指定起身来源直接使用步态策略命令。
+4. 启用 bridge 时，下一个动作的参考首帧或 walk 默认姿势只作为短时、衰减的姿态引导，不替代普通策略输出。
+5. 启用 bridge 时，衔接时间根据切换瞬间的最大关节位置差自动调整，同时由最大时长限制，避免过慢切换长时间压制策略。
 6. 同时衔接 `q_des`、`qd_des`、`Kp`、`Kd` 和 `tau_ff`，衔接结束后严格等于下一个策略的实时命令。
 
 普通动作的衔接器是目标 runner 内部的命令整形层，整个普通动作衔接期间目标策略一直运行；起身的首帧阶段是明确的策略前置 PD 阶段。
@@ -24,7 +24,7 @@
 | `walk_leo` | `LB + A` | `rl_walking_leolab_example_runner` | 0.02 s | 50 Hz |
 | `walk_leo_terrain` | `LB + X` | `rl_walking_leolab_example_runner` | 0.02 s | 50 Hz |
 
-四种 walk 状态所用的三个 runner 都在入口应用统一衔接，因此只要状态机允许切入，来源可以是参考动作、getup、SDK 起身、`pd_stand` 或另一种 walk；衔接不依赖来源状态名称。terrain 状态复用 Leo runner 后会自动走同一套入口逻辑，无需复制一份衔接实现。
+四种 walk 状态所用的三个 runner 都支持按来源选择入口行为。当前 T800 配置的 `entry_transition_direct_source_motions` 列出四个起身状态；命中名单时目标步态直接接管，其他来源仍使用 bridge。terrain 状态复用 Leo runner 后会自动走同一套入口逻辑，无需复制一份衔接实现。
 
 ### 2.2 动作策略状态
 
@@ -117,9 +117,9 @@ flowchart LR
 | `pd_stand_x` ↔ `pd_stand_y` | 否 | 目标 PD 姿态 | 使用 `pd_stand_runner` 自身的三秒姿态插值 |
 | 八种动作策略 → 四种 walk（手动提前） | 是 | 目标 walk 默认姿势 | 使用按键生效时动作的实时末端命令，不要求动作到固定末帧 |
 | 十种有资产的动作策略正常完成 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 状态机自动切换，来源是动作最后实际下发的命令 |
-| `getup`/`getup2` → 四种 walk（手动） | 是 | 目标 walk 默认姿势 | 无论起身是否成功，状态机允许人工切换；动态可行性由操作者负责判断 |
-| `getup`/`getup2` 成功 → `walk_leo`（自动） | 是 | `walk_leo` 默认姿势 | 保留当前自动目标 |
-| `supine_to_stance` / `prone_to_stance` 轨迹播放结束 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 由 `walk_leo` 入口完成衔接；两种 SDK 起身也允许轨迹结束前手动切入 `walk_leo` |
+| `getup`/`getup2` → 四种 walk（手动） | 否（当前 T800 配置） | 目标 walk 策略输出 | 无论起身是否成功，状态机允许人工切换；目标步态直接接管 |
+| `getup`/`getup2` 成功 → `walk_leo`（自动） | 否（当前 T800 配置） | `walk_leo` 策略输出 | 保留当前自动目标并直接交给步态策略 |
+| `supine_to_stance` / `prone_to_stance` 轨迹播放结束 → `walk_leo` | 否（当前 T800 配置） | `walk_leo` 策略输出 | 目标步态直接接管；两种 SDK 起身也允许轨迹结束前手动切入 `walk_leo` |
 
 ### 3.2 本次未接入统一衔接的边
 
@@ -148,7 +148,7 @@ flowchart LR
 1. 读取最新机器人状态。
 2. 组装 observation。
 3. 执行下一个策略推理，得到本周期实时目标命令。
-4. 入口衔接器将“上一个状态命令快照”平滑混合到“本周期目标策略命令”。
+4. 如果 `entry_transition_enabled` 为真且来源不在 `entry_transition_direct_source_motions` 中，入口衔接器将“上一个状态命令快照”平滑混合到“本周期目标策略命令”；四个指定起身来源跳过这一步。
 5. 将衔接后的完整命令发送到底层。
 
 因此普通动作和 walk 的衔接期间不存在故意保持零输出、只做定时等待或停止策略计算的阶段。即使是 recurrent 的 `walk_leo`，hidden/cell 也从第一个周期开始随 observation 更新。仰卧/俯卧起身的首帧阶段按下节所述，明确先执行 PD 和误差达标检查。
@@ -225,7 +225,8 @@ T_actual       = clamp(T_requested, min_duration, max_duration)
 
 | 参数 | walk | 参考动作 | 含义 |
 | --- | ---: | ---: | --- |
-| `entry_transition_enabled` | `true` | `true` | 是否启用入口衔接 |
+| `entry_transition_enabled` | `true` | `true` | 是否启用入口衔接；名单来源可单独跳过 |
+| `entry_transition_direct_source_motions` | 四个起身状态 | 不适用 | 命中来源时步态策略直接接管 |
 | `entry_transition_duration` | 0.16 s | 0.16 s | 名义时长 |
 | `entry_transition_min_duration` | 0.10 s | 0.10 s | 最短时长 |
 | `entry_transition_max_duration` | 0.28 s | 0.28 s | 最长时长，防止过慢切换 |
@@ -234,12 +235,13 @@ T_actual       = clamp(T_requested, min_duration, max_duration)
 | `entry_transition_reference_pose_weight` | 0.25 | 0.35 | 参考姿势初始引导权重 |
 | `entry_transition_source_tracking_error` | 0.75 rad | 0.75 rad | 来源命令相对实测位置的最大初始偏差 |
 
-T800 配置显式开启了该功能。其他机型如果没有配置这些新字段，不会因为本次 T800 修改被无条件开启；普通 walk 和参考动作仅保留各自旧参数所表达的兼容行为。
+T800 配置显式开启了该功能，并通过 `entry_transition_direct_source_motions` 做来源级例外。将该列表设为空列表即可让所有来源都使用 bridge；将 `entry_transition_enabled` 设为 `false` 则会对该目标步态关闭所有来源的 bridge。其他机型如果没有配置这些新字段，不会因为本次 T800 修改被无条件开启；普通 walk 和参考动作仅保留各自旧参数所表达的兼容行为。
 
 对应控制周期数量：
 
-- `walk` / `walk_custom`：名义 16 个周期，范围 10～28 个周期。
-- `walk_leo`、`walk_leo_terrain` 和十种有资产的动作策略：名义 8 个周期，范围 5～14 个周期。
+- 非四个指定起身来源进入 `walk` / `walk_custom`：名义 16 个周期，范围 10～28 个周期。
+- 非四个指定起身来源进入 `walk_leo` / `walk_leo_terrain`：名义 8 个周期，范围 5～14 个周期。
+- 四个指定起身来源进入任一步态：跳过入口 bridge，目标策略从第一个周期直接接管。
 
 当关节差过大、理论所需时间超过 0.28 s 时，系统会打印 `Entry transition required ... capped at 0.28s`。这是“不要让策略被压制太久”的主动上限；此时速度/加速度估算约束不再保证满足。实机若频繁出现该日志，优先检查切换时机和两个策略的姿态兼容性，再考虑适当增加 `entry_transition_max_duration`。
 

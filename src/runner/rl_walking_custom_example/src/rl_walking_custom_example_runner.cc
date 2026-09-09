@@ -428,7 +428,17 @@ void RlWalkingCustomExampleRunner::CalculateMotorCommand() {
 bool RlWalkingCustomExampleRunner::InitializeEntryTransition() {
   const double legacy_duration = param_->upper_body_lock_interpolation_duration.value_or(0.16);
   motion_transition::EntryTransitionConfig config;
-  config.enabled = param_->entry_transition_enabled.value_or(false);
+  const std::string previous_motion = GetPreviousMotionName();
+  const bool direct_takeover =
+      param_->entry_transition_direct_source_motions.has_value() &&
+      std::find(param_->entry_transition_direct_source_motions->begin(),
+                param_->entry_transition_direct_source_motions->end(), previous_motion) !=
+          param_->entry_transition_direct_source_motions->end();
+  config.enabled = param_->entry_transition_enabled.value_or(false) && !direct_takeover;
+  if (direct_takeover) {
+    LOG(INFO) << "[RlWalkingCustomExampleRunner] Direct gait takeover from previous motion ["
+              << previous_motion << "]";
+  }
   config.nominal_duration = param_->entry_transition_duration.value_or(legacy_duration);
   config.min_duration = param_->entry_transition_min_duration.value_or(
       std::min(0.10, config.nominal_duration));

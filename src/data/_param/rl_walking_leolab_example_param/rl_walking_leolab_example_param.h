@@ -52,6 +52,7 @@ class RlWalkingLeolabExampleParam : public BasicParam {
   std::optional<double> LOAD_PARAM(entry_transition_max_joint_acceleration);
   std::optional<double> LOAD_PARAM(entry_transition_reference_pose_weight);
   std::optional<double> LOAD_PARAM(entry_transition_source_tracking_error);
+  std::optional<std::vector<std::string>> LOAD_PARAM(entry_transition_direct_source_motions);
 
   bool LOAD_PARAM(enable_remote_command_lpf);
   double LOAD_PARAM(remote_command_sampling_frequency);
@@ -84,6 +85,7 @@ class RlWalkingLeolabExampleParam : public BasicParam {
     LOAD_PARAM(entry_transition_max_joint_acceleration);
     LOAD_PARAM(entry_transition_reference_pose_weight);
     LOAD_PARAM(entry_transition_source_tracking_error);
+    LOAD_PARAM(entry_transition_direct_source_motions);
     LOAD_PARAM(enable_remote_command_lpf);
     LOAD_PARAM(remote_command_cut_off_frequency);
     LOAD_PARAM(remote_command_activation_threshold);

@@ -106,11 +106,11 @@ idle 是上电初始/故障恢复状态，不再占用 LB+START；程序进入 i
 - walk（SDK）：可切 passive、pd_stand、walk_custom、walk_leo、walk_leo_terrain、getup、getup2、主动倒地和全部已启用追踪动作。
 - walk_custom：可切 passive、pd_stand、walk、walk_leo、walk_leo_terrain、getup、getup2、主动倒地和全部已启用追踪动作。
 - walk_leo：可切 passive、pd_stand、walk、walk_custom、walk_leo_terrain、getup、getup2、主动倒地和全部已启用追踪动作。
-- walk_leo_terrain：可切 passive、pd_stand、walk、walk_custom、walk_leo、getup、getup2、主动倒地和全部已启用追踪动作。它与 walk_leo 共用 Leo runner 的 entry_transition，因此从动作或其他步态进入时会执行同样的当前无缝衔接逻辑。
+- walk_leo_terrain：可切 passive、pd_stand、walk、walk_custom、walk_leo、getup、getup2、主动倒地和全部已启用追踪动作。它与 walk_leo 共用 Leo runner；当前配置只对四个起身来源关闭 entry_transition，从动作或其他步态进入时仍执行衔接。
 - dance、victory、嘲讽动作和五个击打动作：执行中可切 passive、pd_stand 或任一步态；轨迹正常结束后自动回 walk_leo。它们共用 `rl_dance_example_runner` 的短时入口衔接。
-- supine_to_stance / prone_to_stance（SDK 仰卧 / 俯卧起身）：两者地位相同，可从 passive、pd_stand、pd_stand_x、pd_stand_y 切入；执行中可人工切 passive、pd_stand 或 `walk_leo`，轨迹播放结束后自动回 walk_leo。两者也使用 `rl_dance_example_runner`，进入时先完成首帧 PD 预备并等待关节位置误差连续达标；该条件不检查是否站稳，动作结束仍按轨迹末帧退出。
+- supine_to_stance / prone_to_stance（SDK 仰卧 / 俯卧起身）：两者地位相同，可从 passive、pd_stand、pd_stand_x、pd_stand_y 切入；执行中可人工切 passive、pd_stand 或 `walk_leo`，轨迹播放结束后自动回 walk_leo。两者也使用 `rl_dance_example_runner`，进入时先完成首帧 PD 预备并等待关节位置误差连续达标；该条件不检查是否站稳，动作结束仍按轨迹末帧退出。切入步态时由 `entry_transition_direct_source_motions` 配置决定，当前四个步态配置会直接交给步态策略。
 - celebration：虚拟遥控器已加入 RB+A 快捷键，但仅保留 runner 和参数模板；当前没有模型、轨迹且未开放进入状态，补齐资源和状态机配置后才能执行。
-- getup/getup2（HoST 起身）：可由 walk、walk_custom、walk_leo、walk_leo_terrain 切入；进入时仍执行安全检查，已基本直立（投影重力 z ≤ -0.8）或角速度范数 > 6.0 时会拒绝进入。当投影重力 z ≤ -0.9 且角速度范数 ≤ 2.0 连续保持 0.3 秒后，判定起身成功并自动切入 walk_leo。人工切换时，随时都可以切入四套步态，不受起身成功与否限制。若 8 秒超时仍未满足站稳条件，会停止推进策略、保持最后一帧有效目标并自动切入 passive。
+- getup/getup2（HoST 起身）：可由 walk、walk_custom、walk_leo、walk_leo_terrain 切入；进入时仍执行安全检查，已基本直立（投影重力 z ≤ -0.8）或角速度范数 > 6.0 时会拒绝进入。当投影重力 z ≤ -0.9 且角速度范数 ≤ 2.0 连续保持 0.3 秒后，判定起身成功并自动切入 walk_leo。人工切换时，随时都可以切入四套步态，不受起身成功与否限制；当前四个步态配置会让步态策略直接接管。若 8 秒超时仍未满足站稳条件，会停止推进策略、保持最后一帧有效目标并自动切入 passive。
 - stance_to_supine（主动倒地）：可切 passive 或 pd_stand；完成后自动回 passive。
 - 所有状态均保留 LB + RB 到 passive 的软急停路径。
 

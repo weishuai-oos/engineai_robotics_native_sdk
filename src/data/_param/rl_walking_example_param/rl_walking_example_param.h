@@ -1,6 +1,9 @@
 #pragma once
 
 #include <iostream>
+#include <optional>
+#include <string>
+#include <vector>
 
 #include "basic_param/basic_param.h"
 #include "parameter/parameter_loader.h"
@@ -70,6 +73,7 @@ class RlWalkingExampleParam : public BasicParam {
   std::optional<double> LOAD_PARAM(entry_transition_max_joint_acceleration);
   std::optional<double> LOAD_PARAM(entry_transition_reference_pose_weight);
   std::optional<double> LOAD_PARAM(entry_transition_source_tracking_error);
+  std::optional<std::vector<std::string>> LOAD_PARAM(entry_transition_direct_source_motions);
 
   void Update() {
     LOAD_PARAM(default_joint_q);
@@ -87,6 +91,7 @@ class RlWalkingExampleParam : public BasicParam {
     LOAD_PARAM(entry_transition_max_joint_acceleration);
     LOAD_PARAM(entry_transition_reference_pose_weight);
     LOAD_PARAM(entry_transition_source_tracking_error);
+    LOAD_PARAM(entry_transition_direct_source_motions);
   }
 };
 }  // namespace data

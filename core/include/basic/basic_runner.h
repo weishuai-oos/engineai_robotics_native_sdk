@@ -2,6 +2,7 @@
 #define RUNNER_BASIC_INCLUDE_BASIC_BASIC_RUNNER_H_
 
 #include <memory>
+#include <string>
 #include <string_view>
 
 #include "data_store/data_store.h"
@@ -46,6 +47,19 @@ class BasicRunner {
   void SetRunnerState(RunnerState state) { runner_state_ = state; }
   RunnerState GetRunnerState() const { return runner_state_; }
   void SetPreviousMotion(std::string_view name) { previous_motion_ = name; }
+  const std::string& GetPreviousMotion() const { return previous_motion_; }
+  std::string GetPreviousMotionName() const {
+    if (!previous_motion_.empty()) {
+      return previous_motion_;
+    }
+    if (data_store_) {
+      const auto current_motion_name = data_store_->current_motion_task_name.Get();
+      if (current_motion_name) {
+        return *current_motion_name;
+      }
+    }
+    return {};
+  }
   void SetParamTag(std::string_view tag) { param_tag_ = tag.data(); }
   void SetRunnerPeriod(double period) { runner_period_ = period; }
   double GetRunnerPeriod() const { return runner_period_; }
