@@ -49,9 +49,8 @@ class RlWalkingLeolabExampleParam : public BasicParam {
   std::optional<bool> LOAD_PARAM(taunt_enabled);
   std::optional<double> LOAD_PARAM(taunt_duration_sec);
   std::optional<double> LOAD_PARAM(taunt_frequency_hz);
-  std::optional<Eigen::VectorXd> LOAD_PARAM(taunt_arm_amplitude);
-  std::optional<Eigen::VectorXd> LOAD_PARAM(taunt_arm_pose_offset);
-  std::optional<Eigen::VectorXd> LOAD_PARAM(taunt_arm_phase);
+  std::optional<Eigen::VectorXd> LOAD_PARAM(taunt_start_arm_pose);
+  std::optional<Eigen::VectorXd> LOAD_PARAM(taunt_end_arm_pose);
   std::optional<bool> LOAD_PARAM(taunt_observation_use_default_arm_pose);
 
   std::optional<bool> LOAD_PARAM(entry_transition_enabled);
@@ -90,9 +89,8 @@ class RlWalkingLeolabExampleParam : public BasicParam {
     LOAD_PARAM(taunt_enabled);
     LOAD_PARAM(taunt_duration_sec);
     LOAD_PARAM(taunt_frequency_hz);
-    LOAD_PARAM(taunt_arm_amplitude);
-    LOAD_PARAM(taunt_arm_pose_offset);
-    LOAD_PARAM(taunt_arm_phase);
+    LOAD_PARAM(taunt_start_arm_pose);
+    LOAD_PARAM(taunt_end_arm_pose);
     LOAD_PARAM(taunt_observation_use_default_arm_pose);
     LOAD_PARAM(entry_transition_enabled);
     LOAD_PARAM(entry_transition_duration);

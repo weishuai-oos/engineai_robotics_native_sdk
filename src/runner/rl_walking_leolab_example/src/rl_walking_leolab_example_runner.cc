@@ -23,6 +23,8 @@ constexpr std::array<std::string_view, kTauntArmJointCount> kTauntArmHostJointNa
     "J17_ELBOW_YAW_L",      "J20_SHOULDER_PITCH_R", "J21_SHOULDER_ROLL_R", "J22_SHOULDER_YAW_R",
     "J23_ELBOW_PITCH_R",    "J24_ELBOW_YAW_R"};
 
+bool IsTauntShoulderIndex(int arm_index) { return arm_index == 0 || arm_index == 5; }
+
 Eigen::VectorXd SelectByIndex(const Eigen::VectorXd& values, const Eigen::VectorXi& indices) {
   Eigen::VectorXd selected(indices.size());
   for (int i = 0; i < indices.size(); ++i) {
@@ -387,23 +389,21 @@ bool RlWalkingLeolabExampleRunner::ValidateTauntConfig() const {
       LOG(ERROR) << "[RlWalkingLeolabExampleRunner] taunt duration and frequency must be finite and > 0";
       return false;
     }
-    if (!param_->taunt_arm_amplitude.has_value() ||
-        param_->taunt_arm_amplitude->size() != kTauntArmJointCount ||
-        !param_->taunt_arm_amplitude->allFinite() ||
-        (param_->taunt_arm_amplitude->array() < 0.0).any()) {
-      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] taunt_arm_amplitude must contain 10 finite non-negative values";
+
+    const auto valid_pose = [](const std::optional<Eigen::VectorXd>& pose) {
+      return pose.has_value() && pose->size() == kTauntArmJointCount && pose->allFinite();
+    };
+    if (!valid_pose(param_->taunt_start_arm_pose) || !valid_pose(param_->taunt_end_arm_pose)) {
+      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] taunt start/end arm poses must contain 10 finite values";
       return false;
     }
-    if (param_->taunt_arm_pose_offset.has_value() &&
-        (param_->taunt_arm_pose_offset->size() != kTauntArmJointCount ||
-         !param_->taunt_arm_pose_offset->allFinite())) {
-      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] taunt_arm_pose_offset must contain 10 finite values";
-      return false;
-    }
-    if (param_->taunt_arm_phase.has_value() &&
-        (param_->taunt_arm_phase->size() != kTauntArmJointCount || !param_->taunt_arm_phase->allFinite())) {
-      LOG(ERROR) << "[RlWalkingLeolabExampleRunner] taunt_arm_phase must contain 10 finite values";
-      return false;
+
+    for (int i = 0; i < kTauntArmJointCount; ++i) {
+      if (!IsTauntShoulderIndex(i) &&
+          std::abs((*param_->taunt_start_arm_pose)(i) - (*param_->taunt_end_arm_pose)(i)) > 1e-6) {
+        LOG(ERROR) << "[RlWalkingLeolabExampleRunner] Only shoulder pitch joints may differ between taunt endpoints";
+        return false;
+      }
     }
   }
   return true;
@@ -609,18 +609,22 @@ void RlWalkingLeolabExampleRunner::ApplyTauntArmOverlay() {
   }
 
   const double frequency = param_->taunt_frequency_hz.value_or(0.0);
-  const Eigen::VectorXd& amplitude = param_->taunt_arm_amplitude.value();
-  const Eigen::VectorXd zero_pose_offset = Eigen::VectorXd::Zero(kTauntArmJointCount);
-  const Eigen::VectorXd& pose_offset = param_->taunt_arm_pose_offset.value_or(zero_pose_offset);
-  const Eigen::VectorXd zero_phase = Eigen::VectorXd::Zero(kTauntArmJointCount);
-  const Eigen::VectorXd& phase = param_->taunt_arm_phase.value_or(zero_phase);
-  const double angle = kTwoPi * frequency * time_;
+  const Eigen::VectorXd& start_pose = param_->taunt_start_arm_pose.value();
+  const Eigen::VectorXd& end_pose = param_->taunt_end_arm_pose.value();
+
+  // Smoothly interpolate start -> end -> start. One configured frequency is
+  // one complete round trip; therefore the end pose is reached at half-period.
+  const double blend = 0.5 * (1.0 - std::cos(kTwoPi * frequency * time_));
   for (int i = 0; i < taunt_arm_action_idx_.size(); ++i) {
     const int action_idx = taunt_arm_action_idx_(i);
     const int deploy_idx = policy2deploy_joint_idx_(action_idx);
-    // Add a bounded, phase-configured offset to the live Leo arm command. The
-    // policy still owns the legs, torso, head, and the arm's boxing-guard base.
-    q_des_(deploy_idx) += pose_offset(i) + amplitude(i) * std::sin(angle + phase(i));
+    const double target = IsTauntShoulderIndex(i)
+                              ? start_pose(i) + blend * (end_pose(i) - start_pose(i))
+                              : start_pose(i);
+    // Use absolute editor poses: elbows, shoulder roll/yaw, and all other
+    // upper-body joints remain at the start pose; only shoulder pitch moves.
+    q_des_(deploy_idx) = target;
+    qd_des_(deploy_idx) = 0.0;
   }
 }
 

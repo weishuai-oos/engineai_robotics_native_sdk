@@ -202,34 +202,26 @@ observation_clip: 100.0
 control_dt: 0.02
 
 # Deterministic upper-body taunt overlay on top of the live Leo gait policy.
-# The first five amplitudes are the left arm (host J13~J17), followed by the
-# right arm (host J20~J24). Right-arm phases are pi radians behind the left arm
-# so the two arms move in a regular alternating rhythm.
+# These are absolute joint positions in radians copied from the editor's
+# start.npz/end.npz. Order: left J13~J17, then right J20~J24.
+# At t=0 the arms use start_pose; at half a cycle they reach end_pose;
+# at one full cycle they return to start_pose.
 taunt_enabled: true
 taunt_duration_sec: 8.0
-# Frequency is in Hz; pose offsets and arm amplitudes are joint offsets in radians.
-taunt_frequency_hz: 0.35
-taunt_arm_amplitude:
+taunt_frequency_hz: 1.0
+taunt_start_arm_pose:
   [
-    0.15, 0.08, 0.06, 0.20, 0.06,
-    0.15, 0.08, 0.06, 0.20, 0.06,
+    -0.170080006, 0.540767014, 0.313282013, -1.331819057, 0.124101996,
+    -1.138288975, -0.136425003, 0.197952002, -1.815755010, -0.623839021,
   ]
-# Lower the hands by opening both elbows from the original high boxing guard.
-# Order: left J13~J17, right J20~J24; +0.45 rad is toward the lower pose.
-taunt_arm_pose_offset:
+taunt_end_arm_pose:
   [
-    0.0, 0.0, 0.0, 0.45, 0.0,
-    0.0, 0.0, 0.0, 0.45, 0.0,
-  ]
-taunt_arm_phase:
-  [
-    0.0, 0.0, 0.0, 0.0, 0.0,
-    3.141592653589793, 3.141592653589793, 3.141592653589793,
-    3.141592653589793, 3.141592653589793,
+    -1.376247048, 0.540767014, 0.313282013, -1.331819057, 0.124101996,
+    -0.318269014, -0.136425003, 0.197952002, -1.815755010, -0.623839021,
   ]
 # Set false to compare policy behavior with measured arm position/velocity
 # observations instead of the nominal Leo boxing-guard observation.
-taunt_observation_use_default_arm_pose: true
+taunt_observation_use_default_arm_pose: false
 
 # The recurrent policy runs from the first cycle while these parameters shape
 # the command sent to the motors for non-recovery sources.
