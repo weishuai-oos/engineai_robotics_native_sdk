@@ -204,8 +204,8 @@ getup2 与 getup 共用 HoST 456→23 ABI、观测构造、安全检查、8 秒�
 
   celebration                                  assets/config/t800/rl_celebration/default.yaml
 
-`celebration` 当前只有参数模板，`policy_file` 和 `trajectory_file_npz` 为空，也没有允许进入的状态；补齐完整导出模型、NPZ 轨迹及参数后才能开放 RB+A。
-补齐后应同时开放 `pd_stand`、`pd_stand_x`、`pd_stand_y` 和四套 walk 的 `manual_transition`；当前保持 runner `enabled: true`，但没有 incoming transition。
+`celebration` 当前只有参数模板，`policy_file` 和 `trajectory_file_npz` 为空；虚拟遥控器已提供 RB+A 快捷宏，但状态机暂未开放进入。补齐完整导出模型、NPZ 轨迹及参数后，再增加 incoming transition 才能实际播放。
+庆祝动作的状态机节点已按普通动作模板保留；模型、轨迹和进入状态补齐后再进行仿真、实机验证。
 
 三套新增动作资源来自 `10.12.120.125` 上的 `/home/kyx/robot/mimic/t800/engineai_robotics_native_sdk/assets/config/t800/`，对应目录为 `rl_supine_to_stance_v1_hybrid_9843_m13000`、`rl_prone_to_stance_hybrid_9825_m29500` 和 `rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500`。各目录保留的 `export_manifest.json` 中的 `sdk_sim_keys` 是源导出记录，不是本地最终按键；实际按键和状态进入关系以 `assets/config/t800/task_motion/default.yaml` 为准。
 

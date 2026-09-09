@@ -2,7 +2,7 @@
 
 ## 1. 目标和结论
 
-本次修改为 T800 的四个行走状态、八种普通动作策略（包括新增嘲讽动作）和两套 SDK 起身策略增加了统一的“目标状态入口衔接”。`walk_leo` 与 `walk_leo_terrain` 复用同一个 Leo runner；动作和起身状态复用 `rl_dance_example_runner`，仅通过 `param_tag` 加载不同配置。庆祝动作目前只有预留参数模板，没有模型、轨迹或允许进入的状态。核心原则按目标状态区分：
+本次修改为 T800 的四个行走状态、八种普通动作策略（包括新增嘲讽动作）和两套 SDK 起身策略增加了统一的“目标状态入口衔接”。`walk_leo` 与 `walk_leo_terrain` 复用同一个 Leo runner；动作和起身状态复用 `rl_dance_example_runner`，仅通过 `param_tag` 加载不同配置。庆祝动作目前只有预留参数模板和 RB+A 快捷键，模型、轨迹未导出，状态机也未开放进入。核心原则按目标状态区分：
 
 1. 对普通 walk 和动作策略，切换后目标策略从第一个控制周期就开始推理，不设置“等待策略启动”的空挡阶段。
 2. 对仰卧/俯卧起身，先执行首帧 PD 过渡和连续误差检查；误差连续达标后，策略才从轨迹第 0 帧开始推理。
@@ -38,10 +38,11 @@
 | `rl_left_hook_001_improved` | `RT + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 | `rl_punch_example` | `RB + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 | `ridicule` | `RB + X` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
+| `celebration`（预留） | `RB + A` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 | `supine_to_stance` | `START + 十字键上` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 | `prone_to_stance` | `START + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 
-上述十种有资产的动作策略共用同一个 runner，通过不同的 `param_tag` 加载模型和参考轨迹。它们的入口使用普通 bridge，以参考轨迹第 0 帧作为短时姿态引导；只有两套 SDK 起身另外启用首帧参考姿态衔接，要求实测关节误差连续达标后再交给策略。嘲讽和原有击打动作不启用该等待选项；`celebration` 仅保留 `rl_celebration` 参数模板，待补齐完整导出资产后再开放 RB+A。
+上述十种有资产的动作策略共用同一个 runner，通过不同的 `param_tag` 加载模型和参考轨迹。它们的入口使用普通 bridge，以参考轨迹第 0 帧作为短时姿态引导；只有两套 SDK 起身另外启用首帧参考姿态衔接，要求实测关节误差连续达标后再交给策略。嘲讽和原有击打动作不启用该等待选项；`celebration` 的 RB+A 快捷键已加入虚拟遥控器，但模型、轨迹和 incoming transition 均待补齐后才能执行。
 
 ## 3. 状态机与衔接覆盖
 
@@ -97,7 +98,7 @@ flowchart LR
   G -->|手动| W4
   G -->|手动或成功自动| W3
   A -->|正常完成自动| W3
-  S -->|正常完成自动| W3
+  S -->|手动提前或正常完成自动| W3
   A -->|手动提前| W1
   A -->|手动提前| W2
   A -->|手动提前| W4
@@ -118,7 +119,7 @@ flowchart LR
 | 十种有资产的动作策略正常完成 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 状态机自动切换，来源是动作最后实际下发的命令 |
 | `getup`/`getup2` → 四种 walk（手动） | 是 | 目标 walk 默认姿势 | 无论起身是否成功，状态机允许人工切换；动态可行性由操作者负责判断 |
 | `getup`/`getup2` 成功 → `walk_leo`（自动） | 是 | `walk_leo` 默认姿势 | 保留当前自动目标 |
-| `supine_to_stance` / `prone_to_stance` 轨迹播放结束 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 由 `walk_leo` 入口完成衔接；两种 SDK 起身的状态切换权限相同 |
+| `supine_to_stance` / `prone_to_stance` 轨迹播放结束 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 由 `walk_leo` 入口完成衔接；两种 SDK 起身也允许轨迹结束前手动切入 `walk_leo` |
 
 ### 3.2 本次未接入统一衔接的边
 
@@ -178,7 +179,7 @@ flowchart LR
 
 ### 4.4 参考动作正常结束时
 
-十种有资产的动作策略使用 `trajectory_end_behavior: exit`。轨迹到末帧后 runner 请求退出，状态机自动进入 `walk_leo`。`walk_leo` 捕获的是动作末尾真正下发的命令，而不是另存的一份固定末帧，因此自动结束和手动提前结束走同一套入口衔接逻辑。`celebration` 没有资产且没有 incoming transition，不属于当前可播放动作。
+十种有资产的动作策略使用 `trajectory_end_behavior: exit`。轨迹到末帧后 runner 请求退出，状态机自动进入 `walk_leo`。`walk_leo` 捕获的是动作末尾真正下发的命令，而不是另存的一份固定末帧，因此自动结束和手动提前结束走同一套入口衔接逻辑。`celebration` 的快捷键已显示在虚拟遥控器中，但没有模型、轨迹且未开放 incoming transition，当前仍不可播放。
 
 ## 5. 衔接算法
 

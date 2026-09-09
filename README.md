@@ -245,10 +245,10 @@ State transition logic varies by robot model. Refer to the per-model sections be
 | pd_stand | PD posture preparation task. It smoothly drives measured joints toward the configured target posture for motion recovery preparation. |
 | walk | Walking task. The robot executes gait locomotion. |
 | dance | Dance task. The robot executes predefined choreographed motion sequences. |
-| supine_to_stance | Stand-up task using the local `rl_dance_example_runner` with a 50 Hz, 134-observation/25-action policy. Trigger: START + d-pad up. |
-| prone_to_stance | Stand-up task using the local `rl_dance_example_runner` with a 50 Hz, 134-observation/25-action policy. Trigger: START + d-pad right. |
+| supine_to_stance | Stand-up task using the local `rl_dance_example_runner` with a 50 Hz, 134-observation/25-action policy. Trigger: START + d-pad up; `walk_leo` can also be selected manually before the trajectory ends. |
+| prone_to_stance | Stand-up task using the local `rl_dance_example_runner` with a 50 Hz, 134-observation/25-action policy. Trigger: START + d-pad right; `walk_leo` can also be selected manually before the trajectory ends. |
 | ridicule | Ridicule motion using the local `rl_dance_example_runner`. Trigger: RB + X; returns to `walk_leo` after completion. |
-| celebration | Reserved celebration state, triggered by RB + A when enabled. The runner and parameter template exist, but the policy and trajectory are empty and entry is not exposed yet. |
+| celebration | Reserved celebration state with the RB + A quick macro. The runner and parameter template exist, but the policy and trajectory are empty and the state-machine entry remains disabled. |
 | stance_to_supine | Lie-down task. The robot transitions from standing posture to a supine (lying on back) posture. |
 
 **State Machine Configuration:** `assets/config/t800/task_motion/default.yaml`

@@ -155,6 +155,8 @@ class VirtualGamepadWidget(QWidget):
             "stance_to_supine: [START, CROSS_X_DOWN]":
                 ("START", "CROSS_X_DOWN"),
             "victory: [RB, Y]": ("RB", "Y"),
+            "ridicule: [RB, X]": ("RB", "X"),
+            "celebration: [RB, A]": ("RB", "A"),
             "rl_left_hook_001_improved: [RT, CROSS_Y_RIGHT]":
                 ("RT", "CROSS_Y_RIGHT"),
         }

@@ -376,6 +376,7 @@ tasks:
     manual_transition:
       - passive
       - pd_stand
+      - walk_leo
     auto_transition: walk_leo
     key: [START, CROSS_X_UP]
 
@@ -388,6 +389,7 @@ tasks:
     manual_transition:
       - passive
       - pd_stand
+      - walk_leo
     auto_transition: walk_leo
     key: [START, CROSS_Y_RIGHT]
 
