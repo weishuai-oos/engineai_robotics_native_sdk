@@ -1,26 +1,45 @@
 #include "pd_stand_param/pd_stand_param.h"
+#include <cmath>
+#include <string>
+
 #include "parameter/parameter_loader.h"
 namespace data {
 
 void PdStandParam::Check() {
-  auto model_param_scope_ = FindScope("model");
-  if (model_param_scope_.empty()) {
+  const auto model_scope = FindScope("model");
+  if (model_scope.empty()) {
     throw std::runtime_error("model parameter scope not found");
   }
-  auto model_param_node = common::GetGlobalConfigTree().FindNode(model_param_scope_);
+  const auto model_node = common::GetGlobalConfigTree().FindNode(model_scope);
+  const auto& limbs = model_node["limbs"];
 
-  auto limbs_num = model_param_node["limbs"].size();
-  if (limbs_num != desired_joint_position.size() || limbs_num != stiffness.size() || limbs_num != damping.size()) {
-    throw std::runtime_error("limbs number not match");
+  if (!std::isfinite(duration) || duration <= 0.0) {
+    throw std::runtime_error("pd stand duration must be positive");
+  }
+  if (initial_joint_position_bias_threshold &&
+      (!std::isfinite(*initial_joint_position_bias_threshold) || *initial_joint_position_bias_threshold < 0.0)) {
+    throw std::runtime_error("initial joint position bias threshold must be non-negative");
   }
 
-  for (size_t i = 0; i < limbs_num; i++) {
-    auto joint_num = model_param_node["limbs"][i]["joints"].size();
-    if (desired_joint_position[i].size() != joint_num || stiffness[i].size() != joint_num ||
-        damping[i].size() != joint_num) {
-      throw std::runtime_error("joint number not match");
+  const size_t limb_count = limbs.size();
+  if (desired_joint_position.size() != limb_count || stiffness.size() != limb_count || damping.size() != limb_count) {
+    throw std::runtime_error("pd stand parameter limb groups do not match model");
+  }
+
+  const auto validate_group = [&](const std::vector<Eigen::VectorXd>& group, const char* name) {
+    for (size_t limb = 0; limb < limb_count; ++limb) {
+      const size_t joint_count = limbs[limb]["joints"].size();
+      if (group[limb].size() != joint_count) {
+        throw std::runtime_error(std::string("pd stand ") + name + " joint group does not match model");
+      }
+      if (!group[limb].allFinite()) {
+        throw std::runtime_error(std::string("pd stand ") + name + " contains non-finite values");
+      }
     }
-  }
+  };
+  validate_group(desired_joint_position, "desired_joint_position");
+  validate_group(stiffness, "stiffness");
+  validate_group(damping, "damping");
 }
 
 }  // namespace data

@@ -33,7 +33,10 @@
 #include <algorithm>
 #include <cmath>
 #include <exception>
+#include <filesystem>
+#include <limits>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -45,6 +48,13 @@
 namespace runner {
 
 namespace {
+
+constexpr double kReferencePoseProgressLogPeriod = 0.10;
+
+bool IsArmJoint(std::string_view joint_name) {
+  return joint_name.find("SHOULDER") != std::string_view::npos ||
+         joint_name.find("ELBOW") != std::string_view::npos;
+}
 
 bool ValidateFloatTrajectoryArray(const cnpy::NpyArray& array, const char* key) {
   if (array.word_size != sizeof(float)) {
@@ -74,6 +84,36 @@ bool ValidateFloatTrajectoryArray(const cnpy::NpyArray& array, const char* key) 
   }
   if (array.num_bytes() != array.num_vals * array.word_size) {
     LOG(ERROR) << "[WbtRunner::Enter] Trajectory key '" << key << "' has an inconsistent data buffer";
+    return false;
+  }
+  return true;
+}
+
+bool ValidateConfiguredAssetPath(const std::string& config_root, const std::string& relative_path,
+                                const char* parameter_name) {
+  if (relative_path.empty()) {
+    LOG(ERROR) << "[WbtRunner::Enter] Required " << parameter_name << " is empty";
+    return false;
+  }
+
+  const std::filesystem::path asset_path = std::filesystem::path(config_root) / relative_path;
+  std::error_code error;
+  const bool exists = std::filesystem::exists(asset_path, error);
+  if (error) {
+    LOG(ERROR) << "[WbtRunner::Enter] Failed to inspect " << parameter_name << " '" << asset_path.string()
+               << "': " << error.message();
+    return false;
+  }
+  if (!exists) {
+    LOG(ERROR) << "[WbtRunner::Enter] Configured " << parameter_name << " is not a file: "
+               << asset_path.string();
+    return false;
+  }
+
+  error.clear();
+  if (!std::filesystem::is_regular_file(asset_path, error) || error) {
+    LOG(ERROR) << "[WbtRunner::Enter] Configured " << parameter_name << " is not a regular file: "
+               << asset_path.string();
     return false;
   }
   return true;
@@ -122,6 +162,16 @@ bool RlDanceExampleRunner::Enter() {
     return false;
   }
 
+  // Validate configured assets before constructing MNNModel. In particular, the
+  // celebration placeholder intentionally has no assets yet; rejecting it here
+  // keeps an empty path from reaching the MNN loader and producing an opaque
+  // backend error.
+  const std::string config_root = common::GlobalPathManager::GetInstance().GetConfigPath();
+  if (!ValidateConfiguredAssetPath(config_root, param_->policy_file, "policy_file") ||
+      !ValidateConfiguredAssetPath(config_root, param_->trajectory_file_npz, "trajectory_file_npz")) {
+    return false;
+  }
+
   const std::string trajectory_end_behavior = param_->trajectory_end_behavior.value_or("exit");
   if (trajectory_end_behavior != "exit" && trajectory_end_behavior != "hold") {
     LOG(ERROR) << "[WbtRunner::Enter] trajectory_end_behavior must be 'exit' or 'hold', got: "
@@ -129,6 +179,20 @@ bool RlDanceExampleRunner::Enter() {
     return false;
   }
   exit_on_trajectory_end_ = trajectory_end_behavior == "exit";
+  entry_transition_to_reference_pose_ = param_->entry_transition_to_reference_pose.value_or(false);
+  const double reference_pose_tolerance =
+      param_->entry_transition_reference_pose_tolerance.value_or(0.12);
+  const int reference_pose_settle_cycles =
+      param_->entry_transition_reference_pose_settle_cycles.value_or(8);
+  reference_pose_arm_stiffness_scale_ =
+      param_->entry_transition_reference_pose_arm_stiffness_scale.value_or(1.0);
+  if (!reference_pose_gate_.Configure(entry_transition_to_reference_pose_, reference_pose_tolerance,
+                                     reference_pose_settle_cycles) ||
+      !std::isfinite(reference_pose_arm_stiffness_scale_) ||
+      reference_pose_arm_stiffness_scale_ <= 0.0) {
+    LOG(ERROR) << "Invalid reference pose entry configuration";
+    return false;
+  }
 
   // --- Step 2: Joint PD gains and index mapping ---
   // Initialize full-body joint arrays (all joints, not just policy-controlled ones)
@@ -147,6 +211,17 @@ bool RlDanceExampleRunner::Enter() {
   // Apply PD gains and default positions only to the policy-controlled joints
   joint_kp_(*policy2deploy_joint_idx_) = param_->joint_stiffness;
   joint_kd_(*policy2deploy_joint_idx_) = param_->joint_damping;
+  reference_pose_kp_ = joint_kp_;
+  reference_pose_kd_ = joint_kd_;
+  if (entry_transition_to_reference_pose_ && reference_pose_arm_stiffness_scale_ != 1.0) {
+    const double damping_scale = std::sqrt(reference_pose_arm_stiffness_scale_);
+    for (size_t i = 0; i < param_->joint_names.size(); ++i) {
+      if (!IsArmJoint(param_->joint_names[i])) continue;
+      const int deploy_idx = (*policy2deploy_joint_idx_)(static_cast<int>(i));
+      reference_pose_kp_(deploy_idx) *= reference_pose_arm_stiffness_scale_;
+      reference_pose_kd_(deploy_idx) *= damping_scale;
+    }
+  }
   joint_kp_cmd_ = joint_kp_;
   joint_kd_cmd_ = joint_kd_;
   (*default_joint_q_)(*policy2deploy_joint_idx_) = param_->default_joint_pos;
@@ -237,6 +312,24 @@ void RlDanceExampleRunner::fillObsContextConstantPart() {
 void RlDanceExampleRunner::Run() {
   if (trajectory_hold_active_) {
     SendMotorCommand();
+    return;
+  }
+
+  // A configured reference-pose entry is a pre-policy phase.  It intentionally
+  // does not assemble observations, infer the policy, align yaw, or advance
+  // policy_step.  This also handles entry_transition_enabled=false: the
+  // transition object returns the frame-zero command immediately, while the
+  // measured pose still has to satisfy the settle gate.
+  if (entry_transition_to_reference_pose_ && reference_pose_gate_.IsActive()) {
+    const bool bridge_active = entry_transition_.IsActive();
+    ApplyReferencePoseTransition();
+    SendMotorCommand();
+    LogReferencePoseTrackingProgress(bridge_active ? "bridge" : "settle");
+    const bool was_active = reference_pose_gate_.IsActive();
+    reference_pose_gate_.Observe(bridge_active, GetReferencePoseTrackingError());
+    if (was_active && !reference_pose_gate_.IsActive()) {
+      LOG(INFO) << "Reference pose reached; starting policy at trajectory frame 0";
+    }
     return;
   }
 
@@ -441,18 +534,101 @@ bool RlDanceExampleRunner::InitializeEntryTransition() {
   motion_transition::JointCommand source;
   motion_transition::CaptureJointCommand(data_store_->joint_info, model_param_->num_total_joints, &source);
 
+  if (entry_transition_to_reference_pose_) {
+    source.q = q_real_;
+    source.qd = qd_real_;
+    source.kp = reference_pose_kp_;
+    source.kd = reference_pose_kd_;
+    source.tau_ff = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  }
+
   motion_transition::JointCommand fallback;
   fallback.q = entry_reference_q_;
   fallback.qd = Eigen::VectorXd::Zero(model_param_->num_total_joints);
-  fallback.kp = joint_kp_;
-  fallback.kd = joint_kd_;
+  fallback.kp = entry_transition_to_reference_pose_ ? reference_pose_kp_ : joint_kp_;
+  fallback.kd = entry_transition_to_reference_pose_ ? reference_pose_kd_ : joint_kd_;
   fallback.tau_ff = Eigen::VectorXd::Zero(model_param_->num_total_joints);
 
   q_des_ = q_real_;
   qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   mlp_net_action_->setZero();
-  return entry_transition_.Start(source, q_real_, qd_real_, fallback);
+  const bool started = entry_transition_.Start(source, q_real_, qd_real_, fallback);
+  if (started) {
+    reference_pose_gate_.Reset();
+    reference_pose_progress_log_elapsed_ = 0.0;
+    reference_pose_progress_log_pending_ = true;
+  }
+  return started;
+}
+
+void RlDanceExampleRunner::ApplyReferencePoseTransition() {
+  data_store_->joint_info.GetState(data::JointInfoType::kPosition, q_real_);
+  if (q_real_.size() != model_param_->num_total_joints || !q_real_.allFinite()) {
+    LOG(ERROR) << "[WbtRunner] Invalid measured joint position during reference pose entry; "
+                  "holding the last valid command";
+    if (q_des_.size() != model_param_->num_total_joints || !q_des_.allFinite()) {
+      q_des_ = entry_reference_q_.allFinite() ? entry_reference_q_
+                                               : Eigen::VectorXd::Zero(model_param_->num_total_joints);
+    }
+    qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+    tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+    joint_kp_cmd_ = joint_kp_;
+    joint_kd_cmd_ = joint_kd_;
+    return;
+  }
+
+  motion_transition::JointCommand target;
+  target.q = q_real_;
+  target.q(*policy2deploy_joint_idx_) = ref_joint_pos_all_->row(0).transpose();
+  target.qd = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  target.kp = reference_pose_kp_;
+  target.kd = reference_pose_kd_;
+  target.tau_ff = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+
+  motion_transition::JointCommand command;
+  if (!entry_transition_.Apply(target, target.q, q_real_, GetControlPeriod(), &command)) {
+    LOG(ERROR) << "[WbtRunner] Reference pose transition failed; holding measured pose";
+    q_des_ = q_real_;
+    qd_des_.setZero();
+    tau_ff_des_.setZero();
+    joint_kp_cmd_ = joint_kp_;
+    joint_kd_cmd_ = joint_kd_;
+    return;
+  }
+  q_des_ = std::move(command.q);
+  qd_des_ = std::move(command.qd);
+  joint_kp_cmd_ = std::move(command.kp);
+  joint_kd_cmd_ = std::move(command.kd);
+  tau_ff_des_ = std::move(command.tau_ff);
+}
+
+void RlDanceExampleRunner::LogReferencePoseTrackingProgress(const char* phase) {
+  if (!phase || !ref_joint_pos_all_ || ref_joint_pos_all_->rows() == 0 ||
+      !policy2deploy_joint_idx_ || q_real_.size() != model_param_->num_total_joints) {
+    return;
+  }
+  reference_pose_progress_log_elapsed_ += GetControlPeriod();
+  if (!reference_pose_progress_log_pending_ &&
+      reference_pose_progress_log_elapsed_ < kReferencePoseProgressLogPeriod) {
+    return;
+  }
+  reference_pose_progress_log_elapsed_ = 0.0;
+  reference_pose_progress_log_pending_ = false;
+  const double error = GetReferencePoseTrackingError();
+  LOG(INFO) << "[ReferencePoseTracking] phase=" << phase << ", max_measured_error=" << error
+            << " rad, settle_cycles=" << reference_pose_gate_.settle_cycles() << "/"
+            << reference_pose_gate_.settle_cycles_required();
+}
+
+double RlDanceExampleRunner::GetReferencePoseTrackingError() const {
+  if (!ref_joint_pos_all_ || ref_joint_pos_all_->rows() == 0 || !policy2deploy_joint_idx_ ||
+      q_real_.size() != model_param_->num_total_joints || !q_real_.allFinite()) {
+    return std::numeric_limits<double>::infinity();
+  }
+  return (q_real_(*policy2deploy_joint_idx_) - ref_joint_pos_all_->row(0).transpose())
+      .cwiseAbs()
+      .maxCoeff();
 }
 
 void RlDanceExampleRunner::ApplyEntryTransition() {

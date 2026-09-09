@@ -5,6 +5,7 @@
 #include "basic/motion_runner.h"
 #include "basic/runner_registry.h"
 #include "rl_dance_example/wbt_obs_registry.h"
+#include "rl_dance_example/reference_pose_gate.h"
 #include "rl_dance_example_param/rl_dance_example_param.h"
 
 #include "cnpy.h"
@@ -34,6 +35,9 @@ class RlDanceExampleRunner : public MotionRunner {
   void CalculateObservation();
   void CalculateMotorCommand();
   bool InitializeEntryTransition();
+  void ApplyReferencePoseTransition();
+  void LogReferencePoseTrackingProgress(const char* phase);
+  double GetReferencePoseTrackingError() const;
   void ApplyEntryTransition();
   double GetControlPeriod() const;
   void SendMotorCommand();
@@ -86,7 +90,14 @@ class RlDanceExampleRunner : public MotionRunner {
   Eigen::VectorXd joint_kd_cmd_;
   Eigen::VectorXd action_scale_;
   Eigen::VectorXd entry_reference_q_;
+  Eigen::VectorXd reference_pose_kp_;
+  Eigen::VectorXd reference_pose_kd_;
   motion_transition::EntryCommandTransition entry_transition_;
+  ReferencePoseGate reference_pose_gate_;
+  bool entry_transition_to_reference_pose_ = false;
+  double reference_pose_arm_stiffness_scale_ = 1.0;
+  double reference_pose_progress_log_elapsed_ = 0.0;
+  bool reference_pose_progress_log_pending_ = true;
 
   Eigen::Matrix3d ref_init_yaw_rot_;
   Eigen::Matrix3d body_init_yaw_rot_;

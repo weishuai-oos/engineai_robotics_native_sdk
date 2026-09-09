@@ -83,7 +83,8 @@ class MotionStateProfile {
 
 class RlMinicTrajectoryParam : public BasicParam {
  public:
-  RlMinicTrajectoryParam(std::string_view tag = "rl_supine_to_stance");
+  // stance_to_supine retains this schema; the two getups now use WBT parameters.
+  RlMinicTrajectoryParam(std::string_view tag = "rl_stance_to_supine");
 
   DEFINE_PARAM_SCOPE(scope_);
 

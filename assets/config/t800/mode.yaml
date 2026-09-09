@@ -48,9 +48,9 @@ mode:
     - tag: ros2_bridge
       scope: ros2_bridge/default
     - tag: rl_supine_to_stance
-      scope: rl_supine_to_stance/default
+      scope: rl_supine_to_stance_v1_hybrid_9843_m13000/default
     - tag: rl_prone_to_stance
-      scope: rl_prone_to_stance/default
+      scope: rl_prone_to_stance_hybrid_9825_m29500/default
     - tag: rl_stance_to_supine
       scope: rl_stance_to_supine/default
     - tag: rl_dance_example
@@ -65,6 +65,10 @@ mode:
       scope: rl_getup_example/default
     - tag: rl_victory_example
       scope: rl_victory_example/default
+    - tag: rl_ridicule
+      scope: rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500/default
+    - tag: rl_celebration
+      scope: rl_celebration/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
     - tag: rl_left_front_kick_002_complete_heightfall
@@ -114,9 +118,9 @@ mode:
     - tag: ros2_bridge
       scope: ros2_bridge/default
     - tag: rl_supine_to_stance
-      scope: rl_supine_to_stance/default
+      scope: rl_supine_to_stance_v1_hybrid_9843_m13000/default
     - tag: rl_prone_to_stance
-      scope: rl_prone_to_stance/default
+      scope: rl_prone_to_stance_hybrid_9825_m29500/default
     - tag: rl_stance_to_supine
       scope: rl_stance_to_supine/default
     - tag: rl_dance_example
@@ -131,6 +135,10 @@ mode:
       scope: rl_getup_example/default
     - tag: rl_victory_example
       scope: rl_victory_example/default
+    - tag: rl_ridicule
+      scope: rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500/default
+    - tag: rl_celebration
+      scope: rl_celebration/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
     - tag: rl_left_front_kick_002_complete_heightfall

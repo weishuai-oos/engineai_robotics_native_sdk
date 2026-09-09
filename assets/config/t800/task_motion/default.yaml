@@ -51,6 +51,7 @@ tasks:
       - walk_leo_terrain
       - dance
       - victory
+      - ridicule
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -80,6 +81,7 @@ tasks:
       - walk_leo_terrain
       - dance
       - victory
+      - ridicule
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -107,6 +109,7 @@ tasks:
       - walk_leo_terrain
       - dance
       - victory
+      - ridicule
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -135,6 +138,7 @@ tasks:
       - stance_to_supine
       - dance
       - victory
+      - ridicule
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -159,6 +163,7 @@ tasks:
       - stance_to_supine
       - dance
       - victory
+      - ridicule
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -183,6 +188,7 @@ tasks:
       - stance_to_supine
       - dance
       - victory
+      - ridicule
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -207,6 +213,7 @@ tasks:
       - stance_to_supine
       - dance
       - victory
+      - ridicule
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -245,6 +252,40 @@ tasks:
       - walk_leo_terrain
     auto_transition: walk_leo
     key: [RB, Y]
+
+  - motion: ridicule
+    period: 0.02
+    runner:
+      - name: rl_dance_example_runner
+        enabled: true
+        param_tag: rl_ridicule
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+      - walk_leo_terrain
+    auto_transition: walk_leo
+    key: [RB, X]
+
+  # Reserved until the celebration export is available. No incoming transitions
+  # are allowed yet; keep the Runner enabled to avoid a zero-Runner motion.
+  - motion: celebration
+    period: 0.02
+    runner:
+      - name: rl_dance_example_runner
+        enabled: true
+        param_tag: rl_celebration
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_custom
+      - walk_leo
+      - walk_leo_terrain
+    auto_transition: walk_leo
+    key: [RB, A]
 
   - motion: rl_left_front_kick_002_complete_heightfall
     period: 0.02
@@ -327,9 +368,9 @@ tasks:
     key: [RB, CROSS_Y_RIGHT]
 
   - motion: supine_to_stance
-    period: 0.01
+    period: 0.02
     runner:
-      - name: rl_mimic_trajectory_runner
+      - name: rl_dance_example_runner
         enabled: true
         param_tag: rl_supine_to_stance
     manual_transition:
@@ -339,9 +380,9 @@ tasks:
     key: [START, CROSS_X_UP]
 
   - motion: prone_to_stance
-    period: 0.01
+    period: 0.02
     runner:
-      - name: rl_mimic_trajectory_runner
+      - name: rl_dance_example_runner
         enabled: true
         param_tag: rl_prone_to_stance
     manual_transition:

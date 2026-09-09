@@ -33,6 +33,8 @@ pd_stand、pd_stand_x、pd_stand_y 共用 pd_stand_runner，参数分别为：
 
 三者均为 25 关节、3 秒 PD 插值；x/y 使用 urkl_exams 分支中的目标姿态和 4.0 rad 初始偏差阈值。x/y 可以互相切换，也可以切回 pd_stand/passive；只有 passive、pd_stand 能切入 x/y，其他状态不提供直接入边。
 
+本工程的 `pd_stand_runner` 使用自实现的五次插值生成位置和速度目标。标准 `pd_stand` 的 sim `default.yaml` 与 robot `robot.yaml` 目标姿态已对齐仰卧起身 NPZ 的第 0 帧（按 25 个部署关节映射），不是直接使用起身配置中的 `default_joint_pos`；3 秒时长、PD 增益以及 `pose_x`/`pose_y` 姿态保持不变。这样可先由 `pd_stand` 将 `pose_x`/`pose_y` 的姿态恢复到标准准备姿态，再进入对应起身策略。
+
 3. 常驻任务
 
   assets/config/t800/task_resident/sim.yaml
@@ -133,17 +135,18 @@ Leo 与 terrain Leo 共用同一个 runner，因此 entry_transition_enabled、e
 1. SDK 起身 supine_to_stance / prone_to_stance
 
   仰卧起身（START + 十字键上）：
-  配置：assets/config/t800/rl_supine_to_stance/default.yaml
-  策略：assets/config/t800/rl_supine_to_stance/policy/
-  轨迹：assets/config/t800/rl_supine_to_stance/trajectory/
+  参数标签：rl_supine_to_stance
+  配置：assets/config/t800/rl_supine_to_stance_v1_hybrid_9843_m13000/default.yaml
+  策略：assets/config/t800/rl_supine_to_stance_v1_hybrid_9843_m13000/policies/policy.mnn
+  轨迹：assets/config/t800/rl_supine_to_stance_v1_hybrid_9843_m13000/trajectories/T800_supine_to_stance_sdk_clip_50hz.npz
 
   俯卧起身（START + 十字键右）：
-  配置：assets/config/t800/rl_prone_to_stance/default.yaml
-  策略：assets/config/t800/rl_prone_to_stance/policy/T800_prone_to_stance.mnn
-  轨迹：assets/config/t800/rl_prone_to_stance/trajectory/T800_prone_to_stance.csv
-  来源记录：assets/config/t800/rl_prone_to_stance/resource_manifest.json
+  参数标签：rl_prone_to_stance
+  配置：assets/config/t800/rl_prone_to_stance_hybrid_9825_m29500/default.yaml
+  策略：rl_prone_to_stance_hybrid_9825_m29500/policies/policy.mnn
+  轨迹：rl_prone_to_stance_hybrid_9825_m29500/trajectories/T800_prone_to_stance_sdk_clip_grounded_50hz.npz
 
-两者共用 rl_mimic_trajectory_runner，每个 motion 创建独立实例；均为 100 Hz、25 关节、430 维输入，残差目标为 q_ref + 0.25 × action。俯卧资源来自官方 rl_mimic_prone_to_stance 的 prone_to_stance_lm 配置，保留其非零 default_joint_q、joint_kp_lm/joint_kd_lm 数值及限矩参数；不能直接套用仰卧的默认姿态或 PD 增益。俯卧 CSV 为 150 个数据帧，traj_frame=[10,-55] 选取零基 10–95 帧，csv_dt=0.033333，插值到 100 Hz 后约 2.83 秒，入口过渡 0.1 秒。轨迹播放结束后按 task_motion 自动进入 walk_leo，未额外添加站稳判断。
+两者共用本地 `rl_dance_example_runner`，各自通过 `param_tag` 加载独立参数；控制周期为 0.02 s（50 Hz），输入为 134 维、输出为 25 维。两者均使用 `resident_control: true`，目标为 `q_ref + action_scale × action`。入口沿用击打动作的普通衔接参数：名义 0.16 s，范围 0.10～0.28 s，参考首帧引导权重 0.35；另外仅这两套起身资源启用首帧参考姿态衔接，要求实测关节误差不超过 0.80 rad 并连续 5 个周期达标，同时使用手臂 Kp 缩放 2.5 及对应的 Kd 缩放。嘲讽、庆祝和原有击打动作均保持普通 bridge，不启用该首帧等待选项。这里的误差达标只表示进入策略前的关节位置条件，不代表已经验证站稳。轨迹正常结束后按 task_motion 自动进入 `walk_leo`。旧的官方 supine/prone 配置目录已删除；`stance_to_supine` 仍保留官方 `rl_mimic_trajectory_runner` 和原有资源。
 
 2. HoST 起身 getup
 
@@ -195,6 +198,16 @@ getup2 与 getup 共用 HoST 456→23 ABI、观测构造、安全检查、8 秒�
   rl_straight_punch_L_improved               assets/config/t800/rl_straight_punch_L_improved/default.yaml
   rl_left_hook_001_improved                  assets/config/t800/rl_left_hook_001_improved/default.yaml
   rl_punch_example                            assets/config/t800/rl_punch_example/default.yaml
+  ridicule                                     assets/config/t800/rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500/default.yaml
+
+庆祝动作预留：
+
+  celebration                                  assets/config/t800/rl_celebration/default.yaml
+
+`celebration` 当前只有参数模板，`policy_file` 和 `trajectory_file_npz` 为空，也没有允许进入的状态；补齐完整导出模型、NPZ 轨迹及参数后才能开放 RB+A。
+补齐后应同时开放 `pd_stand`、`pd_stand_x`、`pd_stand_y` 和四套 walk 的 `manual_transition`；当前保持 runner `enabled: true`，但没有 incoming transition。
+
+三套新增动作资源来自 `10.12.120.125` 上的 `/home/kyx/robot/mimic/t800/engineai_robotics_native_sdk/assets/config/t800/`，对应目录为 `rl_supine_to_stance_v1_hybrid_9843_m13000`、`rl_prone_to_stance_hybrid_9825_m29500` 和 `rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500`。各目录保留的 `export_manifest.json` 中的 `sdk_sim_keys` 是源导出记录，不是本地最终按键；实际按键和状态进入关系以 `assets/config/t800/task_motion/default.yaml` 为准。
 
 - policy_file：动作追踪 MNN 模型。
 - trajectory_file_npz：参考动作轨迹。
@@ -206,7 +219,7 @@ getup2 与 getup 共用 HoST 456→23 ABI、观测构造、安全检查、8 秒�
 - upper_body_startup_interpolation_duration：下半身启动过渡结束后，上半身到参考轨迹目标帧的过渡时间。
 - lower_body_policy_blend_duration：开始策略后，下半身从轨迹起点到策略命令的混合时间。
 - trajectory_body_index：body_quat_w 为 N×B×4 时选择第几个 body；当前 T800 轨迹统一取 0。若 body_quat_w 已是 N×4，该值必须为 0。
-- trajectory_end_behavior：exit 表示轨迹结束后触发状态机自动切换；hold 表示保持末帧，需人工切换。本工程 dance、victory 和五个击打动作共 7 个动作轨迹使用 exit，正常完成后回 walk_leo；stance_to_supine 仍按任务图自动回 passive。
+- trajectory_end_behavior：exit 表示轨迹结束后触发状态机自动切换；hold 表示保持末帧，需人工切换。本工程 dance、victory、ridicule、五个击打动作以及两套 SDK 起身共 10 个有资产的动作策略使用 exit，正常完成后回 walk_leo；stance_to_supine 仍按任务图自动回 passive。`celebration` 尚无可播放资产。
 
 替换动作模型或轨迹时，可以保持文件名覆盖，也可以把新文件放入对应目录后修改 YAML 路径。NPZ 至少需要 float32、C-order 的 joint_pos、joint_vel、body_quat_w；前两项 Runner 视图必须为 N×25，四元数 Runner 视图必须为 N×4，帧数 N 一致且四元数必须归一化。Runner 只读取这三个键，body_pos_w、body_lin_vel_w、body_ang_vel_w、fps、body_names、schema 和 derived_* 等扩展键会被忽略，不影响策略执行，也不必为了适配当前 Runner 删除。Runner 进入状态时会检查这些条件，并用全零观测做一次模型输出维度/有限值校验。模型输入、输出、观测顺序、关节顺序和轨迹采样频率必须与 Runner 配置一致。
 

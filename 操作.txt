@@ -80,6 +80,8 @@ YAML 中使用的是统一逻辑键。CROSS_X_UP/DOWN 表示十字键上/下，C
   RB + 十字键右           rl_punch_example
   START + 十字键上        supine_to_stance（SDK 仰卧起身）
   START + 十字键右        prone_to_stance（SDK 俯卧起身）
+  RB + X                  ridicule（嘲讽动作）
+  RB + A                  celebration（庆祝动作，预留）
   LB + START              getup（HoST 起身）
   LB + Back               getup2（HoST 起身第二版本）
   START + 十字键下        stance_to_supine（SDK 主动倒地）
@@ -96,14 +98,15 @@ idle 是上电初始/故障恢复状态，不再占用 LB+START；程序进入 i
 
 - idle：可切 passive；进入后也会自动转 passive。
 - passive：可切 idle、pd_stand、pd_stand_x、pd_stand_y、supine_to_stance、prone_to_stance、getup、getup2。
-- pd_stand：可切 passive、四套步态、全部追踪动作、SDK 起身、HoST 起身以及 pd_stand_x/pd_stand_y。
-- pd_stand_x/pd_stand_y：两者可互切，也可切 passive、pd_stand、四套步态、全部追踪动作、SDK 起身和两套 HoST 起身；只有 passive 或 pd_stand 能切入这两个状态，其他状态不能直接切入。
-- walk（SDK）：可切 passive、pd_stand、walk_custom、walk_leo、walk_leo_terrain、getup、getup2、主动倒地和全部追踪动作。
-- walk_custom：可切 passive、pd_stand、walk、walk_leo、walk_leo_terrain、getup、getup2、主动倒地和全部追踪动作。
-- walk_leo：可切 passive、pd_stand、walk、walk_custom、walk_leo_terrain、getup、getup2、主动倒地和全部追踪动作。
-- walk_leo_terrain：可切 passive、pd_stand、walk、walk_custom、walk_leo、getup、getup2、主动倒地和全部追踪动作。它与 walk_leo 共用 Leo runner 的 entry_transition，因此从动作或其他步态进入时会执行同样的当前无缝衔接逻辑。
-- dance、victory、五个击打动作：执行中可切 passive、pd_stand 或任一步态；轨迹正常结束后自动回 walk_leo。这里的 walk_leo 是静态默认回落目标；如需动作结束后进入 terrain 步态，可在完成动作后人工按 LB+X 切换。
-- supine_to_stance / prone_to_stance（SDK 仰卧 / 俯卧起身）：两者地位相同，可从 passive、pd_stand、pd_stand_x、pd_stand_y 切入；执行中只允许人工切 passive 或 pd_stand，轨迹播放结束后自动回 walk_leo。两者均不在该 Runner 内额外判断是否站稳。
+- pd_stand：可切 passive、四套步态、全部已启用追踪动作、SDK 起身、HoST 起身以及 pd_stand_x/pd_stand_y。
+- pd_stand_x/pd_stand_y：两者可互切，也可切 passive、pd_stand、四套步态、全部已启用追踪动作、SDK 起身和两套 HoST 起身；只有 passive 或 pd_stand 能切入这两个状态，其他状态不能直接切入。
+- walk（SDK）：可切 passive、pd_stand、walk_custom、walk_leo、walk_leo_terrain、getup、getup2、主动倒地和全部已启用追踪动作。
+- walk_custom：可切 passive、pd_stand、walk、walk_leo、walk_leo_terrain、getup、getup2、主动倒地和全部已启用追踪动作。
+- walk_leo：可切 passive、pd_stand、walk、walk_custom、walk_leo_terrain、getup、getup2、主动倒地和全部已启用追踪动作。
+- walk_leo_terrain：可切 passive、pd_stand、walk、walk_custom、walk_leo、getup、getup2、主动倒地和全部已启用追踪动作。它与 walk_leo 共用 Leo runner 的 entry_transition，因此从动作或其他步态进入时会执行同样的当前无缝衔接逻辑。
+- dance、victory、嘲讽动作和五个击打动作：执行中可切 passive、pd_stand 或任一步态；轨迹正常结束后自动回 walk_leo。它们共用 `rl_dance_example_runner` 的短时入口衔接。
+- supine_to_stance / prone_to_stance（SDK 仰卧 / 俯卧起身）：两者地位相同，可从 passive、pd_stand、pd_stand_x、pd_stand_y 切入；执行中只允许人工切 passive 或 pd_stand，轨迹播放结束后自动回 walk_leo。两者也使用 `rl_dance_example_runner`，进入时先完成首帧 PD 预备并等待关节位置误差连续达标；该条件不检查是否站稳，动作结束仍按轨迹末帧退出。
+- celebration：仅保留 runner 和参数模板，当前没有模型、轨迹和允许进入的状态，因此 RB+A 暂不可触发。
 - getup/getup2（HoST 起身）：可由 walk、walk_custom、walk_leo、walk_leo_terrain 切入；进入时仍执行安全检查，已基本直立（投影重力 z ≤ -0.8）或角速度范数 > 6.0 时会拒绝进入。当投影重力 z ≤ -0.9 且角速度范数 ≤ 2.0 连续保持 0.3 秒后，判定起身成功并自动切入 walk_leo。人工切换时，随时都可以切入四套步态，不受起身成功与否限制。若 8 秒超时仍未满足站稳条件，会停止推进策略、保持最后一帧有效目标并自动切入 passive。
 - stance_to_supine（主动倒地）：可切 passive 或 pd_stand；完成后自动回 passive。
 - 所有状态均保留 LB + RB 到 passive 的软急停路径。

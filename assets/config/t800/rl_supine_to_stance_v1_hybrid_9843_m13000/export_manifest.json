@@ -1,0 +1,21 @@
+{
+  "variant": "supine_to_stance_v1_hybrid_9843_m13000",
+  "task": "Tracking-Flat-T800-GetUp-SDK-Supine-V1-Hybrid-v0",
+  "training_run": "20260909_003442_V1_hybrid_gpu1_j9843",
+  "checkpoint": "model_13000.pt",
+  "checkpoint_sha256": "0cd45d82a2278dafa11ac3cdad3ba4a6d761684bae3ed2a716a57beee8ed1618",
+  "source_deploy_config_sha256": "2c13129d1dd546c743189e3af634f0cfffb3eee7ee5bacd051ab1391bec2223c",
+  "onnx_sha256": "807e06757b4a56da36ac5f1372df0f5de89e89859e785a457c5b5d815a630799",
+  "mnn_sha256": "3347630790f7ff69ef0dce1581d2f252d1d6afd00837a132820c6bbce8e8db7f",
+  "motion_sha256": "cfa1b8b46957d7696ef8fc6d9bae05328ad60d253441b8eb1ffdbf19152827e9",
+  "observation_size": 134,
+  "action_size": 25,
+  "motion_frames": 151,
+  "motion_fps": 50.0,
+  "target_wall_training": false,
+  "export_method": "scripts/rsl_rl/play.py --max_steps 1 --headless",
+  "sdk_sim_keys": [],
+  "sdk_key_description": "\u672a\u5206\u914d\u624b\u67c4\u6309\u952e\uff1b\u53ef\u5728 task_motion \u4e2d\u5355\u72ec\u6ce8\u518c",
+  "sim2sim_rollout_tested": false,
+  "notes": "Independent native-SDK package exported from the exact named IsaacLab checkpoint; task_motion key registration is intentionally unchanged."
+}

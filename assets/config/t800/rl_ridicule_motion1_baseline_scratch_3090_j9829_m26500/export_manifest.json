@@ -1,0 +1,25 @@
+{
+  "variant": "ridicule_motion1_baseline_scratch_3090_j9829_m26500",
+  "task": "Tracking-Flat-T800-v0",
+  "training_run": "2026-09-08_19-57-45_t800_ridicule_baseline_scratch_3090_j9829",
+  "checkpoint": "model_26500.pt",
+  "checkpoint_sha256": "a3db74e77667e0418d06afb1c7398a3a824825d8a6389e28adea21edeb72910d",
+  "source_deploy_config_sha256": "0aac84fe7ef1e0193d6e2a9dd5f75f02f6130216f65ff933d26bfc74a1c656ab",
+  "onnx_sha256": "b32ba2dbad7cb1f733fcd71f2594426aebba4692d091cb505d98818f1a2c885d",
+  "mnn_sha256": "05a37d9289b699628f4994b0f2ddac83674c4894a8683accb45f97a178a86170",
+  "motion_sha256": "0c4879e023d9200983c7dbea1c6aec9c6406059860744c1a2bbe8feb5a98a2bb",
+  "observation_size": 134,
+  "action_size": 25,
+  "motion_frames": 209,
+  "motion_fps": 50.0,
+  "target_wall_training": false,
+  "export_method": "checkpoint actor + empirical normalizer; CPU export because IsaacSim GPU unavailable",
+  "sdk_sim_keys": [
+    "CROSS_X_UP",
+    "CROSS_X_DOWN",
+    "X"
+  ],
+  "sdk_key_description": "RT + X (physical CROSS_X_UP + CROSS_X_DOWN + X)",
+  "sim2sim_rollout_tested": false,
+  "notes": "The actor graph and normalizer are reconstructed from the exact named checkpoint; IsaacLab rollout still needs GPU validation."
+}

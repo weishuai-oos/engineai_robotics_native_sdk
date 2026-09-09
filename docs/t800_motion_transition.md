@@ -2,15 +2,16 @@
 
 ## 1. 目标和结论
 
-本次修改为 T800 的四个行走状态和七种参考动作策略增加了统一的“目标状态入口衔接”。`walk_leo` 与 `walk_leo_terrain` 复用同一个 Leo runner，仅通过 `param_tag` 加载不同配置。核心原则是：
+本次修改为 T800 的四个行走状态、八种普通动作策略（包括新增嘲讽动作）和两套 SDK 起身策略增加了统一的“目标状态入口衔接”。`walk_leo` 与 `walk_leo_terrain` 复用同一个 Leo runner；动作和起身状态复用 `rl_dance_example_runner`，仅通过 `param_tag` 加载不同配置。庆祝动作目前只有预留参数模板，没有模型、轨迹或允许进入的状态。核心原则按目标状态区分：
 
-1. 切换后，下一个策略从第一个控制周期就开始推理，不设置“等待策略启动”的空挡阶段。
-2. 电机命令从上一个状态最后实际下发的完整命令平滑过渡到下一个策略的实时输出。
-3. 下一个动作的参考首帧或 walk 默认姿势只作为短时、衰减的姿态引导，不替代策略输出。
-4. 衔接时间根据切换瞬间的最大关节位置差自动调整，同时由最大时长限制，避免过慢切换长时间压制策略。
-5. 同时衔接 `q_des`、`qd_des`、`Kp`、`Kd` 和 `tau_ff`，衔接结束后严格等于下一个策略的实时命令。
+1. 对普通 walk 和动作策略，切换后目标策略从第一个控制周期就开始推理，不设置“等待策略启动”的空挡阶段。
+2. 对仰卧/俯卧起身，先执行首帧 PD 过渡和连续误差检查；误差连续达标后，策略才从轨迹第 0 帧开始推理。
+3. 电机命令从上一个状态最后实际下发的完整命令平滑过渡到下一个策略的实时输出。
+4. 下一个动作的参考首帧或 walk 默认姿势只作为短时、衰减的姿态引导，不替代普通策略输出。
+5. 衔接时间根据切换瞬间的最大关节位置差自动调整，同时由最大时长限制，避免过慢切换长时间压制策略。
+6. 同时衔接 `q_des`、`qd_des`、`Kp`、`Kd` 和 `tau_ff`，衔接结束后严格等于下一个策略的实时命令。
 
-这不是在两个策略之间插入第三个“无策略状态”。衔接器是下一个 runner 内部的命令整形层，整个衔接期间下一个策略一直运行。
+普通动作的衔接器是目标 runner 内部的命令整形层，整个普通动作衔接期间目标策略一直运行；起身的首帧阶段是明确的策略前置 PD 阶段。
 
 ## 2. 本次覆盖的状态
 
@@ -25,7 +26,7 @@
 
 四种 walk 状态所用的三个 runner 都在入口应用统一衔接，因此只要状态机允许切入，来源可以是参考动作、getup、SDK 起身、`pd_stand` 或另一种 walk；衔接不依赖来源状态名称。terrain 状态复用 Leo runner 后会自动走同一套入口逻辑，无需复制一份衔接实现。
 
-### 2.2 七种参考动作状态
+### 2.2 动作策略状态
 
 | 状态 | 按键 | runner | 控制周期 | 控制频率 |
 | --- | --- | --- | ---: | ---: |
@@ -36,8 +37,11 @@
 | `rl_straight_punch_L_improved` | `RB + 十字键左` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 | `rl_left_hook_001_improved` | `RT + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 | `rl_punch_example` | `RB + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
+| `ridicule` | `RB + X` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
+| `supine_to_stance` | `START + 十字键上` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
+| `prone_to_stance` | `START + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 
-七种动作共用同一个 runner，通过不同的 `param_tag` 加载模型和参考轨迹。它们的入口统一使用参考轨迹第 0 帧作为短时姿态引导。
+上述十种有资产的动作策略共用同一个 runner，通过不同的 `param_tag` 加载模型和参考轨迹。它们的入口使用普通 bridge，以参考轨迹第 0 帧作为短时姿态引导；只有两套 SDK 起身另外启用首帧参考姿态衔接，要求实测关节误差连续达标后再交给策略。嘲讽和原有击打动作不启用该等待选项；`celebration` 仅保留 `rl_celebration` 参数模板，待补齐完整导出资产后再开放 RB+A。
 
 ## 3. 状态机与衔接覆盖
 
@@ -52,15 +56,16 @@ flowchart LR
   W4[walk_leo_terrain]
   PX[pd_stand_x]
   PY[pd_stand_y]
-  A[七种参考动作]
-  G[getup / getup2]
+  A[八种动作策略]
   S[supine_to_stance / prone_to_stance]
+  G[getup / getup2]
 
   PD --> W1
   PD --> W2
   PD --> W3
   PD --> W4
   PD --> A
+  PD --> S
   PD --> PX
   PD --> PY
 
@@ -91,6 +96,7 @@ flowchart LR
   G -->|手动| W2
   G -->|手动| W4
   G -->|手动或成功自动| W3
+  A -->|正常完成自动| W3
   S -->|正常完成自动| W3
   A -->|手动提前| W1
   A -->|手动提前| W2
@@ -103,13 +109,13 @@ flowchart LR
 | 切换方向 | 是否衔接 | 入口参考 | 说明 |
 | --- | --- | --- | --- |
 | 四种 walk 相互切换 | 是 | 目标 walk 的默认姿势 | 目标 walk 策略从第一个周期运行 |
-| 四种 walk → 七种参考动作 | 是 | 目标动作参考轨迹第 0 帧 | 动作策略运行，但轨迹帧暂时保持在第 0 帧 |
+| 四种 walk → 八种动作策略 | 是 | 目标动作参考轨迹第 0 帧 | 动作策略运行，但轨迹帧暂时保持在第 0 帧 |
 | `pd_stand` → 四种 walk | 是 | 目标 walk 默认姿势 | 来源是 `pd_stand` 最后实际命令 |
-| `pd_stand` → 七种参考动作 | 是 | 目标动作第 0 帧 | 由动作 runner 在入口衔接 |
+| `pd_stand` → 十种有资产的动作策略 | 是 | 目标动作第 0 帧 | 由动作 runner 在入口衔接 |
 | `passive`/`pd_stand` → `pd_stand_x`/`pd_stand_y` | 否 | 目标 PD 姿态 | 使用 `pd_stand_runner` 自身的三秒姿态插值 |
 | `pd_stand_x` ↔ `pd_stand_y` | 否 | 目标 PD 姿态 | 使用 `pd_stand_runner` 自身的三秒姿态插值 |
-| 七种参考动作 → 四种 walk（手动提前） | 是 | 目标 walk 默认姿势 | 使用按键生效时动作的实时末端命令，不要求动作到固定末帧 |
-| 七种参考动作正常完成 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 状态机自动切换，来源是动作最后实际下发的命令 |
+| 八种动作策略 → 四种 walk（手动提前） | 是 | 目标 walk 默认姿势 | 使用按键生效时动作的实时末端命令，不要求动作到固定末帧 |
+| 十种有资产的动作策略正常完成 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 状态机自动切换，来源是动作最后实际下发的命令 |
 | `getup`/`getup2` → 四种 walk（手动） | 是 | 目标 walk 默认姿势 | 无论起身是否成功，状态机允许人工切换；动态可行性由操作者负责判断 |
 | `getup`/`getup2` 成功 → `walk_leo`（自动） | 是 | `walk_leo` 默认姿势 | 保留当前自动目标 |
 | `supine_to_stance` / `prone_to_stance` 轨迹播放结束 → `walk_leo` | 是 | `walk_leo` 默认姿势 | 由 `walk_leo` 入口完成衔接；两种 SDK 起身的状态切换权限相同 |
@@ -118,12 +124,12 @@ flowchart LR
 
 以下目标状态没有接入本次共享入口衔接，继续使用其自身原有逻辑：
 
-- 切入 `passive`、`idle`、`pd_stand`、`pd_stand_x`、`pd_stand_y`、`getup`、`getup2`、`stance_to_supine`、`supine_to_stance`、`prone_to_stance`。
+- 切入 `passive`、`idle`、`pd_stand`、`pd_stand_x`、`pd_stand_y`、`getup`、`getup2`、`stance_to_supine`。
 - `pd_stand_x`/`pd_stand_y` 之间互切，以及切回 `passive`/`pd_stand`，使用各自的 PD 插值，不走本次策略入口衔接。
 - 参考动作手动切到 `passive` 或 `pd_stand`。
 - walk 手动切到 `passive`、`pd_stand`、`getup` 或 `stance_to_supine`。
 
-其中 `pd_stand` 已有自己的姿态插值机制；`passive` 属于主动卸力语义，不应被本次策略命令衔接改变。起身和躺下策略的入口需要结合接触状态单独设计，不在本次范围内。
+其中 `pd_stand` 已有自己的姿态插值机制；`passive` 属于主动卸力语义，不应被本次策略命令衔接改变。`stance_to_supine` 继续使用其原有 mimic runner 和资源，不纳入本次动作策略入口衔接。
 
 ## 4. 每次切换的真实执行时序
 
@@ -136,7 +142,7 @@ flowchart LR
 3. 如果上一个位置命令与实测位置相差过大，按 `entry_transition_source_tracking_error` 将起点限制在实测位置附近，避免从陈旧命令开始插值。
 4. 初始化目标策略及其内部状态。
 
-目标 runner 的每一个控制周期都按以下顺序执行：
+普通动作和 walk 目标 runner 的每一个控制周期都按以下顺序执行：
 
 1. 读取最新机器人状态。
 2. 组装 observation。
@@ -144,11 +150,11 @@ flowchart LR
 4. 入口衔接器将“上一个状态命令快照”平滑混合到“本周期目标策略命令”。
 5. 将衔接后的完整命令发送到底层。
 
-因此衔接期间不存在故意保持零输出、只做定时等待或停止策略计算的阶段。即使是 recurrent 的 `walk_leo`，hidden/cell 也从第一个周期开始随 observation 更新。
+因此普通动作和 walk 的衔接期间不存在故意保持零输出、只做定时等待或停止策略计算的阶段。即使是 recurrent 的 `walk_leo`，hidden/cell 也从第一个周期开始随 observation 更新。仰卧/俯卧起身的首帧阶段按下节所述，明确先执行 PD 和误差达标检查。
 
 ### 4.2 进入参考动作时
 
-参考动作进入衔接期间：
+普通动作（dance、victory、ridicule 和五个击打动作）进入衔接期间：
 
 - 策略每周期正常推理。
 - 参考轨迹固定在第 0 帧，不提前消耗动作轨迹。
@@ -156,6 +162,8 @@ flowchart LR
 - 衔接完成后，`policy_step` 才按 50 Hz 正常递增。
 
 这样既利用参考动作的合理初始姿势，又不会先花 0.1～0.5 秒做纯插值、随后才突然启动策略。
+
+仰卧和俯卧起身启用额外的首帧参考姿态阶段：该阶段只用 PD 将实测关节带到轨迹第 0 帧附近，不组装 observation、不执行策略推理，也不推进动作帧。最大实测关节位置误差不超过 0.80 rad，并连续保持 5 个控制周期后，才从轨迹第 0 帧开始运行策略。这个条件只表示进入策略前的关节位置误差达标，不代表起身已经站稳。
 
 ### 4.3 从参考动作提前切回 walk 时
 
@@ -170,7 +178,7 @@ flowchart LR
 
 ### 4.4 参考动作正常结束时
 
-七种参考动作使用 `trajectory_end_behavior: exit`。轨迹到末帧后 runner 请求退出，状态机自动进入 `walk_leo`。`walk_leo` 捕获的是动作末尾真正下发的命令，而不是另存的一份固定末帧，因此自动结束和手动提前结束走同一套入口衔接逻辑。
+十种有资产的动作策略使用 `trajectory_end_behavior: exit`。轨迹到末帧后 runner 请求退出，状态机自动进入 `walk_leo`。`walk_leo` 捕获的是动作末尾真正下发的命令，而不是另存的一份固定末帧，因此自动结束和手动提前结束走同一套入口衔接逻辑。`celebration` 没有资产且没有 incoming transition，不属于当前可播放动作。
 
 ## 5. 衔接算法
 
@@ -230,7 +238,7 @@ T800 配置显式开启了该功能。其他机型如果没有配置这些新字
 对应控制周期数量：
 
 - `walk` / `walk_custom`：名义 16 个周期，范围 10～28 个周期。
-- `walk_leo`、`walk_leo_terrain` 和七种参考动作：名义 8 个周期，范围 5～14 个周期。
+- `walk_leo`、`walk_leo_terrain` 和十种有资产的动作策略：名义 8 个周期，范围 5～14 个周期。
 
 当关节差过大、理论所需时间超过 0.28 s 时，系统会打印 `Entry transition required ... capped at 0.28s`。这是“不要让策略被压制太久”的主动上限；此时速度/加速度估算约束不再保证满足。实机若频繁出现该日志，优先检查切换时机和两个策略的姿态兼容性，再考虑适当增加 `entry_transition_max_duration`。
 
@@ -289,10 +297,10 @@ T800 配置显式开启了该功能。其他机型如果没有配置这些新字
 ## 10. 实机验证顺序
 
 1. 仿真中将遥控速度置零，逐一验证四种 walk 相互切换。
-2. 验证四种 walk 分别进入七种参考动作，并等待动作自动回 `walk_leo`。
+2. 验证四种 walk 分别进入八种动作策略，并等待动作自动回 `walk_leo`；再从 `passive`/`pd_stand` 验证两套 SDK 起身的首帧衔接和自动回落。
 3. 在参考动作前半段和后半段分别手动切回四种 walk，观察是否出现 0.28 s 封顶或 tracking error 日志。
 4. 吊架/保护绳下实机测试 `pd_stand → walk_leo`、`walk_leo ↔ walk_custom`。
-5. 再测试低动态动作，最后测试五个击打动作的手动提前退出。
+5. 再测试低动态动作，最后测试嘲讽和五个击打动作的手动提前退出。
 6. 只有在零速切换稳定后，再逐步加入行走速度命令。
 
 重点记录：切换来源/目标、切换时动作帧、双脚接触、`q_cmd-q_real` 最大值、衔接实际 duration、是否触发封顶警告，以及是否触发电机限流。
@@ -303,12 +311,12 @@ T800 配置显式开启了该功能。其他机型如果没有配置这些新字
 - 普通 walk 接入：`src/runner/rl_walking_example/`
 - custom walk 接入：`src/runner/rl_walking_custom_example/`
 - Leo Lab recurrent walk 接入：`src/runner/rl_walking_leolab_example/`
-- 七种参考动作接入：`src/runner/rl_dance_example/`
+- 动作及 SDK 起身接入：`src/runner/rl_dance_example/`
 - T800 参数：`assets/config/t800/rl_*_example/default.yaml`
 - T800 状态机：`assets/config/t800/task_motion/default.yaml`
 
 ## 12. 验证结果
 
 - 共享衔接器单元测试覆盖：首周期命令连续且策略持续更新、参考姿势仅作衰减引导、自适应时长。
-- 在项目官方 Docker 环境中，四种 walk 状态复用的三个 walk runner、参考动作 runner 和共享衔接模块均已完成目标编译。
-- 所有修改过的 YAML 均应在部署前再次随目标模型做一次加载和仿真冒烟测试；模型本身的 observation、action、关节顺序和缩放契约不由衔接器改变。
+- 本次已完成相关 C++ 语法检查、9 个单元测试，以及三套新增策略 MNN 的离线 134→25 输出维度和有限值检查。
+- 本次没有完成全 SDK 链接、Docker 全量构建或机器人闭环验证；所有修改过的 YAML 仍应在部署前随目标模型做一次加载和仿真冒烟测试。模型本身的 observation、action、关节顺序和缩放契约不由衔接器改变。

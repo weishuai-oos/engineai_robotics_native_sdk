@@ -23,10 +23,9 @@ class PdStandRunner : public MotionRunner {
   void SetupContext() override;
   void TeardownContext() override;
 
-  void Log();
-
  private:
   bool CheckJointPositionBias();
+  bool LoadCommandParameters();
   std::shared_ptr<data::PdStandParam> param_;
   std::shared_ptr<data::GlobalOptionsParam> global_options_param_;
   Eigen::VectorXd q_init_;
@@ -38,9 +37,9 @@ class PdStandRunner : public MotionRunner {
   Eigen::VectorXd tau_ff_cmd_;
 
   int iter_ = 0;
-  int num_duration_iterations_ = 0;
   double duration_ = 0.0;
   bool auto_transition_ = false;
+  bool motion_complete_ = false;
 };
 }  // namespace runner
 

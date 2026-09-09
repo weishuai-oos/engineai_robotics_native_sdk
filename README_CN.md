@@ -230,11 +230,13 @@ python3 tools/virtual_gamepad/virtual_gamepad.py
 |:----:|:-----|
 | idle | 上电后的初始安全状态，控制器未激活主动运动控制。 |
 | passive | 阻尼状态，控制器施加被动阻尼力矩，机器人可被手动移动。 |
-| pd_stand | 稳定站立控制任务，通过 PD 控制维持固定直立姿态。 |
+| pd_stand | PD 姿态准备任务，按配置姿态将实测关节平滑驱动到目标，用于动作恢复前准备。 |
 | walk | 行走任务，机器人执行步态运动。 |
 | dance | 跳舞任务，机器人执行预设编排动作序列。 |
-| supine_to_stance | 起身任务。机器人从仰卧姿态过渡到站立姿态。|
-| prone_to_stance | 俯卧起身任务。使用官方策略和参考轨迹从俯卧姿态起身，按键为 START + 十字键右；状态切换权限与 supine_to_stance 相同。|
+| supine_to_stance | 仰卧起身任务。使用本地 `rl_dance_example_runner` 和 50 Hz、134 维观测/25 维动作的策略，按键为 START + 十字键上。|
+| prone_to_stance | 俯卧起身任务。使用本地 `rl_dance_example_runner` 和 50 Hz、134 维观测/25 维动作的策略，按键为 START + 十字键右。|
+| ridicule | 嘲讽动作。使用本地 `rl_dance_example_runner`，按键为 RB + X，动作结束后自动回到 `walk_leo`。|
+| celebration | 庆祝动作预留状态，按键为 RB + A。runner 和参数模板已配置，但模型与轨迹为空且暂未开放进入。|
 | stance_to_supine | 躺倒任务。机器人从站立姿态过渡到仰卧姿态。|
 
 **状态机配置：** `assets/config/t800/task_motion/default.yaml`
