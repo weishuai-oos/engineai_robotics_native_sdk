@@ -67,6 +67,7 @@ YAML 中使用的是统一逻辑键。CROSS_X_UP/DOWN 表示十字键上/下，C
   LT + A                  pd_stand
   LT + X                  pd_stand_x（趴姿）
   LT + Y                  pd_stand_y（躺姿）
+  LT + B		摆手嘲讽	
   LB + B                  walk（SDK 普通步态）
   LB + Y                  walk_custom（new 普通步态，上半身锁定和平滑插值）
   LB + A                  walk_leo（Leo Lab 步态）

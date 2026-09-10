@@ -1,5 +1,5 @@
 policy_file: "rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500/policies/policy.mnn"
-trajectory_file_npz: "rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500/trajectories/motion1_t800_50hz.npz"
+trajectory_file_npz: "rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500/trajectories/ridicule2_t800_startfix_50hz.npz"
 trajectory_body_index: 0
 default_joint_pos: [-0.05999999865889549, 0.0, 0.0, 0.11999999731779099, -0.05999999865889549,
   0.0, -0.05999999865889549, 0.0, 0.0, 0.11999999731779099, -0.05999999865889549,
