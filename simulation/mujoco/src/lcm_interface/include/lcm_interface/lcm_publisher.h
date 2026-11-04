@@ -14,7 +14,7 @@
 class LcmPublisher : public lcm_interface::PeriodicTask {
  public:
   LcmPublisher(const data::LcmParam& param, const std::shared_ptr<LcmDataStore>& lcm_data_store);
-  ~LcmPublisher() override = default;
+  ~LcmPublisher() override { TaskStop(); }
 
   void TaskInit() override;
   void TaskRun() override;

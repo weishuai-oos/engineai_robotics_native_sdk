@@ -30,6 +30,7 @@ include(GetAliasNamespace)
 
 # Set some options
 option(BUILD_RELEASE "Build release version" ON)
+option(BUILD_TESTS "Build simulation regression tests" OFF)
 
 # Some necessary settings
 set(CMAKE_CXX_STANDARD 20)
@@ -85,6 +86,7 @@ file(GLOB_RECURSE souce_files ${CMAKE_CURRENT_SOURCE_DIR}/main.cc)
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ${souce_files})
+target_sources(${PROJECT_NAME} PRIVATE robot_binding.cc)
 target_sources(${PROJECT_NAME} INTERFACE ${head_files})
 target_compile_options(${PROJECT_NAME} PUBLIC ${MUJOCO_SIMULATE_COMPILE_OPTIONS})
 target_include_directories(${PROJECT_NAME}
@@ -108,6 +110,18 @@ PUBLIC
     src::data
     src::lcm_interface
 )
+
+if(BUILD_TESTS)
+    enable_testing()
+    add_executable(test_robot_binding test_robot_binding.cc robot_binding.cc)
+    target_include_directories(test_robot_binding PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/lcm_interface/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../core/include/data
+    )
+    target_link_libraries(test_robot_binding PRIVATE mujoco::mujoco Eigen3::Eigen Threads::Threads)
+    add_test(NAME test_robot_binding COMMAND test_robot_binding)
+endif()
 
 # target_link_options(${PROJECT_NAME} PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
 # message(STATUS "---------------Building simulate executable." ${MUJOCO_SIMULATE_LINK_OPTIONS})

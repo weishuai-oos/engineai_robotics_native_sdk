@@ -10,6 +10,9 @@
 #include <unistd.h>
 #include <iostream>
 #include <map>
+#include <string>
+
+#include "gamepad/gamepad_event_mapping.h"
 
 #define JSKEY_A 0x001
 #define JSKEY_B 0x101
@@ -43,10 +46,9 @@ namespace hardware {
 class LogitechGamepadDriver {
  private:
   std::string dev;
-  ssize_t n;
-  int fd;
-  int buf[2];
-  int loop_count = 0;
+  int fd = -1;
+  GamepadEventMapping event_mapping_;
+  void ProcessEvent(const js_event& event);
 
  public:
   struct logitech_data {
@@ -58,9 +60,17 @@ class LogitechGamepadDriver {
   };
 
   LogitechGamepadDriver();
+  explicit LogitechGamepadDriver(std::string device_path);
+  ~LogitechGamepadDriver();
+  LogitechGamepadDriver(const LogitechGamepadDriver&) = delete;
+  LogitechGamepadDriver& operator=(const LogitechGamepadDriver&) = delete;
+  LogitechGamepadDriver(LogitechGamepadDriver&&) = delete;
+  LogitechGamepadDriver& operator=(LogitechGamepadDriver&&) = delete;
+  const std::string& DevicePath() const { return dev; }
   std::map<int, int> Keystate_map;
   logitech_data logitech_data_res;
   int Init();
+  void Close();
   void Zeros();
   int ListenInput();
   void print_key_state();

@@ -14,7 +14,7 @@
 class LcmSubscriber : public lcm_interface::PeriodicTask {
  public:
   LcmSubscriber(const data::LcmParam& param, const std::shared_ptr<LcmDataStore>& lcm_data_store);
-  ~LcmSubscriber() override = default;
+  ~LcmSubscriber() override { TaskStop(); }
 
   void TaskInit() override;
   void TaskRun() override;

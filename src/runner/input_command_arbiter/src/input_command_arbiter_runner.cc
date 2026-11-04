@@ -2,18 +2,23 @@
 #include "input_command_arbiter/gamepad_input_adapter.h"
 #include "input_command_arbiter/rc02_input_adapter.h"
 #include "input_command_arbiter/virtual_gamepad_input_adapter.h"
+#include "input_command_arbiter/input_source_selection.h"
 
 #include <glog/logging.h>
+#include <cstdlib>
 
 namespace runner {
 
 InputCommandArbiterRunner::InputCommandArbiterRunner(std::string_view name,
                                                      const std::shared_ptr<data::DataStore>& data_store)
     : BasicRunner(name, data_store) {
-  RegisterHardwareSource("rc02", std::make_shared<Rc02InputAdapter>("rc02", data_store));
+  const auto selection = ParseInputSourceSelection(std::getenv("ENGINEAI_INPUT_SOURCE"));
+  if (selection == InputSourceSelection::kAutomatic) {
+    RegisterHardwareSource("rc02", std::make_shared<Rc02InputAdapter>("rc02", data_store));
+    RegisterOverrideSource("virtual_gamepad",
+                           std::make_shared<VirtualGamepadInputAdapter>("virtual_gamepad", data_store));
+  }
   RegisterHardwareSource("gamepad", std::make_shared<GamepadInputAdapter>("gamepad", data_store));
-  RegisterOverrideSource("virtual_gamepad",
-                         std::make_shared<VirtualGamepadInputAdapter>("virtual_gamepad", data_store));
 
   selected_hardware_idx_ = -1;
   hardware_input_publisher_ =

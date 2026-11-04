@@ -16,8 +16,10 @@
 #include <mujoco/mujoco.h>
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <csignal>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -27,6 +29,7 @@
 #include <memory>
 #include <mutex>
 #include <new>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -34,6 +37,7 @@
 #include "elastic_band.h"
 #include "glfw_adapter.h"
 #include "simulate.h"
+#include "robot_binding.h"
 
 #include "lcm_interface/lcm_data_store.h"
 #include "lcm_interface/lcm_publisher.h"
@@ -62,6 +66,10 @@ using namespace std::chrono_literals;
 
 namespace {
 std::shared_ptr<LcmDataStore> lcm_data_store;
+bool duel_mode = false;
+std::vector<RobotBinding> duel_robots;
+volatile std::sig_atomic_t headless_exit_requested = 0;
+std::atomic<bool> physics_load_failed{false};
 const constexpr auto kBusyWaitTime = 100us;
 const constexpr int kDofFloatingBase = 6;
 const constexpr int kNumFloatingBaseJoints = 7;
@@ -123,6 +131,9 @@ void ResolveElasticBandBody(const mjModel* m) {
   if (!m) {
     return;
   }
+  // Both duel participants move freely; the original single-robot tether is
+  // deliberately restricted to the original mode.
+  if (duel_mode) return;
 
   auto add_attachment = [&](const int body_id, const char* body_name, const std::array<mjtNum, 3>& anchor) {
     if (elastic_band_state.attachment_count >= static_cast<int>(elastic_band_state.body_ids.size())) {
@@ -269,6 +280,10 @@ void ToggleElasticBand() {
 }
 
 void UpdateSimState(const mjModel* m, mjData* d) {
+  if (duel_mode) {
+    for (const auto& robot : duel_robots) robot.ReadState(d);
+    return;
+  }
   bool is_floating_base = (m->nv != m->nu);
 
   // Sets joint state
@@ -342,15 +357,22 @@ void UpdateSimState(const mjModel* m, mjData* d) {
   sim_state.contact_force = std::vector<Eigen::VectorXd>(
       lcm_data_store->num_contacts, Eigen::VectorXd::Zero(lcm_data_store->num_single_contact_dimensions));
   for (int i = 0; i < lcm_data_store->num_contacts; ++i) {
-    sim_state.contact_force[i] =
-        Eigen::Map<const Eigen::VectorXd>(d->sensordata + index, lcm_data_store->num_single_contact_dimensions);
-    sim_state.contact_force[i] *= -1.0;
+    // Some model contacts (e.g. T800 hands) have no sensor. Never read past
+    // sensordata for them; preserve the protocol dimensions with zero values.
+    if (index + lcm_data_store->num_single_contact_dimensions <= m->nsensordata) {
+      sim_state.contact_force[i] =
+          -Eigen::Map<const Eigen::VectorXd>(d->sensordata + index, lcm_data_store->num_single_contact_dimensions);
+    }
     index += lcm_data_store->num_single_contact_dimensions;
   }
   lcm_data_store->sim_state.Set(sim_state);
 }
 
 void TorqueController(const mjModel* m, mjData* d) {
+  if (duel_mode) {
+    for (const auto& robot : duel_robots) robot.ApplyCommand(d);
+    return;
+  }
   bool is_floating_base = (m->nv != m->nu);
 
   Eigen::VectorXd q(m->nu);
@@ -383,6 +405,19 @@ const int kErrorLength = 1024;          // load error string length
 // model and data
 mjModel* m = nullptr;
 mjData* d = nullptr;
+
+bool ResolveRobotBindings(const mjModel* model) {
+  if (!duel_mode) return true;
+  auto resolved = duel_robots;
+  try {
+    for (auto& robot : resolved) robot.Resolve(model);
+  } catch (const std::exception& error) {
+    LOG(ERROR) << "Cannot connect duel controllers to this model: " << error.what();
+    return false;
+  }
+  duel_robots = std::move(resolved);
+  return true;
+}
 
 using Seconds = std::chrono::duration<double>;
 
@@ -585,6 +620,12 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim) {
 
   mju::strcpy_arr(sim.load_error, loadError);
 
+  if (!ResolveRobotBindings(mnew)) {
+    mj_deleteModel(mnew);
+    mju::strcpy_arr(sim.load_error, "Model is incompatible with the duel controller bindings");
+    return nullptr;
+  }
+
   return mnew;
 }
 
@@ -746,12 +787,13 @@ void PhysicsLoop(mj::Simulate& sim) {
         else {
           // run mj_forward, to update rendering and joint sliders
           mj_forward(m, d);
+          UpdateSimState(m, d);
           sim.speed_changed = true;
         }
       }
     }  // release std::lock_guard<std::mutex>
     auto elapsed = loop_timer.GetElapsedSeconds();
-    if (elapsed > m->opt.timestep) {
+    if (m && elapsed > m->opt.timestep) {
       LOG(WARNING) << "Physics loop took too long: " << elapsed << " s"
                    << ", Current timestep: " << m->opt.timestep << " s";
     }
@@ -780,9 +822,16 @@ void PhysicsThread(mj::Simulate* sim, const char* filename) {
 
       ResolveElasticBandBody(m);
       mj_forward(m, d);
+      UpdateSimState(m, d);
 
     } else {
+      LOG(ERROR) << "Failed to initialize simulation: " << sim->load_error;
+      physics_load_failed.store(true);
+      mj_deleteModel(m);
+      m = nullptr;
       sim->LoadMessageClear();
+      sim->exitrequest.store(1);
+      return;
     }
   }
 
@@ -806,8 +855,7 @@ __attribute__((used, visibility("default"))) extern "C" void _mj_rosettaError(co
 
 // run event loop
 
-bool InitMain(int argc, char** argv) {
-  std::string default_robot_name = argc > 1 ? argv[1] : "";
+bool InitMain(const std::string& default_robot_name, const char* executable) {
   if (!common::InitializeGlobalConfigPath(default_robot_name)) {
     std::cout << "[ERROR] Terminated since failed to initialize global config path." << std::endl;
     return false;
@@ -816,13 +864,86 @@ bool InitMain(int argc, char** argv) {
   FLAGS_alsologtostderr = true;
   FLAGS_stderrthreshold = google::GLOG_WARNING;
   FLAGS_colorlogtostderr = true;
-  google::InitGoogleLogging(argv[0]);
+  google::InitGoogleLogging(executable);
   LOG(INFO) << "Loaded config files from: " << common::GlobalPathManager::GetInstance().GetConfigPath();
 
   return true;
 }
 
-int main(int argc, char** argv) {
+namespace {
+struct ProgramOptions {
+  std::string robot;
+  bool headless = false;
+  int64_t steps = 0;
+};
+
+int ParsePort(const char* variable, int fallback) {
+  const char* value = std::getenv(variable);
+  if (!value) return fallback;
+  size_t consumed = 0;
+  const int port = std::stoi(value, &consumed);
+  if (consumed != std::strlen(value) || port < 1024 || port > 65535) {
+    throw std::runtime_error(std::string("Invalid UDP port in ") + variable);
+  }
+  return port;
+}
+
+int RunHeadless(const std::string& filename, int64_t max_steps) {
+  char error[kErrorLength] = {};
+  std::unique_ptr<mjModel, decltype(&mj_deleteModel)> model(
+      mj_loadXML(filename.c_str(), nullptr, error, sizeof(error)), mj_deleteModel);
+  if (!model) throw std::runtime_error(error);
+  if (!ResolveRobotBindings(model.get())) return 1;
+  std::unique_ptr<mjData, decltype(&mj_deleteData)> state(mj_makeData(model.get()), mj_deleteData);
+  if (!state) throw std::runtime_error("Failed to allocate MuJoCo state");
+  ResolveElasticBandBody(model.get());
+  mj_forward(model.get(), state.get());
+  UpdateSimState(model.get(), state.get());
+  std::signal(SIGINT, [](int) { headless_exit_requested = 1; });
+  std::signal(SIGTERM, [](int) { headless_exit_requested = 1; });
+  const auto start = std::chrono::steady_clock::now();
+  int64_t completed = 0;
+  while (!headless_exit_requested && (!max_steps || completed < max_steps)) {
+    mj_step(model.get(), state.get());
+    UpdateSimState(model.get(), state.get());
+    if (const char* message = Diverged(model->opt.disableflags, state.get())) {
+      LOG(ERROR) << message;
+      return 1;
+    }
+    ++completed;
+    std::this_thread::sleep_until(start + std::chrono::duration<double>(completed * model->opt.timestep));
+  }
+  std::cout << "Headless simulation completed " << completed << " steps, time=" << state->time << '\n';
+  return 0;
+}
+}  // namespace
+
+int RunSimulation(int argc, char** argv) {
+  ProgramOptions options;
+  for (int i = 1; i < argc; ++i) {
+    const std::string arg(argv[i]);
+    if (arg == "--duel") {
+      duel_mode = true;
+    } else if (arg == "--headless") {
+      options.headless = true;
+    } else if (arg == "--steps" && i + 1 < argc) {
+      const std::string value(argv[++i]);
+      size_t consumed = 0;
+      options.steps = std::stoll(value, &consumed);
+      if (consumed != value.size() || options.steps <= 0) throw std::runtime_error("--steps must be positive");
+    } else if (arg == "--help" || arg == "-h") {
+      std::cout << "Usage: " << argv[0] << " [robot] [--duel] [--headless [--steps N]]\n"
+                << "Use scripts/run_duel.sh to prepare the duel scene and isolated controllers.\n";
+      return 0;
+    } else if (!arg.empty() && arg[0] != '-' && options.robot.empty()) {
+      options.robot = arg;
+    } else {
+      throw std::runtime_error("Unknown or incomplete argument: " + arg);
+    }
+  }
+  if (options.steps && !options.headless) throw std::runtime_error("--steps requires --headless");
+  if (duel_mode && options.robot.empty()) options.robot = "t800";
+  if (duel_mode && options.robot != "t800") throw std::runtime_error("Duel mode currently supports t800 only");
   // Prints version and checks compatibility
   LOG(INFO) << "MuJoCo version " << mj_versionString();
   if (mjVERSION_HEADER != mj_version()) {
@@ -830,26 +951,51 @@ int main(int argc, char** argv) {
   }
 
   // Initializes global config path
-  InitMain(argc, argv);
+  if (!InitMain(options.robot, argv[0])) return 1;
   data::ModelParam model_param;
   std::string filename = common::PathJoin(common::GlobalPathManager::GetInstance().GetResourcePath(), model_param.xml);
 
   int num_contacts = model_param.contact.size();
-  int num_single_contact_dimensions = single_contact_dimensions_map.at(model_param.contact[0].type);
+  int num_single_contact_dimensions = num_contacts ? single_contact_dimensions_map.at(model_param.contact[0].type) : 0;
   lcm_data_store =
       std::make_shared<LcmDataStore>(model_param.num_total_joints, num_contacts, num_single_contact_dimensions);
 
   // Initializes LCM subscriber and publisher
   data::LcmParam lcm_param;
-  std::shared_ptr<LcmSubscriber> lcm_subscriber = std::make_shared<LcmSubscriber>(lcm_param, lcm_data_store);
-  lcm_subscriber->TaskCreate();
-  lcm_subscriber->TaskInit();
-  lcm_subscriber->TaskStart();
-
-  std::shared_ptr<LcmPublisher> lcm_publisher = std::make_shared<LcmPublisher>(lcm_param, lcm_data_store);
-  lcm_publisher->TaskCreate();
-  lcm_publisher->TaskInit();
-  lcm_publisher->TaskStart();
+  std::vector<std::shared_ptr<LcmSubscriber>> subscribers;
+  std::vector<std::shared_ptr<LcmPublisher>> publishers;
+  auto connect = [&](const data::LcmParam& param, const std::shared_ptr<LcmDataStore>& store) {
+    auto subscriber = std::make_shared<LcmSubscriber>(param, store);
+    auto publisher = std::make_shared<LcmPublisher>(param, store);
+    subscriber->TaskCreate();
+    subscriber->TaskInit();
+    subscriber->TaskStart();
+    publisher->TaskCreate();
+    publisher->TaskInit();
+    publisher->TaskStart();
+    subscribers.push_back(std::move(subscriber));
+    publishers.push_back(std::move(publisher));
+  };
+  if (duel_mode) {
+    const char* scene = std::getenv("ENGINEAI_DUEL_SCENE");
+    if (!scene || !*scene) throw std::runtime_error("Duel mode requires ENGINEAI_DUEL_SCENE; use scripts/run_duel.sh");
+    filename = scene;
+    const int ports[] = {ParsePort("ENGINEAI_DUEL_PORT_A", 17667), ParsePort("ENGINEAI_DUEL_PORT_B", 17668)};
+    if (ports[0] == ports[1]) throw std::runtime_error("Duel communication ports must be different");
+    std::vector<std::string> joint_names;
+    for (int i = 0; i < model_param.num_total_joints; ++i) joint_names.push_back(model_param.GetJointNameByJointId(i));
+    std::vector<std::string> contact_frames;
+    for (const auto& contact : model_param.contact) contact_frames.push_back(contact.frame);
+    for (int i = 0; i < 2; ++i) {
+      auto store = std::make_shared<LcmDataStore>(model_param.num_total_joints, num_contacts, num_single_contact_dimensions);
+      duel_robots.emplace_back(i == 0 ? "robot_a/" : "robot_b/", store, joint_names, contact_frames);
+      lcm_param.multicast = false;
+      lcm_param.ip_port = "239.255.76.67:" + std::to_string(ports[i]);
+      connect(lcm_param, store);
+    }
+  } else {
+    connect(lcm_param, lcm_data_store);
+  }
 
   // Scans for libraries in the plugin directory to load additional plugins
   scanPluginLibraries();
@@ -868,9 +1014,18 @@ int main(int argc, char** argv) {
   mjcb_control = TorqueController;
   mjcb_passive = ElasticBandPassiveCallback;
 
+  if (options.headless) return RunHeadless(filename, options.steps);
+
   // Simulates object encapsulates the UI
   auto sim =
       std::make_unique<mj::Simulate>(std::make_unique<mj::GlfwAdapter>(), &cam, &opt, &pert, /* is_passive = */ false);
+  if (duel_mode) {
+    sim->run = 0;
+    cam.lookat[2] = 0.8;
+    cam.distance = 6.0;
+    LOG(INFO) << "Duel ready. Select PD preparation on both gamepads (LT+A), then press Space. "
+              << "Switch to policies after physics starts. Tethers disabled.";
+  }
 
   // Starts physics thread
   std::thread physicsthreadhandle(&PhysicsThread, sim.get(), filename.c_str());
@@ -879,5 +1034,14 @@ int main(int argc, char** argv) {
   sim->RenderLoop();
   physicsthreadhandle.join();
 
-  return 0;
+  return physics_load_failed.load() ? 1 : 0;
+}
+
+int main(int argc, char** argv) {
+  try {
+    return RunSimulation(argc, argv);
+  } catch (const std::exception& error) {
+    std::cerr << "Simulation error: " << error.what() << '\n';
+    return 1;
+  }
 }

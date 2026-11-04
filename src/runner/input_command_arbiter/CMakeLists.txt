@@ -11,6 +11,7 @@ file(GLOB_RECURSE head_files ${CMAKE_CURRENT_SOURCE_DIR}/*.h ${CMAKE_CURRENT_SOU
 file(GLOB_RECURSE souce_files ${CMAKE_CURRENT_SOURCE_DIR}/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 file(GLOB_RECURSE test_files  ${CMAKE_CURRENT_SOURCE_DIR}/test_*.cc ${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp)
 list(REMOVE_ITEM souce_files ${test_files})
+list(REMOVE_ITEM test_files ${CMAKE_CURRENT_SOURCE_DIR}/test_input_binding.cc)
 
 # Add target
 add_library(${CURRENT_TARGET_NAME} SHARED)
@@ -52,6 +53,14 @@ install(TARGETS ${CURRENT_TARGET_NAME}
 )
 
 # Set tests
+if(BUILD_TESTS)
+add_executable(test_input_binding test_input_binding.cc)
+target_link_libraries(test_input_binding PRIVATE src::hardware::gamepad)
+target_include_directories(test_input_binding PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_compile_options(test_input_binding PRIVATE -UNDEBUG)
+add_test(NAME test_input_binding COMMAND test_input_binding)
+endif()
+
 if(BUILD_TESTS AND test_files)
 add_googletest(test_${CURRENT_TARGET_NAME}
   SRCS

@@ -283,6 +283,14 @@ engineai_robotics_env
 
 运行后即可通过遥控器按键切换状态。
 
+T800 还支持同场双机器人仿真，两只手柄分别控制，使用独立状态机和相同策略资源：
+
+```bash
+./scripts/run_duel.sh --gamepad-a /dev/input/js0 --gamepad-b /dev/input/js1
+```
+
+此入口自动启动仿真和两个控制器，使用临时配置。编译要求、启动准备、日志和重开说明见[双机器人仿真](tools/duel_sim/README.md)。
+
 #### 1.5.3 仿真性能提升
 
 若有 NVIDIA 独立显卡且已安装相应的显卡驱动，可在 Docker 中使用 GPU 直通提升仿真渲染帧率。

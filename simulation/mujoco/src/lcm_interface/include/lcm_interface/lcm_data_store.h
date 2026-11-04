@@ -2,6 +2,8 @@
 #define LCM_INTERFACE_INCLUDE_LCM_INTERFACE_LCM_DATA_STORE_H_
 
 #include <Eigen/Dense>
+#include <atomic>
+#include <cstdint>
 #include <vector>
 
 #include "guarded_data/guarded_data.h"
@@ -89,6 +91,7 @@ class LcmDataStore {
 
   data::GuardedData<SimCommand> sim_command;
   data::GuardedData<SimState> sim_state;
+  std::atomic<int64_t> last_command_time_ns{0};
 
   int num_joints = 0;
   int num_contacts = 0;

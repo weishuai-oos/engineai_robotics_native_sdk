@@ -64,7 +64,7 @@ void LcmPublisher::TaskRun() {
   int num_single_contact_dimensions = num_contacts ? sim_state_.contact_force[0].size() : 0;
   msg.num_contact_ranges = num_contacts * num_single_contact_dimensions;
   if (msg.num_contact_ranges) {
-    msg.contact_force.reserve(num_contacts * num_single_contact_dimensions);
+    msg.contact_force.resize(msg.num_contact_ranges);
     double* ptr = msg.contact_force.data();
     for (const auto& vec : sim_state_.contact_force) {
       std::copy(vec.data(), vec.data() + vec.size(), ptr);
