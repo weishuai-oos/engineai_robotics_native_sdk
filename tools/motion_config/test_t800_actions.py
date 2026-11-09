@@ -19,7 +19,7 @@ REPLACED_TAGS = {"rl_dance_example", "rl_victory_example", "rl_ridicule", "rl_ce
 NEW_TAGS = {"rl_supermimic_come_here", "rl_supermimic_left_hook",
             "rl_supermimic_pull_hammer", "rl_supermimic_right_high_kick"}
 ARCHIVED_DIRS = {
-    "rl_dance_example", "rl_victory_example", "rl_celebration",
+    "rl_dance_example", "rl_victory_example",
     "rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500",
     "rl_prone_to_stance_hybrid_9825_m29500",
     "rl_walking_leolab_example",
@@ -32,20 +32,88 @@ COMBINED_WALKING_PROFILE = "rl_walking_leolab_ankle_combined_v2_140000"
 PRONE_PACKAGE = "rl_supermimic_prone_j12768_m22000"
 SUPER_MOTIONS = {
     "supermimic_come_here": (
-        "rl_supermimic_come_here", "B", "rl_supermimic_zq_come_here_01_j13904_0_m36000",
-        "908333f3d1301e990455caac1f9eba600456874d6e9833d73d64b9ea0ede6088"),
+        "rl_supermimic_come_here", "B", "rl_supermimic_zq_come_here_01_j13904_0_m36000"),
     "supermimic_left_hook": (
-        "rl_supermimic_left_hook", "Y", "rl_supermimic_zq_left_hook_02_j13564_m82000",
-        "cf6ea7f7e87373c73d9613c4930d4e9ed0a2ffe5af4b70d16b8d06fb853977e2"),
+        "rl_supermimic_left_hook", "Y", "rl_supermimic_zq_left_hook_02_j13564_m82000"),
     "supermimic_pull_hammer": (
-        "rl_supermimic_pull_hammer", "X", "rl_supermimic_zq_pull_hammer_20261102_j13551_m182000",
-        "319199d0863cd10e980af238fc4d1199f8e87541da88c9398dce9ddddffc99db"),
+        "rl_supermimic_pull_hammer", "X", "rl_supermimic_zq_pull_hammer_20261102_j13551_m182000"),
     "supermimic_right_high_kick": (
-        "rl_supermimic_right_high_kick", "A", "rl_supermimic_zq_right_high_kick_20261102_j13551_m184000",
-        "9d1e786eb567a8b957748d2d3711b5db2c89c1845c43c78cdf77ba1c9bb7bfa9"),
+        "rl_supermimic_right_high_kick", "A", "rl_supermimic_zq_right_high_kick_20261102_j13551_m184000"),
 }
-SUPER_EXPORTS = {directory: default_hash for _, _, directory, default_hash in SUPER_MOTIONS.values()}
-SUPER_EXPORTS[PRONE_PACKAGE] = "1dc6526eed5a1a9be35f70a0de7619ca9e91418eefb89ed1fb7a51790eb0dc56"
+SUPER_PACKAGES = {directory for _, _, directory in SUPER_MOTIONS.values()} | {PRONE_PACKAGE}
+
+# Retained runtime bytes and parsed settings captured before asset cleanup.
+# These checks cover PD/timing/order without keeping export reports or fixtures.
+RUNTIME_PACKAGES = {
+    "old/rl_dance_example": (
+        "ef4ea6dc6d2c0796b21709eca370a8b40760f8aeea87c85ab28f4f1471fef806", {
+            "policies/dance.mnn": "4a6b15e431293b3c3247b9b8667c4dc35c23cce8f656b39a13c3d3439d82adcf",
+            "trajectories/dance.npz": "b09015db35377a43a087b27b0a1b6502a83a61c6b2d12317fa2aeb5551b8f1f6",
+        }),
+    "old/rl_prone_to_stance_hybrid_9825_m29500": (
+        "028aa76866a28a48512576ede10720c5790f6c257cc5fbbb0a67ce2457219390", {
+            "policies/policy.mnn": "e73a4f931dee14d4ced52a1413f868e33cb71040552ee839d09cfa1c03050b64",
+            "trajectories/T800_prone_to_stance_sdk_clip_grounded_50hz.npz": "13bc791aa1d289d9fbb1ac02c017b4160800a2f20a4c79e24697e69b9b663cf8",
+        }),
+    "old/rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500": (
+        "2827e995c575b861a21184d85a70a277d39dcf9892fdc0e11951ab8cb455a907", {
+            "policies/policy.mnn": "340b7b4c5b0551a64cae78227048cda5720a38cc327c6697137b6f9384539845",
+            "trajectories/ridicule2_t800_startfix_50hz.npz": "a0f82df232ce6dc2f866fb3cfbf1fbf30275b49c7169b36c1ff0ebaba249a541",
+        }),
+    "old/rl_victory_example": (
+        "4c000eb7f1a5bcddd8c3b416230a5c6f63b59a0c098d70fee88a61203c64dff0", {
+            "policies/policy.mnn": "fabdca9cc838b40416a98f3f121b5d86189b8b9bd2def35ab9a7a58ae28686f0",
+            "trajectories/victory_50hz.npz": "bafae21baca75d131becfd8f6d893eba745b8698222ff71382635491116a72d9",
+        }),
+    "old/rl_walking_leolab_example": (
+        "13ece172053ba151d42067773bbd9d1409bd4f71cdceb80a6c0ec4c6cd93136d", {
+            "2026-09-06-19-30-18:t800_lowcylinders_ankle_stable_1_seed42/boxing_policy.mnn": "4acb81eacd06897add5155aa3b3f4c6e31221dd5e60076890cca4a7ea4478209",
+        }),
+    "old/嘲讽/rl_supermimic_zq_come_here_02_j13904_1_m36000": (
+        "25b6e392a859aa90abcd96bdf72e85b87af97ef5646a5eb05cfc9741ee097576", {
+            "policies/policy.mnn": "849b9a646e7a0182f96e1954bdb377cf573d086fdedb016385ef21ec8d4b73ce",
+            "trajectories/supermimic_reference.npz": "c37e3cc56b30584c512edf5b593d67d50b0af727b85be72e5d0df4c1c019c5d9",
+        }),
+    "old/嘲讽/rl_supermimic_zq_come_here_03_j13904_2_m38000": (
+        "afa4de1ec1315709f39f3182b30091e57b036785d1d7f5b42a5747fb54b94431", {
+            "policies/policy.mnn": "d00d13492839f0ddcb5c7703986375039c0339924a15d5dc7be655e6141c27ce",
+            "trajectories/supermimic_reference.npz": "10cf49caee1b06c2b736fdbee45fc799765b5f3f2742b1f0c965afe85fcc62b5",
+        }),
+    "rl_supermimic_prone_j12768_m22000": (
+        "3d7191c888819682a6ee81a06247923bf8f872a1cfc1c27ee5c58ad92708fb6e", {
+            "policies/policy.mnn": "29d8e4c4266f0fd22b38845a884a33f934af55a743837ab4d2fa6eb0409dbf7d",
+            "trajectories/supermimic_reference.npz": "06de307bf052f33dafe2d1f3429fe769218d9730fcd961ecc91679fc606df9ed",
+        }),
+    "rl_supermimic_zq_come_here_01_j13904_0_m36000": (
+        "e0346e5f37a34e2ff64e69d063709a167a4087e9c37ac1774cc7987a19b4b6a9", {
+            "policies/policy.mnn": "d4c79994f2bf9a2f87f5130da88647dc1c3387b2ce2baea5167839a82055c957",
+            "trajectories/supermimic_reference.npz": "975b262fc6cc034fd1b039301daedd59db6265a7a360ef34bf336a80ff90ecda",
+        }),
+    "rl_supermimic_zq_left_hook_02_j13564_m82000": (
+        "70844d73ee1dc4cfbb76275f5cb9d90517487dab2a0c62f78db553eb10d949ab", {
+            "policies/policy.mnn": "869572355b6261064782fd2176cd6107a2a963f702c588bfe3b5159e0d5cb507",
+            "trajectories/supermimic_reference.npz": "e03deeaf12837bd3ca30dd27f3b63dd81ed1e04fa390fd0802ab08dd028d5e70",
+        }),
+    "rl_supermimic_zq_pull_hammer_20261102_j13551_m182000": (
+        "02faee851a2c76659fdb6956fb9f3b8d95793f2ecb11cc07e7812e0a4a62e936", {
+            "policies/policy.mnn": "ef63eee96609f6080de4fa4d6509d9a1668f4144682c7b8a53ab9b4143672874",
+            "trajectories/supermimic_reference.npz": "8ffda8a171e728c04de6adcf454c5afcee9a37d909a9d65cba76fd21f7fcae2d",
+        }),
+    "rl_supermimic_zq_right_high_kick_20261102_j13551_m184000": (
+        "65c9d51f425a46fc149b577ef0dc9357bb6da219d1d21b8e78b55d396c089610", {
+            "policies/policy.mnn": "98183bed912505954a5664d72b0af4f99d9956ef893ae20bc8b3f50f55cbb182",
+            "trajectories/supermimic_reference.npz": "64598ce4d55b4e94a5554ccfda8cf3e2a64c931c80b9c1ef0fc73f6356bb9c28",
+        }),
+    "rl_supine_to_stance_v1_hybrid_9843_m13000": (
+        "8be78069198b27c82e4f7cb569d0cd18aa78b3a5095eb7cfa39fd48ed5c2baf2", {
+            "policies/policy.mnn": "3347630790f7ff69ef0dce1581d2f252d1d6afd00837a132820c6bbce8e8db7f",
+            "trajectories/T800_supine_to_stance_sdk_clip_50hz.npz": "f46be05840d992d90762c16f09f585961e55b0a328123da88380089290cf0492",
+        }),
+    "rl_walking_leolab_ankle_combined_v2_140000": (
+        "e3d6355cfbedb4a77684f4b7ed42feddbfb29159365ef4c0d4c53ae3e0766e5c", {
+            "policies/boxing_policy.mnn": "fd64bf176ca8524c3e256f877063d76751b964f79092ecc27c9e1f7dce04a235",
+        }),
+}
 
 # These values were captured before replacing the four RB+face-button motions.
 # They cover the other fourteen motions after replacing the prone recovery too.
@@ -158,13 +226,30 @@ class T800ActionBaselineTest(unittest.TestCase):
 
     def test_fourteen_other_motions_keep_keys_runners_tags_and_periods(self):
         self.assertEqual(len(PRESERVED_MOTIONS), 14)
+        walking = ["walk", "walk_custom", "walk_leo", "walk_leo_terrain"]
+        returns = ["passive", "pd_stand"] + walking
+        strikes = ["rl_left_front_kick_002_complete_heightfall", "rl_roundhouse_kick",
+                   "rl_straight_punch_L_improved", "rl_left_hook_001_improved", "rl_punch_example"]
+        transitions = {
+            name: (["passive", "pd_stand"] + [other for other in walking if other != name] +
+                   (["leo_taunt"] if name == "walk_leo" else []) +
+                   ["getup", "getup2", "stance_to_supine"] + list(SUPER_MOTIONS) + strikes, None)
+            for name in walking
+        }
+        transitions.update({name: (returns, "walk_leo") for name in strikes + ["getup", "getup2"]})
+        transitions.update({
+            "leo_taunt": (["walk_leo"], "walk_leo"),
+            "supine_to_stance": (["passive", "pd_stand", "walk_leo"], "walk_leo"),
+            "stance_to_supine": (["passive", "pd_stand"], "passive"),
+        })
         for name, expected in PRESERVED_MOTIONS.items():
             with self.subTest(motion=name):
                 task = self.tasks[name]
-                enabled = [runner for runner in task["runner"] if runner.get("enabled")]
-                self.assertEqual(len(enabled), 1)
-                actual = (task["period"], task["key"], enabled[0]["name"], enabled[0]["param_tag"])
-                self.assertEqual(actual, expected)
+                period, key, runner, tag = expected
+                self.assertEqual(task["period"], period)
+                self.assertEqual(task["key"], key)
+                self.assertEqual(task["runner"], [{"name": runner, "enabled": True, "param_tag": tag}])
+                self.assertEqual((task["manual_transition"], task.get("auto_transition")), transitions[name])
 
     def test_active_policy_and_trajectory_paths_exist(self):
         for name, entries in self.mode["mode"].items():
@@ -174,12 +259,8 @@ class T800ActionBaselineTest(unittest.TestCase):
                 # SuperMimic exports keep their package-relative asset paths;
                 # the older SDK runners resolve paths from the product root.
                 asset_root = config_path.parent if config.get("method") == "supermimic" else CONFIG_ROOT
-                for key in ("policy_file", "trajectory_file_npz", "reference_file", "onnx_file"):
+                for key in ("policy_file", "trajectory_file_npz", "reference_file"):
                     if key not in config:
-                        continue
-                    if entry["tag"] == "rl_celebration":
-                        # The original celebration state is an unreachable placeholder.
-                        self.assertEqual(config[key], "")
                         continue
                     with self.subTest(mode=name, tag=entry["tag"], key=key):
                         self.assertTrue(config[key], "active asset path is empty")
@@ -227,48 +308,28 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
         cls.tasks = {task["motion"]: task for task in
                      load_yaml(CONFIG_ROOT / "task_motion/default.yaml")["tasks"]}
 
-    def test_old_actions_are_preserved_byte_for_byte_and_inactive(self):
-        manifest = json.loads((self.old / "manifest.json").read_text())
-        self.assertEqual(manifest["schema_version"], 1)
-        actual_files = set()
+    def test_old_actions_keep_only_runtime_files_and_remain_inactive(self):
+        self.assertEqual({path.name for path in self.old.iterdir()},
+                         ARCHIVED_DIRS | {"嘲讽", "README.md"})
         for directory in ARCHIVED_DIRS:
-            compatibility_path = CONFIG_ROOT / directory
-            if compatibility_path.is_symlink():
-                self.assertEqual(compatibility_path.readlink(), Path("old") / directory)
-            else:
-                self.assertFalse(compatibility_path.exists(), directory)
+            self.assertFalse((CONFIG_ROOT / directory).exists(), directory)
             self.assertTrue((self.old / directory).is_dir(), directory)
-            actual_files.update(path.relative_to(self.old).as_posix()
-                                for path in (self.old / directory).rglob("*") if path.is_file())
+        self.assertEqual({path.name for path in (self.old / "嘲讽").iterdir()},
+                         TAUNT_BACKUP_PACKAGES | {"README.md"})
         for directory in TAUNT_BACKUP_PACKAGES:
             self.assertFalse((CONFIG_ROOT / directory).exists(), directory)
-            archived = self.old / "嘲讽" / directory
-            self.assertTrue(archived.is_dir(), directory)
-            actual_files.update(path.relative_to(self.old).as_posix()
-                                for path in archived.rglob("*") if path.is_file())
-        self.assertEqual(set(manifest["files"]), actual_files)
-        for relative_path, expected in manifest["files"].items():
-            with self.subTest(asset=relative_path):
-                self.assertEqual(file_sha256(self.old / relative_path), expected)
-        self.assertTrue((self.old / "README.md").is_file())
+            self.assertTrue((self.old / "嘲讽" / directory).is_dir(), directory)
         for mode, entries in self.mode["mode"].items():
             for entry in entries:
                 with self.subTest(mode=mode, tag=entry["tag"]):
                     self.assertNotIn(entry["tag"], REPLACED_TAGS)
                     self.assertNotIn(entry["scope"].split("/", 1)[0], ARCHIVED_DIRS | {"old"})
         self.assertTrue({"dance", "victory", "ridicule", "celebration"}.isdisjoint(self.tasks))
-        old_mode = load_yaml(self.old / "mode.before_supermimic.yaml.backup")
-        for entries in old_mode["mode"].values():
-            self.assertTrue(REPLACED_TAGS <= {entry["tag"] for entry in entries})
 
     def test_four_new_keys_are_reachable_from_every_former_entry_state(self):
-        old_tasks = load_yaml(self.old / "task_motion.before_supermimic.yaml.backup")["tasks"]
-        old_names = {"dance", "victory", "ridicule"}
-        entry_states = {task["motion"] for task in old_tasks
-                        if old_names.intersection(task.get("manual_transition", []))}
-        self.assertEqual(entry_states, {"pd_stand", "pd_stand_x", "pd_stand_y", "walk",
-                                       "walk_custom", "walk_leo", "walk_leo_terrain"})
-        for motion, (tag, button, directory, _) in SUPER_MOTIONS.items():
+        entry_states = {"pd_stand", "pd_stand_x", "pd_stand_y", "walk",
+                        "walk_custom", "walk_leo", "walk_leo_terrain"}
+        for motion, (tag, button, directory) in SUPER_MOTIONS.items():
             with self.subTest(motion=motion):
                 task = self.tasks[motion]
                 self.assertEqual(task["key"], ["RB", button])
@@ -276,7 +337,8 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                 self.assertEqual(task["runner"], [
                     {"name": "rl_supermimic_runner", "enabled": True, "param_tag": tag}])
                 self.assertEqual(task["auto_transition"], "walk_leo")
-                self.assertIn("passive", task["manual_transition"])
+                self.assertEqual(task["manual_transition"],
+                                 ["passive", "pd_stand", "walk", "walk_custom", "walk_leo", "walk_leo_terrain"])
                 for source in entry_states:
                     self.assertIn(motion, self.tasks[source]["manual_transition"], source)
                 for entries in self.mode["mode"].values():
@@ -285,53 +347,60 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                 collisions = [name for name, other in self.tasks.items() if other["key"] == task["key"]]
                 self.assertEqual(collisions, [motion])
 
-    def test_exports_keep_original_assets_with_zero_extra_hold(self):
-        self.assertEqual(len(SUPER_EXPORTS), 5)
-        for directory, default_hash in SUPER_EXPORTS.items():
+    def test_runtime_packages_preserve_settings_and_asset_bytes(self):
+        for directory, (expected_config, assets) in RUNTIME_PACKAGES.items():
             package = CONFIG_ROOT / directory
             with self.subTest(package=directory):
-                # Older exports had a one-second hold; the refreshed taunt
-                # already exports zero. Preserve each package's original manifest.
-                deployed_default = (package / "default.yaml").read_bytes()
-                self.assertEqual(load_yaml(package / "default.yaml")["hold_seconds"], 0.0)
-                exported_hold = load_yaml(package / "deploy_config.yaml")["hold_seconds"]
-                exported_default = deployed_default.replace(
-                    b"\nhold_seconds: 0.0\n",
-                    f"\nhold_seconds: {float(exported_hold)}\n".encode())
-                exported_default_hash = hashlib.sha256(exported_default).hexdigest()
-                self.assertEqual(exported_default_hash, default_hash)
-                manifest = json.loads((package / "export_manifest.json").read_text())
-                self.assertEqual(manifest["validation"]["input_shape"], [1, 1520])
-                self.assertEqual(manifest["validation"]["output_shape"], [1, 25])
-                for asset, expected in manifest["artifact_sha256"].items():
-                    actual = (exported_default_hash if asset == "default.yaml"
-                              else file_sha256(package / asset))
-                    self.assertEqual(actual, expected, asset)
+                self.assertEqual({path.relative_to(package).as_posix()
+                                  for path in package.rglob("*") if path.is_file()},
+                                 {"default.yaml"} | set(assets))
+                config = load_yaml(package / "default.yaml")
+                serialized = json.dumps(config, sort_keys=True, separators=(",", ":"))
+                self.assertEqual(hashlib.sha256(serialized.encode()).hexdigest(), expected_config)
+                for name, expected in assets.items():
+                    self.assertEqual(file_sha256(package / name), expected, name)
+                asset_root = (package if config.get("method") == "supermimic" else
+                              self.old if directory.startswith("old/") else CONFIG_ROOT)
+                for key in ("policy_file", "reference_file", "trajectory_file_npz"):
+                    if key in config:
+                        self.assertTrue((asset_root / config[key]).is_file(), config[key])
+                if directory in SUPER_PACKAGES:
+                    self.assertEqual(config["hold_seconds"], 0.0)
 
     def test_prone_replacement_preserves_controls_transitions_and_other_recoveries(self):
-        old_tasks = {task["motion"]: task for task in
-                     load_yaml(self.old / "task_motion.before_supermimic.yaml.backup")["tasks"]}
-        expected = dict(old_tasks["prone_to_stance"])
-        expected["runner"] = [
-            {"name": "rl_supermimic_runner", "enabled": True, "param_tag": "rl_prone_to_stance"}]
-        self.assertEqual(self.tasks["prone_to_stance"], expected)
+        self.assertEqual(self.tasks["prone_to_stance"], {
+            "motion": "prone_to_stance", "period": 0.02,
+            "runner": [{"name": "rl_supermimic_runner", "enabled": True,
+                        "param_tag": "rl_prone_to_stance"}],
+            "manual_transition": ["passive", "pd_stand", "walk_leo"],
+            "auto_transition": "walk_leo", "key": ["START", "CROSS_Y_RIGHT"],
+        })
         prone = load_yaml(CONFIG_ROOT / PRONE_PACKAGE / "default.yaml")
         self.assertEqual(prone["task"], "prone")
-        old_entries = {name for name, task in old_tasks.items()
-                       if "prone_to_stance" in task.get("manual_transition", [])}
         entries = {name for name, task in self.tasks.items()
                    if "prone_to_stance" in task.get("manual_transition", [])}
-        self.assertEqual(entries, old_entries)
+        self.assertEqual(entries, {"passive", "pd_stand", "pd_stand_x", "pd_stand_y"})
         for mode, entries in self.mode["mode"].items():
             with self.subTest(mode=mode):
                 scopes = {entry["tag"]: entry["scope"] for entry in entries}
                 self.assertEqual(scopes["rl_prone_to_stance"], PRONE_PACKAGE + "/default")
-        for motion in ("supine_to_stance", "getup", "getup2", "stance_to_supine"):
+        recovery_transitions = {
+            "supine_to_stance": (["passive", "pd_stand", "walk_leo"], "walk_leo"),
+            "getup": (["passive", "pd_stand", "walk", "walk_custom", "walk_leo", "walk_leo_terrain"], "walk_leo"),
+            "getup2": (["passive", "pd_stand", "walk", "walk_custom", "walk_leo", "walk_leo_terrain"], "walk_leo"),
+            "stance_to_supine": (["passive", "pd_stand"], "passive"),
+        }
+        for motion, (manual, automatic) in recovery_transitions.items():
             with self.subTest(motion=motion):
-                self.assertEqual(self.tasks[motion], old_tasks[motion])
+                period, key, runner, tag = PRESERVED_MOTIONS[motion]
+                self.assertEqual(self.tasks[motion], {
+                    "motion": motion, "period": period, "key": key,
+                    "runner": [{"name": runner, "enabled": True, "param_tag": tag}],
+                    "manual_transition": manual, "auto_transition": automatic,
+                })
 
     def test_reference_shapes_and_policy_history_contract(self):
-        for directory in SUPER_EXPORTS:
+        for directory in SUPER_PACKAGES:
             package = CONFIG_ROOT / directory
             config = load_yaml(package / "default.yaml")
             with self.subTest(package=directory):
@@ -374,31 +443,20 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                     rotations = reference["root_rotation"]
                     np.testing.assert_allclose(rotations.transpose(0, 2, 1) @ rotations,
                         np.broadcast_to(np.eye(3), (frames, 3, 3)), atol=2e-4)
-                with np.load(package / "policies/parity_inputs.npz", allow_pickle=False) as parity:
-                    self.assertEqual(parity["obs"].shape[1], 1520)
-                    self.assertEqual(parity["actions"].shape, (parity["obs"].shape[0], 25))
-                    self.assertTrue(np.isfinite(parity["obs"]).all())
-                    self.assertTrue(np.isfinite(parity["actions"]).all())
-                    if not raw_action_export:
-                        self.assertLessEqual(float(np.abs(parity["actions"]).max()), 20.00001)
 
     def test_each_policy_joint_maps_to_one_sdk_joint_with_the_same_semantics(self):
         sdk_joints = [joint for limb in load_yaml(CONFIG_ROOT / "model/default.yaml")["limbs"]
                       for joint in limb["joints"]]
         self.assertEqual(len(sdk_joints), 25)
         self.assertEqual(len(set(sdk_joints)), 25)
-        for directory in SUPER_EXPORTS:
+        for directory in SUPER_PACKAGES:
             package = CONFIG_ROOT / directory
             config = load_yaml(package / "default.yaml")
-            mapping = json.loads((package / "export_manifest.json").read_text())["joint_mapping"]
             with self.subTest(package=directory):
                 self.assertEqual(config["mujoco_joint_names"], sdk_joints)
                 self.assertEqual(len(config["joint_names"]), 25)
                 self.assertEqual(len(set(config["joint_names"])), 25)
-                self.assertEqual(set(mapping), set(config["joint_names"]))
-                self.assertEqual(set(mapping.values()), set(sdk_joints))
                 for policy_joint, sdk_joint in zip(config["joint_names"], sdk_joints):
-                    self.assertEqual(mapping[policy_joint], sdk_joint)
                     # Numeric prefixes differ on the right arm and head. Match
                     # the complete joint role/side, rather than those prefixes.
                     self.assertEqual(policy_joint.split("_", 1)[1], sdk_joint.split("_", 1)[1])

@@ -4,23 +4,18 @@
 
 本次仅导出最终的 **`ckpt_140000.pt`**。该任务从 100000 轮继续训练 40000 轮，最终轮数为 **140000**。`LB+A` 的 `walk_leo` 现已切换到该模型，本机和 109 共用下述配置。`mode.robot`、`mode.sim` 的走路 scope 都已更新；`active_mode` 仍为 `sim`。
 
-### 已生成的部署文件
-
-相对于本 SDK 仓库根目录：
+### 部署目录只保留运行文件
 
 | 文件 | 用途 |
 | --- | --- |
-| `assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/policies/actor.onnx` | 包含观测 RMS 归一化的循环策略 |
-| 同目录 `actor.yml` | 模型的输入输出名称、形状 |
-| 同目录 `boxing_policy.mnn` | SDK 实际加载的 FP32 模型，兼容目标 MNN 2.9 |
-| 同目录 `export_manifest.json`、`export_validation.json` | checkpoint 来源、SHA256、导出版本及推理数值校验结果 |
-| `assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/default.yaml` | V2 专用走路配置，遥控和动作过渡参数与 terrain 对齐 |
+| `assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/default.yaml` | 走路配置，四个踝关节 Kd 为 2.0 |
+| 同目录 `policies/boxing_policy.mnn` | SDK 实际加载的 FP32 循环策略，兼容目标 MNN 2.9 |
 
 ### 1. 从训练框架导出这一个 checkpoint
 
-这一步在**本机训练环境**执行，使用已有 `leo` 环境；SDK 的 ROS 容器不需要安装训练依赖。新增的 `scripts/cusrl/export_ankle_v2.py` 在 CPU 上直接严格加载 actor 与观测 RMS，保留归一化后的 ±10 裁剪和 LSTM 状态，不启动 Isaac Sim。原 `export.py` 的任务选项尚未支持 V2。
+在**本机训练环境**执行，使用已有 `leo` 环境。`scripts/cusrl/export_ankle_v2.py` 在 CPU 上严格加载 actor 与观测 RMS，保留归一化后的 ±10 裁剪和 LSTM 状态，不启动 Isaac Sim。原 `export.py` 的任务选项尚未支持 V2。
 
-以下是本次导出命令。**产物已经生成，无需再次执行**；脚本拒绝覆盖非空输出目录。需要复现时，将 `OUT_DIR` 改为新的空目录，仍然只指定这一个 PT 文件：
+当前部署模型已准备好，无需重复导出。需要重新导出时，仅指定最终的一个 PT；ONNX、接口描述和导出记录写入仓库外的新临时目录，转换完成后只将 MNN 复制到部署目录：
 
 ```bash
 LEO_DIR=/srv/shared/home/xjh/workspace/zq_leo_final
@@ -28,7 +23,8 @@ SDK_DIR=/srv/shared/home/xjh/workspace/zq/engineai_robotics_native_sdk
 LEO_PY=/srv/shared/home/xjh/app/miniconda3/envs/leo/bin/python
 MNN_PY=/srv/shared/home/xjh/app/miniconda3/envs/whole_body_tracking/bin/python
 CKPT_PATH="$LEO_DIR/logs/cusrl/T800_base-AnkleCombinedV2/2026-11-07-23-48-06:T800_base-AnkleCombinedV2_finetune_2gpu_seed42/ckpt/ckpt_140000.pt"
-OUT_DIR="$SDK_DIR/assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/policies"
+OUT_DIR=$(mktemp -d /tmp/engineai-ankle-v2.XXXXXX)
+DEPLOY_DIR="$SDK_DIR/assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/policies"
 
 "$LEO_PY" "$LEO_DIR/scripts/cusrl/export_ankle_v2.py" \
   --checkpoint "$CKPT_PATH" \
@@ -41,9 +37,15 @@ OUT_DIR="$SDK_DIR/assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/
   --bizCode MNN --targetVersion 2.9
 ```
 
-本机已有 MNN 3.6.1 转换工具，109 原 SDK 容器的推理库为 MNN 2.9.5，因此转换时显式指定 `--targetVersion 2.9`。本次使用 FP32 权重。导出脚本检查 checkpoint 的任务、轮数、续训进度与模型权重结构；环境配置签名原样记录在 manifest 中，CPU 导出不会重建 Isaac 环境或重新校验物理配置签名。
+确认以上两步成功后，退出正在使用该模型的 SDK，再复制最终 MNN：
 
-部署接口如下。SDK 按元素数读取状态，实际导出形状应以 `actor.yml` 为准：
+```bash
+cp "$OUT_DIR/boxing_policy.mnn" "$DEPLOY_DIR/boxing_policy.mnn"
+```
+
+本机 MNN 转换工具为 3.6.1，109 原 SDK 容器的推理库为 MNN 2.9.5，因此显式指定 `--targetVersion 2.9` 并保留 FP32 权重。临时目录不参与运行，完成转换和复制后可删除；不要将其中的 ONNX、`actor.yml` 或导出记录复制回部署仓库。
+
+部署接口如下；重新导出时可在临时目录的 `actor.yml` 核对：
 
 | 输入 | 形状 | 输出 | 形状 |
 | --- | --- | --- | --- |
@@ -51,9 +53,7 @@ OUT_DIR="$SDK_DIR/assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/
 | `memory_in.0` | `[2, 1, 256]` | `memory_out.0` | `[2, 1, 256]` |
 | `memory_in.1` | `[2, 1, 256]` | `memory_out.1` | `[2, 1, 256]` |
 
-继续使用现有 runner 发送原始 84 维观测，并在每步反馈 hidden/cell；RMS 已在模型内，无需在 C++ 再做归一化。
-
-2026-11-09 导出校验：ONNX 完整结构检查通过；4 组各 64 步、共 256 步连续推理中，PyTorch 与 MNN 分别反馈自身状态进行对比。109 原 SDK 容器的 MNN 2.9.5 与现有 C++ 循环推理适配器也通过同一组校验，动作最大绝对误差 `6.32e-6`，hidden/cell 最大绝对误差分别为 `3.76e-6` / `1.08e-5`。这验证了转换和接口数值一致性，尚未验证新策略在 MuJoCo 中的物理稳定性。
+现有 runner 发送原始 84 维观测，并在每步反馈 hidden/cell；RMS 已在模型内，无需在 C++ 再做归一化。
 
 ### 2. 当前启用的走路配置
 
@@ -75,7 +75,7 @@ OUT_DIR="$SDK_DIR/assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/
 
 两者 Kp、25 维关节顺序、默认姿态、动作缩放、84 维观测、50 Hz 控制周期和动作切入过渡一致；遥控的 37°方向偏置、启停阈值、反向保护、加速度 `5.0 m/s²`、减速度 `2.0 m/s²` 也一致。固定战术方向目标为：前进 `1.0 m/s`、后退/左右 `0.8 m/s`、左右转向 `1.5 rad/s`。这比旧 `walk_leo` 的平移 `0.5 m/s`、转向 `1.0 rad/s` 更快；这些数值是指令目标，实际速度和稳定性由新策略决定。
 
-旧 `LB+A` 整个目录已原样归档到 `assets/config/t800/old/rl_walking_leolab_example`。早期保留的根目录兼容软链接现已按 109 当前状态移除；新配置通过独立目录加载。`leo_taunt` 原本共用旧目录的 MNN，现改为引用 terrain 目录下**字节完全相同**的模型，其余参数保持原样，因此它仍使用原策略及自己的 PD。
+旧 `LB+A` 的配置及其实际引用的模型保留在 `assets/config/t800/old/rl_walking_leolab_example`，用于回退；历史模型和未使用的副本已清理。根目录不再保留旧目录的兼容软链接，新配置通过独立目录加载。`leo_taunt` 原本共用旧目录的 MNN，现改为引用 terrain 目录下**字节完全相同**的模型，其余参数保持原样，因此它仍使用原策略及自己的 PD。
 
 ### 3. 本机与 109 启动、回退
 
@@ -90,30 +90,18 @@ OUT_DIR="$SDK_DIR/assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/
 
 需要回退旧 `LB+A` 时，先退出 SDK，按 `assets/config/t800/old/README.md` 的“旧 Leo 走路”步骤移回旧目录，将两个模式下该 tag 的 scope 恢复为 `rl_walking_leolab_example/default` 后重启。其他模型和按键配置不用恢复。
 
-### 4. 走路目录使用情况与可清理内容
+### 4. 当前走路目录
 
-当前顶层走路相关目录都有实际入口：
+| 目录 | 状态 / 按键 |
+| --- | --- |
+| `rl_walking_leolab_ankle_combined_v2_140000` | 当前 `walk_leo` / LB+A |
+| `rl_walking_leolab_terrain_example` | `walk_leo_terrain` / LB+X；嘲讽步态也共用其中的当前模型 |
+| `rl_walking_leolab_taunt` | `leo_taunt` / LT+B，仅从 `walk_leo` 进入 |
+| `rl_walking_example` | `walk` / LB+B |
+| `rl_walking_custom_example` | `walk_custom` / LB+Y |
+| `old/rl_walking_leolab_example` | 原 LB+A 的运行备选，保留配置与其引用的 MNN |
 
-| 目录 | 状态 / 按键 | 是否保留 |
-| --- | --- | --- |
-| `rl_walking_leolab_ankle_combined_v2_140000` | 新 `walk_leo` / LB+A | 保留 |
-| `rl_walking_leolab_terrain_example` | `walk_leo_terrain` / LB+X | 保留，嘲讽步态也共用其中的当前模型 |
-| `rl_walking_leolab_taunt` | `leo_taunt` / LT+B | 保留，仅从 `walk_leo` 进入 |
-| `rl_walking_example` | `walk` / LB+B | 保留 |
-| `rl_walking_custom_example` | `walk_custom` / LB+Y | 保留 |
-| `old/rl_walking_leolab_example` | 原 LB+A 的完整备份 | 本次按要求归档保留 |
-
-以下路径相对于 `assets/config/t800`，当前 mode 和动作图都未选择，**删除不影响当前按键的策略运行，但会失去备用模型或 profile**。109 已清理的部分也已同步到本机：
-
-| 未使用的子目录 | 大小 | 判断 |
-| --- | --- | --- |
-| `old/rl_walking_leolab_example/1/` | 约 16.94 MiB | 五份历史模型，包含一份当前旧模型的重复副本，可清理 |
-| `old/rl_walking_leolab_example/policies/` | 约 3.38 MiB | 旧备用 MNN 及导出说明，可清理 |
-| `rl_walking_leolab_terrain_example/1/` | 原约 6.78 MiB | 已删除 |
-| `rl_walking_leolab_terrain_example/profiles/std_offset/` | 原约 0.01 MiB | 已删除 |
-| `rl_walking_leolab_terrain_example/policies/` | 约 3.38 MiB | 上述 StdOffset profile 使用的备用模型，可与 profile 一起清理 |
-
-未删除部分共约 23.7 MiB。归档中的文件受 `old/manifest.json` 校验，后续清理归档文件时需同步更新该清单。terrain 根目录下的 `2026-09-06-19-30-18:t800_lowcylinders_ankle_stable_1_seed42/` 仍由 LB+X 和嘲讽步态使用，应保留。原旧 LB+A 同名模型在 `old` 中保留作回退。
+terrain 根目录下的 `2026-09-06-19-30-18:t800_lowcylinders_ankle_stable_1_seed42/boxing_policy.mnn` 仍由 LB+X 和嘲讽步态使用。原 LB+A 同名模型在 `old` 中保留作回退。
 
 ## 仿真框架说明
 
@@ -254,15 +242,9 @@ ls -l /dev/input/by-id/*-joystick
 
 从 PD 准备或原有步态中进入，动作参考播放完成后自动回到 `walk_leo`。四个动作各自的 `default.yaml` 当前设置 `hold_seconds: 0.0`，不额外保持末尾目标；走路侧的进入过渡仍保留。修改该值不需要重新编译，重启单机或双机入口后生效；双机在启动时复制配置。其他原有动作和急停组合保留，完整允许切换关系仍以 `assets/config/t800/task_motion/default.yaml` 为准。
 
-当前 `RB+B` 的嘲讽使用第一个重训包 `rl_supermimic_zq_come_here_01_j13904_0_m36000`，`mode.sim` 与 `mode.robot` 使用同一包。参考共 501 帧、50 Hz、10 秒，额外保持仍为 `hold_seconds: 0.0`。第二个包 `rl_supermimic_zq_come_here_02_j13904_1_m36000` 和第三个包 `rl_supermimic_zq_come_here_03_j13904_2_m38000` 已完整移到 `assets/config/t800/old/嘲讽/` 留作备用，归档文件由 `old/manifest.json` 校验。正常退出并重启单机或双机入口后生效，虚拟手柄按钮仍显示状态名 `supermimic_come_here`，不需要重新编译。
+当前 `RB+B` 的嘲讽使用第一个重训包 `rl_supermimic_zq_come_here_01_j13904_0_m36000`，`mode.sim` 与 `mode.robot` 使用同一包。参考共 501 帧、50 Hz、10 秒，额外保持仍为 `hold_seconds: 0.0`。第二个包 `rl_supermimic_zq_come_here_02_j13904_1_m36000` 和第三个包 `rl_supermimic_zq_come_here_03_j13904_2_m38000` 保留在 `assets/config/t800/old/嘲讽/` 留作备用，每包仅含运行配置、MNN 和参考轨迹。正常退出并重启单机或双机入口后生效，虚拟手柄按钮仍显示状态名 `supermimic_come_here`，不需要重新编译。
 
-本次已通过新包全部导出产物的哈希核对，以及 109 原容器内 SDK C++/MNN 的 24 组离线推理对照、参考轨迹加载和输出契约检查；当前 SDK 中的实际动作及切回走路的稳定性待测试。
-
-四个导出包使用专用 `rl_supermimic_runner`，MNN/ONNX 模型和参考轨迹完整保留。其他三个格斗包的部署配置仅将原 `default.yaml` 的 `hold_seconds` 从 `1.0` 改为 `0.0`；新版嘲讽无需修改导出配置。`export_manifest.json` 仍记录各包原始导出文件的 SHA256。原 dance、victory、ridicule、celebration 及旧俯卧起身放在 `assets/config/t800/old`，恢复步骤见该目录的 `README.md`。首次接入 runner 才需要在已有容器内执行 `./build.sh`。
-
-导出保留 `test_only: true` 元数据；原评测从参考首帧状态开始，属于仿真验证，不能直接当作实机效果或从任意姿态切入的保证。
-
-2026-11-05 接入验证：已有容器内完整编译通过，四个 MNN 模型共 96 组导出样本通过原生推理校验。无对手接触的平地测试中，先完成 PD 准备，再进入 `walk_leo`，依次执行四个动作；每次自动返回后继续运行 2 秒。完整状态与控制指令均为有限值，未出现倒地。右高踢腿过程中机身最大倾角约 57°，随后恢复站立；这项验证使用原 `hold_seconds: 1.0` 配置，不覆盖取消额外保持后的稳定性、碰撞抗击打或实机稳定性。
+四个动作使用专用 `rl_supermimic_runner`。每包仅保留 `default.yaml`、`policies/policy.mnn` 和 `trajectories/supermimic_reference.npz`；导出中间文件和评测数据不参与部署。旧 dance、victory、ridicule 及更早的俯卧起身保留在 `assets/config/t800/old`，恢复步骤见该目录的 `README.md`。首次接入 runner 才需要在已有容器内执行 `./build.sh`。
 
 ## 俯卧起身
 
@@ -271,10 +253,6 @@ ls -l /dev/input/by-id/*-joystick
 该包使用现有 `rl_supermimic_runner`，输入 1520 维、输出 25 维，以 50 Hz 完整播放 143 帧参考轨迹，共 2.84 秒。模型输出和上一动作历史均为 raw action，目标为 `default_joint_pos + action_scale * raw_action`。部署 `hold_seconds: 0.0`，不额外保持末尾；原模型、参考、PD 和关节映射保留。入口为策略实时运行的命令衔接，不执行上键 WBT 的纯 PD 等待；起身回 Leo 目前直接接管，没有四个格斗动作回步态时的入口混合。
 
 原 **START + 十字键上** 仍使用 WBT 仰卧，HoST 起身也不变。虚拟手柄的 `prone_to_stance` 按钮执行该旧俯卧。更早的 `rl_prone_to_stance_hybrid_9825_m29500` 仍在 `assets/config/t800/old`。双机复制配置发生在启动时，正常退出并重启单机或双机入口后生效，无需重新编译。
-
-本次恢复通过 41 项配置及启动器测试，并在 109 原容器内通过旧俯卧的参考加载、24 组导出样本推理对照和输出契约检查。
-
-旧俯卧接入记录（2026-11-07）：109 原容器内增量编译通过，10 项配置回归、23 项启动器测试及五个模型共 120 组原生推理对照样本通过。真实 SDK 使用参考状态回放，从 START+十字键右进入俯卧 runner，确认 `frames=143, hold_seconds=0`，参考完成后自动切入 `walk_leo`，2854 条控制命令均为有限值。该回放验证了加载和状态切换，不能单独证明从实际俯卧姿态起身或实机站稳。
 
 ## 双机配置与日志隔离
 

@@ -73,10 +73,10 @@ YAML 中使用的是统一逻辑键。CROSS_X_UP/DOWN 表示十字键上/下，C
   LB + A                  walk_leo（AnkleCombinedV2 步态，最终 ckpt_140000）
   LB + X                  walk_leo_terrain（LowCylinders 地形步态）
   
-  RB + B                  dance（SDK 动作追踪）
-  RB + Y                  victory
-  RB + X                  ridicule（嘲讽动作）
-  RB + A                  celebration（庆祝动作，预留）
+  RB + B                  supermimic_come_here（嘲讽，第一个重训版本）
+  RB + Y                  supermimic_left_hook（左勾拳）
+  RB + X                  supermimic_pull_hammer（拉锤）
+  RB + A                  supermimic_right_high_kick（右高踢腿）
 
   RB + 十字键上           rl_left_front_kick_002_complete_heightfall
   RB + 十字键下           rl_roundhouse_kick
@@ -108,9 +108,8 @@ idle 是上电初始/故障恢复状态，不再占用 LB+START；程序进入 i
 - walk_custom：可切 passive、pd_stand、walk、walk_leo、walk_leo_terrain、getup、getup2、主动倒地和全部已启用追踪动作。
 - walk_leo：可切 passive、pd_stand、walk、walk_custom、walk_leo_terrain、getup、getup2、主动倒地和全部已启用追踪动作。
 - walk_leo_terrain：可切 passive、pd_stand、walk、walk_custom、walk_leo、getup、getup2、主动倒地和全部已启用追踪动作。它与 walk_leo 共用 Leo runner；当前配置只对四个起身来源关闭 entry_transition，从动作或其他步态进入时仍执行衔接。
-- dance、victory、嘲讽动作和五个击打动作：执行中可切 passive、pd_stand 或任一步态；轨迹正常结束后自动回 walk_leo。它们共用 `rl_dance_example_runner` 的短时入口衔接。
+- 四个 SuperMimic 动作和五个 WBT 击打动作：执行中可切 passive、pd_stand 或任一步态；参考正常结束后自动回 walk_leo。前者使用 `rl_supermimic_runner`、`hold_seconds: 0.0`，后者使用 `rl_dance_example_runner`，均保留短时入口衔接。
 - supine_to_stance / prone_to_stance（仰卧 / 俯卧起身）：可从 passive、pd_stand、pd_stand_x、pd_stand_y 切入；执行中可人工切 passive、pd_stand 或 `walk_leo`，参考播放结束后自动回 walk_leo。上键 WBT 仰卧仍使用 `rl_dance_example_runner`，进入时先完成首帧 PD 预备并等待关节位置误差连续达标；该条件不检查是否站稳。俯卧使用 `rl_supermimic_runner` 和旧模型 `rl_supermimic_prone_j12768_m22000`，保持 START+十字键右，完整参考为 2.84 秒，`hold_seconds: 0.0`，无额外 1 秒保持；入口为策略实时运行的命令衔接，不执行纯 PD 等待。两者切回 `walk_leo` 时均按当前配置直接交给步态策略，未增加站稳判定。
-- celebration：虚拟遥控器已加入 RB+A 快捷键，但仅保留 runner 和参数模板；当前没有模型、轨迹且未开放进入状态，补齐资源和状态机配置后才能执行。
 - getup/getup2（HoST 起身）：可由 walk、walk_custom、walk_leo、walk_leo_terrain 切入；进入时仍执行安全检查，已基本直立（投影重力 z ≤ -0.8）或角速度范数 > 6.0 时会拒绝进入。当投影重力 z ≤ -0.9 且角速度范数 ≤ 2.0 连续保持 0.3 秒后，判定起身成功并自动切入 walk_leo。人工切换时，随时都可以切入四套步态，不受起身成功与否限制；当前四个步态配置会让步态策略直接接管。若 8 秒超时仍未满足站稳条件，会停止推进策略、保持最后一帧有效目标并自动切入 passive。
 - stance_to_supine（主动倒地）：可切 passive 或 pd_stand；完成后自动回 passive。
 - 所有状态均保留 LB + RB 到 passive 的软急停路径。
@@ -137,7 +136,7 @@ RC02、Logitech F710/F310（Xbox/XInput 键位模式）和虚拟遥控器都会�
 
   LB=Q，RB=E，A=J，B=K，X=U，Y=I，BACK=F1，START=F2，十字键上=W、下=S、左=A、右=D。LT/RT 在虚拟遥控器中分别使用 LT/RT 滑块调到 0.5 以上；四套步态组合依次为 Q+K、Q+I、Q+J、Q+U，getup/getup2 为 Q+F2、Q+F1。
   虚拟遥控器新增步行摇杆键：按住键盘↑/↓分别发送前进/后退，←/→分别发送左移/右移，N/M 分别发送左转/右转；松开按键后对应摇杆轴自动归零。该映射在 walk_leo 和 walk_leo_terrain 两个 Leo 步态中均生效，也适用于其他步态。
-  Quick Macros 包含 leo_taunt（LT+B）、supine_to_stance（START+十字键上）、prone_to_stance（START+十字键右）、stance_to_supine（START+十字键下）、victory（RB+Y）、ridicule（RB+X）、celebration（RB+A）和 rl_left_hook_001_improved（RT+十字键右）。俯卧起身也可用键盘 F2+D 触发；celebration 仍需补齐模型、轨迹并开放状态机进入边后才能执行。
+  Quick Macros 包含 leo_taunt（LT+B）、supine_to_stance（START+十字键上）、prone_to_stance（START+十字键右）、stance_to_supine（START+十字键下）、supermimic_come_here（RB+B）、supermimic_left_hook（RB+Y）、supermimic_pull_hammer（RB+X）、supermimic_right_high_kick（RB+A）和 rl_left_hook_001_improved（RT+十字键右）。俯卧起身也可用键盘 F2+D 触发。
 
 注意：源码明确适配的是 F710/F310，并固定读取 /dev/input/js0；应使用驱动注释所述的非黄灯 Mode，黄灯 Mode 会交换十字键与左摇杆。普通 Xbox 手柄只有在 Linux joystick 事件编号与该布局一致时才可直接使用，不能仅凭外观为 Xbox 布局就保证兼容。项目逻辑轴把 X 定义为前后、Y 定义为左右，因此 F710 驱动中会把 Linux 物理轴转换到这套命名。RC02 使用 /dev/ttyJS。启动或实体输入掉线后重新选源时按 RC02、F710 的顺序尝试；实体源一旦锁定且在线，不会被后来接入的另一实体源动态抢占。虚拟遥控器激活后作为 override 输入覆盖当前实体输入。
 六、安全数据采集（只读） 先启动这个再启动run_t800

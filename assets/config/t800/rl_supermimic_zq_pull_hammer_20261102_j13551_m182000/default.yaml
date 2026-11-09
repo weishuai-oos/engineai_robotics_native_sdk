@@ -4,9 +4,7 @@ robot: t800
 task: zq_pull_hammer_20261102
 checkpoint_iteration: 182000
 test_only: true
-runner: tools/supermimic/sim2sim.py
 policy_file: policies/policy.mnn
-onnx_file: policies/policy.onnx
 reference_file: trajectories/supermimic_reference.npz
 control_dt: 0.02
 physics_dt: 0.002

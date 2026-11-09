@@ -242,11 +242,11 @@ python3 tools/virtual_gamepad/virtual_gamepad.py
 
 **状态机配置：** `assets/config/t800/task_motion/default.yaml`
 
-`LB+A` 进入 `walk_leo`，其 `rl_walking_leolab_example` tag 当前指向 `assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/default.yaml`。这是 AnkleCombinedV2 最终 `ckpt_140000` 导出；四个踝关节（索引 4、5、10、11）的 Kd 为 2.0，其余关节顺序、Kp、默认姿态、动作缩放、循环策略接口和 terrain 风格遥控参数保持一致。旧的 `rl_walking_leolab_example` 资源保存在 `assets/config/t800/old/rl_walking_leolab_example`，原路径保留兼容软链接以支持已经运行的进程。`LB+X` 仍进入 `walk_leo_terrain`，其踝关节 Kd 保持 0.3。
+`LB+A` 进入 `walk_leo`，其 `rl_walking_leolab_example` tag 当前指向 `assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/default.yaml`。这是 AnkleCombinedV2 最终 `ckpt_140000` 导出；四个踝关节（索引 4、5、10、11）的 Kd 为 2.0，其余关节顺序、Kp、默认姿态、动作缩放、循环策略接口和 terrain 风格遥控参数保持一致。旧的 `rl_walking_leolab_example` 配置和它引用的模型保存在 `assets/config/t800/old/rl_walking_leolab_example`，用于回退；根目录的旧兼容软链接已移除。`LB+X` 仍进入 `walk_leo_terrain`，其踝关节 Kd 保持 0.3。
 
-四个 SuperMimic 动作使用独立 `rl_supermimic_runner`，按导出的 1520 维输入/25 维输出合同运行，动作参考播放完成后回到 `walk_leo`。当前四个动作的 `hold_seconds` 均为 `0.0`，取消额外末尾保持，保留走路侧的进入过渡。原 dance、victory、ridicule 和 celebration 配置完整保存在 `assets/config/t800/old`。导出包的 `test_only` 标记保留，原评测来自仿真。
+四个 SuperMimic 动作使用独立 `rl_supermimic_runner`，按导出的 1520 维输入/25 维输出合同运行，动作参考播放完成后回到 `walk_leo`。当前四个动作的 `hold_seconds` 均为 `0.0`，取消额外末尾保持，保留走路侧的进入过渡。每包仅保留运行 YAML、MNN 策略和参考 NPZ。原 dance、victory、ridicule 的可运行备选保存在 `assets/config/t800/old`，导出中间文件和评测数据已清理。
 
-`prone_to_stance` 使用旧俯卧 `rl_supermimic_prone_j12768_m22000`，完整播放 143 帧参考轨迹，共 2.84 秒；`hold_seconds: 0.0` 表示不增加末尾保持。模型输出和上一动作历史均为 raw action。可从 `passive`、`pd_stand`、`pd_stand_x`、`pd_stand_y` 进入，执行中可手动切换到 `passive`、`pd_stand`、`walk_leo`，完成后自动回到 `walk_leo`。起身回步态目前由 Leo 直接接管，不使用四个格斗动作回步态时的入口混合。更早的 `rl_prone_to_stance_hybrid_9825_m29500` 已移入 `assets/config/t800/old`。START＋十字键上的原 WBT 仰卧、HoST 起身均保持原配置。俯卧包保留 `test_only` 及原导出校验元信息；源端仿真评测不代表当前 SDK 切换链路已经完成闭环验证。
+`prone_to_stance` 使用旧俯卧 `rl_supermimic_prone_j12768_m22000`，完整播放 143 帧参考轨迹，共 2.84 秒；`hold_seconds: 0.0` 表示不增加末尾保持。模型输出和上一动作历史均为 raw action。可从 `passive`、`pd_stand`、`pd_stand_x`、`pd_stand_y` 进入，执行中可手动切换到 `passive`、`pd_stand`、`walk_leo`，完成后自动回到 `walk_leo`。起身回步态目前由 Leo 直接接管，不使用四个格斗动作回步态时的入口混合。更早的 `rl_prone_to_stance_hybrid_9825_m29500` 已移入 `assets/config/t800/old`。START＋十字键上的原 WBT 仰卧、HoST 起身均保持原配置。俯卧包仅保留运行 YAML、MNN 策略和参考 NPZ。
 
 #### 全局安全机制（Emergency Fallback）
 

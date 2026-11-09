@@ -118,32 +118,48 @@ TEST(SupermimicReference, ExportedReferenceHasValidRootStateAndGoal) {
   EXPECT_TRUE(reference.goals.allFinite());
 }
 
-TEST(SupermimicPolicy, NativeMnnMatchesAllExportParityFixtures) {
+TEST(SupermimicPolicy, NativeMnnRunsDeterministicallyOnReferenceStates) {
   const char* package = std::getenv("ENGINEAI_SUPERMIMIC_PACKAGE");
-  if (!package) GTEST_SKIP() << "Set ENGINEAI_SUPERMIMIC_PACKAGE to validate native MNN parity";
+  if (!package) GTEST_SKIP() << "Set ENGINEAI_SUPERMIMIC_PACKAGE to validate native MNN inference";
   const std::filesystem::path root(package);
-  const auto arrays = cnpy::npz_load((root / "policies/parity_inputs.npz").string());
-  ASSERT_TRUE(arrays.count("obs"));
-  ASSERT_TRUE(arrays.count("actions"));
-  const auto& obs = arrays.at("obs");
-  const auto& actions = arrays.at("actions");
-  ASSERT_EQ(obs.word_size, sizeof(float));
-  ASSERT_EQ(actions.word_size, sizeof(float));
-  ASSERT_FALSE(obs.fortran_order);
-  ASSERT_FALSE(actions.fortran_order);
-  ASSERT_EQ(obs.shape.size(), 2);
-  ASSERT_EQ(actions.shape.size(), 2);
-  ASSERT_EQ(obs.shape[0], 24);
-  ASSERT_EQ(obs.shape[1], kInput);
-  ASSERT_EQ(actions.shape[0], obs.shape[0]);
-  ASSERT_EQ(actions.shape[1], kActions);
-  FlatPolicy policy((root / "policies/policy.mnn").string());
-  for (size_t row = 0; row < obs.shape[0]; ++row) {
-    const Eigen::VectorXf input = Eigen::Map<const Eigen::VectorXf>(obs.data<float>() + row * kInput, kInput);
-    const Eigen::VectorXd expected = Eigen::Map<const Eigen::VectorXf>(actions.data<float>() + row * kActions, kActions).cast<double>();
+  const auto config = YAML::LoadFile((root / "default.yaml").string());
+  const auto reference_path = root / config["reference_file"].as<std::string>();
+  const auto reference = LoadReference(reference_path.string());
+  const auto arrays = cnpy::npz_load(reference_path.string());
+  const auto defaults = config["default_joint_pos"].as<std::vector<double>>();
+  const auto scales = config["action_scale"].as<std::vector<double>>();
+  ASSERT_EQ(defaults.size(), kActions);
+  ASSERT_EQ(scales.size(), kActions);
+  const Eigen::VectorXd default_q = Eigen::Map<const Eigen::VectorXd>(defaults.data(), kActions);
+  const Eigen::VectorXd action_scale = Eigen::Map<const Eigen::VectorXd>(scales.data(), kActions);
+  FlatPolicy policy((root / config["policy_file"].as<std::string>()).string());
+  History history = History::Zero();
+  Eigen::VectorXd previous_action = Eigen::VectorXd::Zero(kActions);
+  bool first = true;
+  const int frames[] = {0, reference.frames() / 2, reference.frames() - 2};
+  for (const int frame : frames) {
+    SCOPED_TRACE(frame);
+    const Eigen::VectorXd q = Eigen::Map<const Eigen::VectorXf>(
+        arrays.at("joint_pos").data<float>() + frame * kActions, kActions).cast<double>();
+    const Eigen::VectorXd qd = Eigen::Map<const Eigen::VectorXf>(
+        arrays.at("joint_vel").data<float>() + frame * kActions, kActions).cast<double>();
+    const Eigen::Vector3d angular_velocity_world = Eigen::Map<const Eigen::Vector3f>(
+        arrays.at("root_ang_vel").data<float>() + frame * 3).cast<double>();
+    const auto& rotation = reference.rotations[frame];
+    const auto observation = BuildObservation(q, qd, rotation, rotation.transpose() * angular_velocity_world,
+                                              rotation, default_q, previous_action);
+    PushObservation(observation, first, &history);
+    first = false;
+    const Input input = BuildInput(history, reference.goals.row(frame).transpose());
     Eigen::VectorXd output;
     ASSERT_TRUE(policy.Infer(input, &output));
-    EXPECT_LT((output - expected).cwiseAbs().maxCoeff(), 1e-3) << "sample " << row;
+    ASSERT_EQ(output.size(), kActions);
+    ASSERT_TRUE(output.allFinite());
+    Eigen::VectorXd repeated;
+    ASSERT_TRUE(policy.Infer(input, &repeated));
+    EXPECT_TRUE(output.isApprox(repeated, 1e-6));
+    EXPECT_TRUE(ActionTarget(default_q, action_scale, output).allFinite());
+    previous_action = output;
   }
 }
 

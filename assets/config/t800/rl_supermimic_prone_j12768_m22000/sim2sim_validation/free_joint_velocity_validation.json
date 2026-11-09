@@ -1,6 +1,0 @@
-{
-  "mujoco_version": "3.3.6",
-  "free_joint_linear_velocity_error": 8.182894362107618e-10,
-  "free_joint_body_to_world_angular_velocity_error": 3.166154431966106e-07,
-  "passed": true
-}
