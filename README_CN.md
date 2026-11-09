@@ -232,14 +232,21 @@ python3 tools/virtual_gamepad/virtual_gamepad.py
 | passive | 阻尼状态，控制器施加被动阻尼力矩，机器人可被手动移动。 |
 | pd_stand | PD 姿态准备任务，按配置姿态将实测关节平滑驱动到目标，用于动作恢复前准备。 |
 | walk | 行走任务，机器人执行步态运动。 |
-| dance | 跳舞任务，机器人执行预设编排动作序列。 |
 | supine_to_stance | 仰卧起身任务。使用本地 `rl_dance_example_runner` 和 50 Hz、134 维观测/25 维动作的策略，按键为 START + 十字键上；轨迹结束前也可手动切入 `walk_leo`。|
-| prone_to_stance | 俯卧起身任务。使用本地 `rl_dance_example_runner` 和 50 Hz、134 维观测/25 维动作的策略，按键为 START + 十字键右；轨迹结束前也可手动切入 `walk_leo`。|
-| ridicule | 嘲讽动作。使用本地 `rl_dance_example_runner`，按键为 RB + X，动作结束后自动回到 `walk_leo`。|
-| celebration | 庆祝动作预留状态，虚拟遥控器快捷键为 RB + A。runner 和参数模板已配置，但模型与轨迹为空，状态机暂未开放进入。|
+| prone_to_stance | 俯卧起身任务。使用 `rl_supermimic_runner`，以 50 Hz 运行，输入 1520 维、输出 25 维，按键为 START + 十字键右。|
+| supermimic_come_here | SuperMimic 嘲讽，RB + B。|
+| supermimic_left_hook | SuperMimic 左勾拳，RB + Y。|
+| supermimic_pull_hammer | SuperMimic 拉锤，RB + X。|
+| supermimic_right_high_kick | SuperMimic 右高踢腿，RB + A。|
 | stance_to_supine | 躺倒任务。机器人从站立姿态过渡到仰卧姿态。|
 
 **状态机配置：** `assets/config/t800/task_motion/default.yaml`
+
+`LB+A` 进入 `walk_leo`，其 `rl_walking_leolab_example` tag 当前指向 `assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/default.yaml`。这是 AnkleCombinedV2 最终 `ckpt_140000` 导出；四个踝关节（索引 4、5、10、11）的 Kd 为 2.0，其余关节顺序、Kp、默认姿态、动作缩放、循环策略接口和 terrain 风格遥控参数保持一致。旧的 `rl_walking_leolab_example` 资源保存在 `assets/config/t800/old/rl_walking_leolab_example`，原路径保留兼容软链接以支持已经运行的进程。`LB+X` 仍进入 `walk_leo_terrain`，其踝关节 Kd 保持 0.3。
+
+四个 SuperMimic 动作使用独立 `rl_supermimic_runner`，按导出的 1520 维输入/25 维输出合同运行，动作参考播放完成后回到 `walk_leo`。当前四个动作的 `hold_seconds` 均为 `0.0`，取消额外末尾保持，保留走路侧的进入过渡。原 dance、victory、ridicule 和 celebration 配置完整保存在 `assets/config/t800/old`。导出包的 `test_only` 标记保留，原评测来自仿真。
+
+`prone_to_stance` 使用旧俯卧 `rl_supermimic_prone_j12768_m22000`，完整播放 143 帧参考轨迹，共 2.84 秒；`hold_seconds: 0.0` 表示不增加末尾保持。模型输出和上一动作历史均为 raw action。可从 `passive`、`pd_stand`、`pd_stand_x`、`pd_stand_y` 进入，执行中可手动切换到 `passive`、`pd_stand`、`walk_leo`，完成后自动回到 `walk_leo`。起身回步态目前由 Leo 直接接管，不使用四个格斗动作回步态时的入口混合。更早的 `rl_prone_to_stance_hybrid_9825_m29500` 已移入 `assets/config/t800/old`。START＋十字键上的原 WBT 仰卧、HoST 起身均保持原配置。俯卧包保留 `test_only` 及原导出校验元信息；源端仿真评测不代表当前 SDK 切换链路已经完成闭环验证。
 
 #### 全局安全机制（Emergency Fallback）
 
@@ -274,6 +281,9 @@ engineai_robotics_env
 # 进入容器
 engineai_robotics_env
 
+# T800：同时启动单机器人仿真和控制器，退出时一起停止
+./scripts/run_single.sh --gamepad /dev/input/js0
+
 # 运行仿真（默认机型）
 ./scripts/run_mujoco.sh
 
@@ -281,7 +291,7 @@ engineai_robotics_env
 ./scripts/run_mujoco.sh pm01_edu
 ```
 
-运行后即可通过遥控器按键切换状态。
+T800 推荐使用 `run_single.sh` 一键启动，它会自动加载 ROS 环境并连接指定手柄。原 `run_mujoco.sh` 只启动仿真，需另开容器终端加载 ROS 环境后运行 `./run.sh <robot>` 启动控制器。完整的[单机和双机启动流程](tools/duel_sim/README.md)包含环境准备与退出步骤；两种启动方式按需选择。
 
 T800 还支持同场双机器人仿真，两只手柄分别控制，使用独立状态机和相同策略资源：
 

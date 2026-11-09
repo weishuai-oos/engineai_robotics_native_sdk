@@ -153,10 +153,10 @@ void RlDanceExampleRunner::TeardownContext() {}
  */
 bool RlDanceExampleRunner::Enter() {
   // --- Step 1: Parameter loading ---
-  // Reload parameters if a tag has been set (supports runtime config switching)
-  if (!param_tag_.empty()) {
-    param_ = data::ParamManager::create<data::RlDanceExampleParam>(param_tag_);
-  }
+  // Resolve the task's tag only when entering; constructing a shared WBT runner
+  // must not require the archived example dance configuration.
+  param_ = data::ParamManager::create<data::RlDanceExampleParam>(
+      param_tag_.empty() ? "rl_dance_example" : param_tag_);
   if (!param_) {
     LOG(ERROR) << "[WbtRunner::Enter] Failed to create WbtParam";
     return false;

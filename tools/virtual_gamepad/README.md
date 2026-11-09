@@ -1,4 +1,4 @@
-# visualization
+# Virtual Gamepad
 
 PyQt6-based visualization and debugging tools for the virtual gamepad workflow. The current toolchain provides:
 
@@ -12,16 +12,27 @@ PyQt6-based visualization and debugging tools for the virtual gamepad workflow. 
 - PyQt6
 - lcm
 
-To install the required dependencies, run the following command:
+In the SDK container, install the required dependencies with:
 ```bash
-pip3 install -r requirements.txt
+pip3 install -r tools/virtual_gamepad/requirements.txt
 ```
 
 ## Usage
 
 ```bash
-python3 robot_debugger.py
+python3 tools/virtual_gamepad/virtual_gamepad.py
 ```
+
+The window connects manually by default. To select an address and connect when
+the window starts, use:
+
+```bash
+python3 tools/virtual_gamepad/virtual_gamepad.py \
+  --lcm-url 'udpm://239.255.76.67:7667?ttl=0' --connect
+```
+
+Automatic connection does not enable publishing. Press F5 or enable the
+`Enable` checkbox before sending virtual commands.
 
 Available widgets/components:
 

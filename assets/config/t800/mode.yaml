@@ -50,27 +50,27 @@ mode:
     - tag: rl_supine_to_stance
       scope: rl_supine_to_stance_v1_hybrid_9843_m13000/default
     - tag: rl_prone_to_stance
-      scope: rl_prone_to_stance_hybrid_9825_m29500/default
+      scope: rl_supermimic_prone_j12768_m22000/default
     - tag: rl_stance_to_supine
       scope: rl_stance_to_supine/default
-    - tag: rl_dance_example
-      scope: rl_dance_example/default
+    - tag: rl_supermimic_come_here
+      scope: rl_supermimic_zq_come_here_01_j13904_0_m36000/default
     - tag: rl_walking_custom_example
       scope: rl_walking_custom_example/default
     - tag: rl_walking_leolab_example
-      scope: rl_walking_leolab_example/default
+      scope: rl_walking_leolab_ankle_combined_v2_140000/default
     - tag: rl_walking_leolab_taunt
       scope: rl_walking_leolab_taunt/default
     - tag: rl_walking_leolab_terrain_example
       scope: rl_walking_leolab_terrain_example/default
     - tag: rl_getup_example
       scope: rl_getup_example/default
-    - tag: rl_victory_example
-      scope: rl_victory_example/default
-    - tag: rl_ridicule
-      scope: rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500/default
-    - tag: rl_celebration
-      scope: rl_celebration/default
+    - tag: rl_supermimic_left_hook
+      scope: rl_supermimic_zq_left_hook_02_j13564_m82000/default
+    - tag: rl_supermimic_pull_hammer
+      scope: rl_supermimic_zq_pull_hammer_20261102_j13551_m182000/default
+    - tag: rl_supermimic_right_high_kick
+      scope: rl_supermimic_zq_right_high_kick_20261102_j13551_m184000/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
     - tag: rl_left_front_kick_002_complete_heightfall
@@ -122,27 +122,27 @@ mode:
     - tag: rl_supine_to_stance
       scope: rl_supine_to_stance_v1_hybrid_9843_m13000/default
     - tag: rl_prone_to_stance
-      scope: rl_prone_to_stance_hybrid_9825_m29500/default
+      scope: rl_supermimic_prone_j12768_m22000/default
     - tag: rl_stance_to_supine
       scope: rl_stance_to_supine/default
-    - tag: rl_dance_example
-      scope: rl_dance_example/default
+    - tag: rl_supermimic_come_here
+      scope: rl_supermimic_zq_come_here_01_j13904_0_m36000/default
     - tag: rl_walking_custom_example
       scope: rl_walking_custom_example/default
     - tag: rl_walking_leolab_example
-      scope: rl_walking_leolab_example/default
+      scope: rl_walking_leolab_ankle_combined_v2_140000/default
     - tag: rl_walking_leolab_taunt
       scope: rl_walking_leolab_taunt/default
     - tag: rl_walking_leolab_terrain_example
       scope: rl_walking_leolab_terrain_example/default
     - tag: rl_getup_example
       scope: rl_getup_example/default
-    - tag: rl_victory_example
-      scope: rl_victory_example/default
-    - tag: rl_ridicule
-      scope: rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500/default
-    - tag: rl_celebration
-      scope: rl_celebration/default
+    - tag: rl_supermimic_left_hook
+      scope: rl_supermimic_zq_left_hook_02_j13564_m82000/default
+    - tag: rl_supermimic_pull_hammer
+      scope: rl_supermimic_zq_pull_hammer_20261102_j13551_m182000/default
+    - tag: rl_supermimic_right_high_kick
+      scope: rl_supermimic_zq_right_high_kick_20261102_j13551_m184000/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
     - tag: rl_left_front_kick_002_complete_heightfall

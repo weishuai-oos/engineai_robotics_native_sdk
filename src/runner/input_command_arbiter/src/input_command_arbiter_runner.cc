@@ -15,10 +15,14 @@ InputCommandArbiterRunner::InputCommandArbiterRunner(std::string_view name,
   const auto selection = ParseInputSourceSelection(std::getenv("ENGINEAI_INPUT_SOURCE"));
   if (selection == InputSourceSelection::kAutomatic) {
     RegisterHardwareSource("rc02", std::make_shared<Rc02InputAdapter>("rc02", data_store));
+  }
+  if (selection != InputSourceSelection::kGamepadOnly) {
     RegisterOverrideSource("virtual_gamepad",
                            std::make_shared<VirtualGamepadInputAdapter>("virtual_gamepad", data_store));
   }
-  RegisterHardwareSource("gamepad", std::make_shared<GamepadInputAdapter>("gamepad", data_store));
+  if (selection != InputSourceSelection::kVirtualOnly) {
+    RegisterHardwareSource("gamepad", std::make_shared<GamepadInputAdapter>("gamepad", data_store));
+  }
 
   selected_hardware_idx_ = -1;
   hardware_input_publisher_ =

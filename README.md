@@ -244,14 +244,21 @@ State transition logic varies by robot model. Refer to the per-model sections be
 | passive | Damping state. The controller applies passive damping torque; the robot can be moved manually. |
 | pd_stand | PD posture preparation task. It smoothly drives measured joints toward the configured target posture for motion recovery preparation. |
 | walk | Walking task. The robot executes gait locomotion. |
-| dance | Dance task. The robot executes predefined choreographed motion sequences. |
 | supine_to_stance | Stand-up task using the local `rl_dance_example_runner` with a 50 Hz, 134-observation/25-action policy. Trigger: START + d-pad up; `walk_leo` can also be selected manually before the trajectory ends. |
-| prone_to_stance | Stand-up task using the local `rl_dance_example_runner` with a 50 Hz, 134-observation/25-action policy. Trigger: START + d-pad right; `walk_leo` can also be selected manually before the trajectory ends. |
-| ridicule | Ridicule motion using the local `rl_dance_example_runner`. Trigger: RB + X; returns to `walk_leo` after completion. |
-| celebration | Reserved celebration state with the RB + A quick macro. The runner and parameter template exist, but the policy and trajectory are empty and the state-machine entry remains disabled. |
+| prone_to_stance | Prone get-up using `rl_supermimic_runner` at 50 Hz, with 1520 inputs and 25 outputs. Trigger: START + d-pad right. |
+| supermimic_come_here | SuperMimic taunt, RB + B. |
+| supermimic_left_hook | SuperMimic left hook, RB + Y. |
+| supermimic_pull_hammer | SuperMimic pull hammer, RB + X. |
+| supermimic_right_high_kick | SuperMimic right high kick, RB + A. |
 | stance_to_supine | Lie-down task. The robot transitions from standing posture to a supine (lying on back) posture. |
 
 **State Machine Configuration:** `assets/config/t800/task_motion/default.yaml`
+
+`LB+A` enters `walk_leo`, whose `rl_walking_leolab_example` tag now selects `assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/default.yaml`. This is the final AnkleCombinedV2 `ckpt_140000` export. Its four ankle joints (indices 4, 5, 10, and 11) use Kd 2.0; the remaining joint order, Kp, default pose, action scale, recurrent contract, and terrain-style remote-command settings are unchanged. The previous `rl_walking_leolab_example` assets are preserved under `assets/config/t800/old/rl_walking_leolab_example`, with a compatibility symlink at the old path for already-running processes. `LB+X` still selects `walk_leo_terrain` and its Kd remains 0.3.
+
+The four SuperMimic motions use `rl_supermimic_runner` with the exported 1520-input / 25-output contract and return to `walk_leo` after the reference clip. All four currently set `hold_seconds: 0.0`, removing the extra terminal hold while retaining the gait entry transition. The previous dance, victory, ridicule, and celebration configurations are archived intact under `assets/config/t800/old`. The exports retain their `test_only` metadata; their original evaluations were performed in simulation.
+
+`prone_to_stance` uses `rl_supermimic_prone_j12768_m22000` and plays the complete 143-frame reference over 2.84 seconds, with `hold_seconds: 0.0` adding no terminal hold. The policy returns raw actions, and its history stores the previous raw action. It can be entered from `passive`, `pd_stand`, `pd_stand_x`, or `pd_stand_y`; during execution, manual transitions to `passive`, `pd_stand`, and `walk_leo` remain available. Completion automatically returns to `walk_leo`. The gait takes over directly after get-up, without the gait entry blend used after the four boxing motions. The earlier `rl_prone_to_stance_hybrid_9825_m29500` package is archived under `assets/config/t800/old`; START + d-pad up still selects WBT supine get-up, and the HoST get-up tasks are unchanged. The prone export retains its `test_only` flag and original validation metadata; its source simulation results do not establish validation of this SDK transition sequence.
 
 #### Global Safety Mechanism (Emergency Fallback)
 

@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "mnn_samples": 24,
+  "onnx_samples": 6,
+  "mnn_max_absolute_error": 2.1457672119140625e-06,
+  "onnx_max_absolute_error": 1.9073486328125e-06,
+  "absolute_error_tolerance": 0.001,
+  "reference_precision": "PyTorch float32",
+  "input_shape": [
+    1,
+    1520
+  ],
+  "output_shape": [
+    1,
+    25
+  ]
+}

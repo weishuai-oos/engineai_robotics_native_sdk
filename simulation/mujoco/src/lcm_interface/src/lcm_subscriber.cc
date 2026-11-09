@@ -1,5 +1,7 @@
 #include "lcm_interface/lcm_subscriber.h"
 
+#include <stdexcept>
+
 LcmSubscriber::LcmSubscriber(const data::LcmParam& param, const std::shared_ptr<LcmDataStore>& lcm_data_store)
     : lcm_interface::PeriodicTask("lcm_subscriber", /* period */ 0.002), lcm_data_store_(lcm_data_store) {
   std::string url;
@@ -12,6 +14,12 @@ LcmSubscriber::LcmSubscriber(const data::LcmParam& param, const std::shared_ptr<
   }
 
   lcm_->subscribe(channel_, &LcmSubscriber::HandleSimCommand, this);
+  // A created LCM instance can still fail its UDP receive self-test. Passing
+  // that invalid descriptor to handleTimeout() would abort inside FD_SET.
+  if (lcm_->getFileno() < 0) {
+    throw std::runtime_error("LCM receiver initialization failed for " + url +
+                             "; check multicast routing (VPN/PPP) and firewall settings");
+  }
 }
 
 void LcmSubscriber::TaskInit() {}

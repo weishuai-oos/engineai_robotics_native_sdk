@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "task": "T800_base-AnkleCombinedV2",
+  "checkpoint": "/srv/shared/home/xjh/workspace/zq_leo_final/logs/cusrl/T800_base-AnkleCombinedV2/2026-11-07-23-48-06:T800_base-AnkleCombinedV2_finetune_2gpu_seed42/ckpt/ckpt_140000.pt",
+  "checkpoint_sha256": "02128b4f046864eabdff68bcb768528799bdbe69a3917ec1ad71f3ca3f758eb1",
+  "checkpoint_iteration": 140000,
+  "ankle_finetune": {
+    "version": 1,
+    "task": "T800_base-AnkleCombinedV2",
+    "config_signature": "03218c2014680c23b6ebc84c59ae871a1541bcdefa78a58a5c434014bd8a4f57",
+    "play_config_signature": "bd85bb8e6735e14844b9074f68cffc504cea28421fc0ea63b4f160e6a9ffeb9d",
+    "origin_iteration": 100000,
+    "completed_updates": 40000,
+    "lr_caps": [
+      1.6641794411926174e-05
+    ]
+  },
+  "software": {
+    "torch": "2.7.0+cu128",
+    "cusrl": "1.1.8.post0",
+    "onnx": "1.21.0"
+  },
+  "files": {
+    "actor.onnx": "c4f01cc1d972c6c6abffa81a01f91d37e5130c7a190630c402bcc590cba9c748",
+    "actor.yml": "30bb93f69daccfb93a7d85156ba44ca1c3f16fc4239222b9cc97946f8ace2ae0",
+    "boxing_policy.mnn": "fd64bf176ca8524c3e256f877063d76751b964f79092ecc27c9e1f7dce04a235"
+  },
+  "export": {
+    "device": "cpu",
+    "isaac_sim_started": false,
+    "environment_config_recomputed": false,
+    "observation_dim": 84,
+    "action_dim": 25,
+    "observation_rms_clamp": 10.0,
+    "input_shapes": {
+      "observation": [
+        1,
+        1,
+        84
+      ],
+      "memory_in.0": [
+        2,
+        1,
+        256
+      ],
+      "memory_in.1": [
+        2,
+        1,
+        256
+      ]
+    },
+    "output_shapes": {
+      "action": [
+        1,
+        1,
+        25
+      ],
+      "memory_out.0": [
+        2,
+        1,
+        256
+      ],
+      "memory_out.1": [
+        2,
+        1,
+        256
+      ]
+    },
+    "opset_version": 17
+  },
+  "conversion": {
+    "converter": "MNN 3.6.1",
+    "target_version": "2.9",
+    "weight_precision": "FP32",
+    "command": "python -m MNN.tools.mnnconvert -f ONNX --modelFile actor.onnx --MNNModel boxing_policy.mnn --bizCode MNN --targetVersion 2.9"
+  },
+  "exporter": {
+    "path": "/srv/shared/home/xjh/workspace/zq_leo_final/scripts/cusrl/export_ankle_v2.py",
+    "sha256": "0beee335579397cde8dab9c05845efe4f533515387fb1ac40c39f56bd4e5ae6c"
+  },
+  "deploy_profile": {
+    "path": "../default.yaml",
+    "sha256": "0fc9f64429ecdd8941bdcbdf90fb9f4de35034bdfbd8a22b1f4eb5adac4c1f11",
+    "joint_damping_override": {
+      "indices": [
+        4,
+        5,
+        10,
+        11
+      ],
+      "value": 2.0
+    },
+    "configuration_reference": "rl_walking_leolab_terrain_example/default.yaml",
+    "remote_commands_match_reference": true
+  }
+}

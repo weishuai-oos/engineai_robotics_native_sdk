@@ -49,9 +49,10 @@ tasks:
       - walk_custom
       - walk_leo
       - walk_leo_terrain
-      - dance
-      - victory
-      - ridicule
+      - supermimic_come_here
+      - supermimic_left_hook
+      - supermimic_pull_hammer
+      - supermimic_right_high_kick
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -79,9 +80,10 @@ tasks:
       - walk_custom
       - walk_leo
       - walk_leo_terrain
-      - dance
-      - victory
-      - ridicule
+      - supermimic_come_here
+      - supermimic_left_hook
+      - supermimic_pull_hammer
+      - supermimic_right_high_kick
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -107,9 +109,10 @@ tasks:
       - walk_custom
       - walk_leo
       - walk_leo_terrain
-      - dance
-      - victory
-      - ridicule
+      - supermimic_come_here
+      - supermimic_left_hook
+      - supermimic_pull_hammer
+      - supermimic_right_high_kick
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -136,9 +139,10 @@ tasks:
       - getup
       - getup2
       - stance_to_supine
-      - dance
-      - victory
-      - ridicule
+      - supermimic_come_here
+      - supermimic_left_hook
+      - supermimic_pull_hammer
+      - supermimic_right_high_kick
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -161,9 +165,10 @@ tasks:
       - getup
       - getup2
       - stance_to_supine
-      - dance
-      - victory
-      - ridicule
+      - supermimic_come_here
+      - supermimic_left_hook
+      - supermimic_pull_hammer
+      - supermimic_right_high_kick
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -187,9 +192,10 @@ tasks:
       - getup
       - getup2
       - stance_to_supine
-      - dance
-      - victory
-      - ridicule
+      - supermimic_come_here
+      - supermimic_left_hook
+      - supermimic_pull_hammer
+      - supermimic_right_high_kick
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -225,9 +231,10 @@ tasks:
       - getup
       - getup2
       - stance_to_supine
-      - dance
-      - victory
-      - ridicule
+      - supermimic_come_here
+      - supermimic_left_hook
+      - supermimic_pull_hammer
+      - supermimic_right_high_kick
       - rl_left_front_kick_002_complete_heightfall
       - rl_roundhouse_kick
       - rl_straight_punch_L_improved
@@ -235,12 +242,12 @@ tasks:
       - rl_punch_example
     key: [LB, X]
 
-  - motion: dance
+  - motion: supermimic_come_here
     period: 0.02
     runner:
-      - name: rl_dance_example_runner
+      - name: rl_supermimic_runner
         enabled: true
-        param_tag: rl_dance_example
+        param_tag: rl_supermimic_come_here
     manual_transition:
       - passive
       - pd_stand
@@ -251,12 +258,12 @@ tasks:
     auto_transition: walk_leo
     key: [RB, B]
 
-  - motion: victory
+  - motion: supermimic_left_hook
     period: 0.02
     runner:
-      - name: rl_dance_example_runner
+      - name: rl_supermimic_runner
         enabled: true
-        param_tag: rl_victory_example
+        param_tag: rl_supermimic_left_hook
     manual_transition:
       - passive
       - pd_stand
@@ -267,12 +274,12 @@ tasks:
     auto_transition: walk_leo
     key: [RB, Y]
 
-  - motion: ridicule
+  - motion: supermimic_pull_hammer
     period: 0.02
     runner:
-      - name: rl_dance_example_runner
+      - name: rl_supermimic_runner
         enabled: true
-        param_tag: rl_ridicule
+        param_tag: rl_supermimic_pull_hammer
     manual_transition:
       - passive
       - pd_stand
@@ -283,14 +290,12 @@ tasks:
     auto_transition: walk_leo
     key: [RB, X]
 
-  # Reserved until the celebration export is available. No incoming transitions
-  # are allowed yet; keep the Runner enabled to avoid a zero-Runner motion.
-  - motion: celebration
+  - motion: supermimic_right_high_kick
     period: 0.02
     runner:
-      - name: rl_dance_example_runner
+      - name: rl_supermimic_runner
         enabled: true
-        param_tag: rl_celebration
+        param_tag: rl_supermimic_right_high_kick
     manual_transition:
       - passive
       - pd_stand
@@ -397,7 +402,7 @@ tasks:
   - motion: prone_to_stance
     period: 0.02
     runner:
-      - name: rl_dance_example_runner
+      - name: rl_supermimic_runner
         enabled: true
         param_tag: rl_prone_to_stance
     manual_transition:

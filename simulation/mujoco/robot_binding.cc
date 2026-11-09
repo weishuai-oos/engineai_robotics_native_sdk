@@ -39,6 +39,8 @@ int RobotBinding::SensorAddress(const mjModel* model, const std::string& name, i
 }
 
 void RobotBinding::Resolve(const mjModel* model) {
+  if (model == nullptr) throw std::runtime_error("Cannot bind a null MuJoCo model: " + prefix_);
+  bound_model_ = nullptr;
   qpos_addresses_.clear();
   dof_addresses_.clear();
   actuator_ids_.clear();
@@ -80,6 +82,7 @@ void RobotBinding::Resolve(const mjModel* model) {
     contact_torque_addresses_.push_back(suffix.empty() ? -1 : SensorAddress(model, "torque_" + suffix, 3));
   }
   ClearCommand();
+  bound_model_ = model;
 }
 
 void RobotBinding::ReadState(const mjData* data) const {
@@ -113,7 +116,12 @@ void RobotBinding::ReadState(const mjData* data) const {
   store_->sim_state.Set(std::move(state));
 }
 
-void RobotBinding::ApplyCommand(mjData* data) const {
+void RobotBinding::ApplyCommand(const mjModel* model, mjData* data) const {
+  if (model == nullptr || data == nullptr || model != bound_model_ ||
+      actuator_ids_.size() != joint_names_.size() || qpos_addresses_.size() != joint_names_.size() ||
+      dof_addresses_.size() != joint_names_.size()) {
+    return;
+  }
   const auto command = store_->sim_command.Get();
   const int n = store_->num_joints;
   bool valid = command->q.size() == n && command->qd.size() == n && command->kp.size() == n &&

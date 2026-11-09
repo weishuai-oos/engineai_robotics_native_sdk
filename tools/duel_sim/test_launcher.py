@@ -5,10 +5,12 @@ import ast
 import hashlib
 import io
 import os
+import shutil
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 from tools.duel_sim import launcher
@@ -82,11 +84,63 @@ class DuelLauncherTest(unittest.TestCase):
             name = "robot_a" if index == 0 else "robot_b"
             self.assertIn(f"/{name}/hardware/joint_state", (overlay / "config/t800/ros2_bridge/default.yaml").read_text())
             self.assertIn(str(self.root / "logs" / name), (overlay / "config/t800/google_logger/default.yaml").read_text())
-            self.assertTrue((overlay / "config/t800/rl_walking_leolab_example").is_symlink())
+            combined = overlay / "config/t800/rl_walking_leolab_ankle_combined_v2_140000"
+            self.assertFalse(combined.is_symlink())
+            self.assertTrue((combined / "default.yaml").is_file())
+            self.assertTrue((combined / "policies/boxing_policy.mnn").is_file())
+            policy = overlay / "config/t800/rl_straight_punch_L_improved/policies/policy.mnn"
+            self.assertTrue(policy.is_symlink())
+            self.assertEqual(policy.resolve(), (config / policy.relative_to(overlay / "config/t800")).resolve())
             self.assertTrue((overlay / "resource").is_symlink())
             self.assertFalse((overlay / "config/t800/lcm/default.yaml").is_symlink())
         self.assertNotEqual(first["env"]["ENGINEAI_GAMEPAD_DEVICE"], second["env"]["ENGINEAI_GAMEPAD_DEVICE"])
         self.assertEqual(before, [hashlib.sha256(path.read_bytes()).digest() for path in protected])
+
+    def test_all_yaml_scopes_are_visible_without_following_symlinks(self):
+        original = self.assets / "config/t800"
+        expected = {path.relative_to(original) for path in original.rglob("*.yaml")}
+        for plan in self.session()[1:]:
+            config = Path(plan["env"]["ENGINEAI_ROBOTICS_ASSETS"]) / "config/t800"
+            # Match the SDK's directory scan: ignore linked directories/files.
+            visible = {Path(directory, name).relative_to(config)
+                       for directory, _, names in os.walk(config, followlinks=False)
+                       for name in names if name.endswith(".yaml")
+                       and not Path(directory, name).is_symlink()}
+            self.assertEqual(visible, expected)
+            self.assertIn(Path("model/default.yaml"), visible)
+
+    def test_virtual_gamepad_controls_only_a_on_its_selected_port(self):
+        sim, first, second, virtual = self.session(
+            "--virtual-gamepad", "--port-a", "27667", "--port-b", "27668",
+            "--gamepad-a", "/dev/input/js0", "--gamepad-b", "/dev/input/js0")
+        self.assertEqual(first["env"]["ENGINEAI_INPUT_SOURCE"], "virtual")
+        self.assertNotIn("ENGINEAI_GAMEPAD_DEVICE", first["env"])
+        self.assertEqual(second["env"]["ENGINEAI_INPUT_SOURCE"], "gamepad")
+        self.assertEqual(second["env"]["ENGINEAI_GAMEPAD_DEVICE"], "/dev/input/js0")
+        self.assertEqual(virtual["name"], "virtual_gamepad")
+        self.assertEqual(virtual["command"][-3:],
+                         ["--lcm-url", "udpm://239.255.76.67:27667?ttl=0", "--connect"])
+        for plan, port in ((first, 27667), (second, 27668)):
+            config = Path(plan["env"]["ENGINEAI_ROBOTICS_CONFIG"])
+            self.assertIn(f"239.255.76.67:{port}", (config / "t800/lcm/default.yaml").read_text())
+        self.assertEqual(len({plan["log"] for plan in (sim, first, second, virtual)}), 4)
+
+    def test_virtual_launch_does_not_require_either_physical_gamepad(self):
+        output = io.StringIO()
+        with mock.patch.object(launcher, "run_session", return_value=0) as run, \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+            code = launcher.main([
+                "--virtual-gamepad", "--gamepad-a", str(self.root / "missing_a"),
+                "--gamepad-b", str(self.root / "missing_b"),
+                "--simulator", sys.executable, "--executor", sys.executable,
+                "--log-dir", str(self.root / "logs")])
+        self.assertEqual(code, 0)
+        run.assert_called_once()
+        self.assertIn("Robot B has no readable gamepad", output.getvalue())
+
+    def test_virtual_gamepad_requires_controllers(self):
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            launcher.parse_args(["--virtual-gamepad", "--no-controllers"])
 
     def test_private_pd_target_matches_zero_pose_and_preserves_gains_and_timing(self):
         original_path = self.assets / "config/t800/pd_stand/default.yaml"
@@ -108,8 +162,8 @@ class DuelLauncherTest(unittest.TestCase):
             for sibling in original_path.parent.iterdir():
                 if sibling.name != "default.yaml":
                     target = config / "pd_stand" / sibling.name
-                    self.assertTrue(target.is_symlink())
-                    self.assertEqual(target.resolve(), sibling.resolve())
+                    self.assertFalse(target.is_symlink())
+                    self.assertEqual(target.read_bytes(), sibling.read_bytes())
             self.assertIn("scope: pd_stand/default", (config / "mode.yaml").read_text())
             self.assertIn("scope: pd_stand/pose_x", (config / "mode.yaml").read_text())
         self.assertEqual(original_path.read_text(), original)
@@ -130,16 +184,38 @@ class DuelLauncherTest(unittest.TestCase):
     def test_overlay_forces_sim_when_original_is_robot(self):
         fixture_assets = self.root / "fixture/assets"
         config = fixture_assets / "config/t800"
-        config.mkdir(parents=True)
-        for child in (self.assets / "config/t800").iterdir():
-            if child.name != "mode.yaml":
-                (config / child.name).symlink_to(child, target_is_directory=child.is_dir())
+        shutil.copytree(self.assets / "config/t800", config, symlinks=True,
+                        copy_function=launcher.copy_config_file)
         (fixture_assets / "resource").symlink_to(self.assets / "resource", target_is_directory=True)
         original = (self.assets / "config/t800/mode.yaml").read_text().replace("active_mode: sim", "active_mode: robot", 1)
         (config / "mode.yaml").write_text(original)
         overlay = launcher.create_overlay(fixture_assets, self.root / "overlay", "robot_a", 17667, self.root / "logs")
         self.assertTrue((overlay / "config/t800/mode.yaml").read_text().startswith("active_mode: sim\n"))
         self.assertEqual((config / "mode.yaml").read_text(), original)
+
+    def test_linked_private_directory_cannot_write_into_source_configuration(self):
+        fixture_assets = self.root / "fixture/assets"
+        config = fixture_assets / "config/t800"
+        config.mkdir(parents=True)
+        source = self.assets / "config/t800/lcm"
+        before = (source / "default.yaml").read_bytes()
+        (config / "lcm").symlink_to(source, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "real directory: lcm"):
+            launcher.create_overlay(fixture_assets, self.root / "overlay", "robot_a", 27667,
+                                    self.root / "logs")
+        self.assertEqual((source / "default.yaml").read_bytes(), before)
+
+    def test_linked_private_file_cannot_write_into_source_configuration(self):
+        fixture_assets = self.root / "fixture/assets"
+        config = fixture_assets / "config/t800"
+        (config / "lcm").mkdir(parents=True)
+        source = self.assets / "config/t800/lcm/default.yaml"
+        before = source.read_bytes()
+        (config / "lcm/default.yaml").symlink_to(source)
+        with self.assertRaisesRegex(ValueError, "real file: lcm/default.yaml"):
+            launcher.create_overlay(fixture_assets, self.root / "overlay", "robot_a", 27667,
+                                    self.root / "logs")
+        self.assertEqual(source.read_bytes(), before)
 
     def test_dry_run_cleans_generated_configuration(self):
         output = io.StringIO()

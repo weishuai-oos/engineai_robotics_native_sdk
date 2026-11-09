@@ -370,7 +370,7 @@ void UpdateSimState(const mjModel* m, mjData* d) {
 
 void TorqueController(const mjModel* m, mjData* d) {
   if (duel_mode) {
-    for (const auto& robot : duel_robots) robot.ApplyCommand(d);
+    for (const auto& robot : duel_robots) robot.ApplyCommand(m, d);
     return;
   }
   bool is_floating_base = (m->nv != m->nu);

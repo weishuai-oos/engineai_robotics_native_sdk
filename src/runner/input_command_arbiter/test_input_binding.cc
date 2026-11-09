@@ -67,6 +67,7 @@ void CheckSourceSelection() {
   assert(ParseInputSourceSelection("") == InputSourceSelection::kAutomatic);
   assert(ParseInputSourceSelection("auto") == InputSourceSelection::kAutomatic);
   assert(ParseInputSourceSelection("gamepad") == InputSourceSelection::kGamepadOnly);
+  assert(ParseInputSourceSelection("virtual") == InputSourceSelection::kVirtualOnly);
   bool rejected = false;
   try {
     ParseInputSourceSelection("typo");

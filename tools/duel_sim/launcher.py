@@ -129,13 +129,17 @@ def generate_scene(assets: Path, destination: Path, separation: float = 2.0) -> 
     return destination
 
 
+def copy_config_file(source: str, destination: str) -> None:
+    # The SDK scans only real directories and regular YAML files (readdir
+    # DT_DIR/DT_REG); it skips symbolic links when building its config index.
+    source_path = Path(source)
+    if source_path.suffix in (".yaml", ".yml"):
+        shutil.copy2(source, destination)
+    else:
+        Path(destination).symlink_to(source_path.resolve())
+
+
 def replace_config(source: Path, destination: Path, transform) -> None:
-    """Copy one config into a private directory, symlinking only its siblings."""
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    for sibling in source.parent.iterdir():
-        target = destination.parent / sibling.name
-        if sibling.name != source.name and not target.exists():
-            target.symlink_to(sibling, target_is_directory=sibling.is_dir())
     destination.write_text(transform(source.read_text()), encoding="utf-8")
 
 
@@ -173,14 +177,19 @@ def zero_pd_target(text: str) -> str:
 def create_overlay(assets: Path, destination: Path, name: str, port: int, log_dir: Path) -> Path:
     config = assets / "config/t800"
     target = destination / "config/t800"
-    target.mkdir(parents=True)
+    private_dirs = {"lcm", "ros2_bridge", "google_logger", "pd_stand"}
+    for directory in private_dirs:
+        if (config / directory).is_symlink():
+            raise ValueError(f"Private configuration must use a real directory: {directory}")
+        if (config / directory / "default.yaml").is_symlink():
+            raise ValueError(f"Private configuration must use a real file: {directory}/default.yaml")
+    if (config / "mode.yaml").is_symlink():
+        raise ValueError("mode.yaml must be a real file")
+    # Keep compatibility links as links: the SDK skips symlinked YAML/scopes.
+    shutil.copytree(config, target, symlinks=True, copy_function=copy_config_file)
     for child in assets.iterdir():
         if child.name != "config":
             (destination / child.name).symlink_to(child, target_is_directory=child.is_dir())
-    private_dirs = {"lcm", "ros2_bridge", "google_logger", "pd_stand"}
-    for child in config.iterdir():
-        if child.name != "mode.yaml" and child.name not in private_dirs:
-            (target / child.name).symlink_to(child, target_is_directory=child.is_dir())
     mode = config.joinpath("mode.yaml").read_text()
     mode, count = re.subn(r"(?m)^active_mode:\s*\S+\s*$", "active_mode: sim", mode, count=1)
     if count != 1:
@@ -190,7 +199,6 @@ def create_overlay(assets: Path, destination: Path, name: str, port: int, log_di
             rf"(- tag: {tag}\s*\n\s*scope:)\s*\S+", rf"\1 {tag}/default", mode
         )
     (target / "mode.yaml").write_text(mode, encoding="utf-8")
-    (target / "lcm").mkdir()
     (target / "lcm/default.yaml").write_text(
         f"multicast: false\nip_port: 239.255.76.67:{port}\nttl: 0\n", encoding="utf-8"
     )
@@ -224,6 +232,18 @@ def child_environment(repo: Path, assets: Path, log_dir: Path) -> dict[str, str]
     return env
 
 
+def virtual_gamepad_plan(repo: Path, log_dir: Path, url: str) -> dict:
+    process_logs = log_dir / "virtual_gamepad"
+    process_logs.mkdir(parents=True, exist_ok=True)
+    return {
+        "name": "virtual_gamepad",
+        "command": [sys.executable, str(repo / "tools/virtual_gamepad/virtual_gamepad.py"),
+                    "--lcm-url", url, "--connect"],
+        "env": os.environ.copy(),
+        "log": process_logs / "console.log",
+    }
+
+
 def build_session(args, runtime: Path, log_dir: Path) -> list[dict]:
     repo = args.repo.resolve()
     assets = repo / "assets"
@@ -240,6 +260,9 @@ def build_session(args, runtime: Path, log_dir: Path) -> list[dict]:
         if not args.no_controllers:
             env = child_environment(repo, overlay, process_logs)
             env.update(ENGINEAI_GAMEPAD_DEVICE=device, ROS_DOMAIN_ID=str(args.ros_domain_a + index))
+            if args.virtual_gamepad and index == 0:
+                env["ENGINEAI_INPUT_SOURCE"] = "virtual"
+                env.pop("ENGINEAI_GAMEPAD_DEVICE", None)
             plans.append({"name": name, "command": [str(args.executor.resolve()), "t800"],
                           "env": env, "log": process_logs / "console.log"})
     sim_logs = log_dir / "simulation"
@@ -254,6 +277,8 @@ def build_session(args, runtime: Path, log_dir: Path) -> list[dict]:
         command.extend(("--steps", str(args.steps)))
     plans.insert(0, {"name": "simulation", "command": command, "env": env,
                      "log": sim_logs / "console.log"})
+    if args.virtual_gamepad:
+        plans.append(virtual_gamepad_plan(repo, log_dir, f"udpm://239.255.76.67:{args.port_a}?ttl=0"))
     return plans
 
 
@@ -319,6 +344,8 @@ def parse_args(argv=None):
     parser.add_argument("--repo", type=Path, default=REPO_ROOT, help=argparse.SUPPRESS)
     parser.add_argument("--gamepad-a", default="/dev/input/js0")
     parser.add_argument("--gamepad-b", default="/dev/input/js1")
+    parser.add_argument("--virtual-gamepad", action="store_true",
+                        help="open a virtual gamepad for robot A; robot B's physical gamepad is optional")
     parser.add_argument("--port-a", type=int, default=17667)
     parser.add_argument("--port-b", type=int, default=17668)
     parser.add_argument("--ros-domain-a", type=int, default=70,
@@ -342,7 +369,9 @@ def parse_args(argv=None):
         parser.error("--separation must be finite and at least 1 metre")
     if args.steps is not None and (args.steps <= 0 or not args.headless):
         parser.error("--steps requires --headless and a positive step count")
-    if not args.no_controllers and Path(args.gamepad_a).resolve() == Path(args.gamepad_b).resolve():
+    if args.virtual_gamepad and args.no_controllers:
+        parser.error("--virtual-gamepad requires controllers")
+    if not args.no_controllers and not args.virtual_gamepad and Path(args.gamepad_a).resolve() == Path(args.gamepad_b).resolve():
         parser.error("two different gamepad devices are required")
     return args
 
@@ -370,12 +399,19 @@ def main(argv=None) -> int:
             binary = Path(plan["command"][0])
             if not binary.is_file() or not os.access(binary, os.X_OK):
                 raise ValueError(f"Build the executable first: {binary}")
-        if not args.no_controllers:
+        if not args.no_controllers and not args.virtual_gamepad:
             for device in (args.gamepad_a, args.gamepad_b):
                 if not Path(device).exists() or not os.access(device, os.R_OK):
                     raise ValueError(f"Gamepad is missing or unreadable: {device}")
         print(f"[INFO] Process logs: {log_dir}", flush=True)
-        print("[INFO] Each gamepad controls one robot using the existing T800 state/action keys.", flush=True)
+        if args.virtual_gamepad:
+            print("[INFO] Virtual gamepad controls robot A only. Press F5/Enable in its window to send input.", flush=True)
+            if not Path(args.gamepad_b).exists() or not os.access(args.gamepad_b, os.R_OK):
+                print(f"[INFO] Robot B has no readable gamepad ({args.gamepad_b}); it stays in its initial control state.", flush=True)
+            else:
+                print(f"[INFO] Robot B uses physical gamepad: {args.gamepad_b}", flush=True)
+        else:
+            print("[INFO] Each gamepad controls one robot using the existing T800 state/action keys.", flush=True)
         return run_session(plans, args.repo.resolve())
     except (OSError, ValueError, ET.ParseError) as error:
         print(f"[ERROR] {error}", file=sys.stderr)

@@ -1,0 +1,5 @@
+{
+  "samples": 24,
+  "max_absolute_error_against_training_mdp": 1.1920928955078125e-07,
+  "passed": true
+}

@@ -148,16 +148,16 @@ class VirtualGamepadWidget(QWidget):
             "leo_taunt: [LT, B]": ("LT", "B"),
             "getup: [LB, START]": ("LB", "START"),
             "getup2: [LB, BACK]": ("LB", "BACK"),
-            "dance: [RB, B]": ("RB", "B"),
+            "supermimic_come_here: [RB, B]": ("RB", "B"),
             "supine_to_stance: [START, CROSS_X_UP]":
                 ("START", "CROSS_X_UP"),
             "prone_to_stance: [START, CROSS_Y_RIGHT]":
                 ("START", "CROSS_Y_RIGHT"),
             "stance_to_supine: [START, CROSS_X_DOWN]":
                 ("START", "CROSS_X_DOWN"),
-            "victory: [RB, Y]": ("RB", "Y"),
-            "ridicule: [RB, X]": ("RB", "X"),
-            "celebration: [RB, A]": ("RB", "A"),
+            "supermimic_left_hook: [RB, Y]": ("RB", "Y"),
+            "supermimic_pull_hammer: [RB, X]": ("RB", "X"),
+            "supermimic_right_high_kick: [RB, A]": ("RB", "A"),
             "rl_left_hook_001_improved: [RT, CROSS_Y_RIGHT]":
                 ("RT", "CROSS_Y_RIGHT"),
         }

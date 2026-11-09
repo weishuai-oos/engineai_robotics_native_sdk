@@ -17,7 +17,7 @@ class RobotBinding {
   // Rebuild after every model load; never retain addresses from an old model.
   void Resolve(const mjModel* model);
   void ReadState(const mjData* data) const;
-  void ApplyCommand(mjData* data) const;
+  void ApplyCommand(const mjModel* model, mjData* data) const;
   void ClearCommand() const;
 
  private:
@@ -34,4 +34,5 @@ class RobotBinding {
   std::vector<int> state_sensor_addresses_;
   std::vector<int> contact_force_addresses_;
   std::vector<int> contact_torque_addresses_;
+  const mjModel* bound_model_ = nullptr;
 };

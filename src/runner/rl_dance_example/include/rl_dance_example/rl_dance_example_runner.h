@@ -18,9 +18,7 @@ namespace runner {
 class RlDanceExampleRunner : public MotionRunner {
  public:
   RlDanceExampleRunner(std::string_view name, const std::shared_ptr<data::DataStore>& data_store)
-      : MotionRunner(name, data_store) {
-    param_ = data::ParamManager::create<data::RlDanceExampleParam>();
-  }
+      : MotionRunner(name, data_store) {}
   ~RlDanceExampleRunner() = default;
 
   bool Enter() override;

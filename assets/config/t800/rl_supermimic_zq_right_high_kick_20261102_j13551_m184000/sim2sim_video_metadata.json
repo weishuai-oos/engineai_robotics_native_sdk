@@ -1,0 +1,27 @@
+{
+  "video": "T800_zq_right_high_kick_20261102_SuperMimic_sim2sim_ckpt184000.mp4",
+  "sha256": "5db4fa34a7ae3a10099d61e84b9dc2b43159b67ec4f8abd31352fc5439b8069f",
+  "width": 960,
+  "height": 540,
+  "fps": 50,
+  "encoded_and_decoded_frames": 170,
+  "duration_seconds": 3.4,
+  "source": "New exported-MNN closed-loop physical rollout; frames rendered from recorded actual simulation states",
+  "rollout_sha256": "45a127ec713d27d2ac65a81647de87313e8ab79d6b329614bd79a9eee7df4dbc",
+  "policy_sha256": "98183bed912505954a5664d72b0af4f99d9956ef893ae20bc8b3f50f55cbb182",
+  "mujoco_version": "3.3.6",
+  "renderer": "EGL / Mesa llvmpipe CPU software rendering",
+  "camera": {
+    "lookat": [
+      -0.14465766116544773,
+      0.5020307786456706,
+      0.7
+    ],
+    "distance": 3.5,
+    "azimuth": 135.0,
+    "elevation": -18.0
+  },
+  "root_tracking_and_hold_passed": true,
+  "criterion_note": "Root-height and upright checks plus terminal standing, not full link tracking",
+  "camera_tracks_policy_xy": true
+}

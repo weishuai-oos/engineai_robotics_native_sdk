@@ -1,0 +1,342 @@
+#!/usr/bin/env python3
+"""Run an exported SuperMimic T800 policy in the SDK MuJoCo model.
+
+The runner intentionally has no ROS or SDK C++ dependency.  It consumes the flat
+MNN contract emitted by the export tool: ten 87-dimensional observations followed
+by one 10-frame, 650-dimensional future-motion goal.
+"""
+from __future__ import annotations
+
+import argparse
+import atexit
+import hashlib
+import json
+import math
+import os
+import time
+from pathlib import Path
+from typing import Any
+import xml.etree.ElementTree as ET
+
+import numpy as np
+import yaml
+
+
+def quat_wxyz_to_mat(q: np.ndarray) -> np.ndarray:
+    q = np.asarray(q, dtype=np.float64)
+    q = q / np.maximum(np.linalg.norm(q, axis=-1, keepdims=True), 1e-12)
+    w, x, y, z = np.moveaxis(q, -1, 0)
+    return np.stack(
+        (1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y),
+         2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x),
+         2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)),
+        axis=-1,
+    ).reshape(q.shape[:-1] + (3, 3))
+
+
+def build_observation(q: np.ndarray, qd: np.ndarray, root_R: np.ndarray,
+                      root_angvel_world: np.ndarray, ref_R: np.ndarray,
+                      default_q: np.ndarray, prev_action: np.ndarray) -> np.ndarray:
+    """Build exactly mdp.MDP.obs for one frame (87 values)."""
+    R = np.asarray(root_R, dtype=np.float64)
+    Rt = R.T
+    rel = (Rt @ np.asarray(ref_R, dtype=np.float64))[:, :2].reshape(6)
+    gravity_body = -R[2, :]
+    angvel_body = Rt @ np.asarray(root_angvel_world, dtype=np.float64)
+    out = np.concatenate((np.asarray(q) - default_q, np.asarray(qd), angvel_body,
+                          gravity_body, np.asarray(prev_action), rel))
+    if out.shape != (87,) or not np.isfinite(out).all():
+        raise ValueError(f"invalid SuperMimic observation shape/values: {out.shape}")
+    return out.astype(np.float32)
+
+
+def build_policy_input(history: np.ndarray, goal: np.ndarray) -> np.ndarray:
+    history = np.asarray(history, dtype=np.float32)
+    goal = np.asarray(goal, dtype=np.float32)
+    if history.shape != (10, 87) or goal.shape != (650,):
+        raise ValueError(f"expected history (10,87), goal (650,), got {history.shape}, {goal.shape}")
+    result = np.concatenate((history.reshape(-1), goal)).astype(np.float32)
+    if result.shape != (1520,) or not np.isfinite(result).all():
+        raise ValueError("policy input is not finite 1520-vector")
+    return result
+
+
+def pd_torque(q: np.ndarray, qd: np.ndarray, target: np.ndarray, kp: np.ndarray,
+              kd: np.ndarray, effort: np.ndarray) -> np.ndarray:
+    tau = np.asarray(kp) * (np.asarray(target) - np.asarray(q)) - np.asarray(kd) * np.asarray(qd)
+    return np.clip(tau, -np.asarray(effort), np.asarray(effort)).astype(np.float64)
+
+
+def sdk_joint_mapping(policy_names: list[str], mujoco_names: list[str]) -> np.ndarray:
+    """Map policy order to XML order by semantic suffix, including SDK J-number aliases."""
+    def key(name: str) -> str:
+        name = name.upper()
+        if "_" in name:
+            return name.split("_", 1)[1]
+        return name
+    if len(set(policy_names)) != len(policy_names):
+        raise ValueError("policy joint names contain duplicates")
+    available: dict[str, int] = {}
+    for i, name in enumerate(mujoco_names):
+        semantic = key(name)
+        if semantic in available:
+            raise ValueError(f"MuJoCo joint semantic name is duplicated: {semantic}")
+        available[semantic] = i
+    requested = [key(name) for name in policy_names]
+    if len(set(requested)) != len(requested):
+        raise ValueError("policy joint semantic names contain duplicates")
+    try:
+        return np.asarray([available[key(name)] for name in policy_names], dtype=np.int64)
+    except KeyError as exc:
+        raise ValueError(f"joint semantic name missing from MuJoCo XML: {exc}") from exc
+
+
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def _xml_hashes(path: Path) -> dict[str, str]:
+    """Record included XML files, since the top model alone does not identify physics."""
+    result: dict[str, str] = {}
+
+    def visit(source: Path):
+        source = source.resolve()
+        if str(source) in result:
+            return
+        result[str(source)] = _sha256(source)
+        for include in ET.parse(source).iter("include"):
+            visit(source.parent / include.attrib["file"])
+
+    visit(path)
+    return result
+
+
+class MNNPolicy:
+    def __init__(self, path: Path):
+        import MNN  # delayed: unit tests and manifest inspection need no MNN import
+        self._mnn = MNN
+        self.interpreter = MNN.Interpreter(str(path))
+        self.session = self.interpreter.createSession({"backend": "CPU", "numThread": 4, "precision": "high"})
+        inputs = self.interpreter.getSessionInputAll(self.session)
+        outputs = self.interpreter.getSessionOutputAll(self.session)
+        if len(inputs) != 1 or len(outputs) != 1:
+            raise RuntimeError(f"expected one MNN input/output, got {list(inputs)}, {list(outputs)}")
+        self.input = next(iter(inputs.values()))
+        self.output = next(iter(outputs.values()))
+
+    def __call__(self, vector: np.ndarray) -> np.ndarray:
+        MNN = self._mnn
+        data = np.asarray(vector, dtype=np.float32).reshape(1, -1)
+        tensor = MNN.Tensor(data.shape, MNN.Halide_Type_Float, data, MNN.Tensor_DimensionType_Caffe)
+        self.input.copyFrom(tensor)
+        self.interpreter.runSession(self.session)
+        result = np.asarray(self.output.getData(), dtype=np.float32).reshape(-1)
+        if result.shape != (25,) or not np.isfinite(result).all():
+            raise RuntimeError(f"MNN policy output must be finite (25,), got {result.shape}")
+        return result
+
+
+def _load_package(package: Path) -> tuple[dict[str, Any], Path, Path, np.lib.npyio.NpzFile]:
+    cfg_path = package / "default.yaml"
+    cfg = yaml.safe_load(cfg_path.read_text())
+    if cfg.get("method") != "supermimic" or int(cfg.get("schema_version", 0)) != 1:
+        raise ValueError(f"unsupported package schema in {cfg_path}")
+    policy_path = package / cfg["policy_file"]
+    ref_path = package / cfg["reference_file"]
+    if not policy_path.is_file() or not ref_path.is_file():
+        raise FileNotFoundError(f"package missing policy/reference: {policy_path}, {ref_path}")
+    ref = np.load(ref_path, allow_pickle=False)
+    required = {"root_pos", "root_quat", "root_rotation", "root_lin_vel", "root_ang_vel",
+                "joint_pos", "joint_vel", "goal"}
+    missing = required - set(ref.files)
+    if missing:
+        raise ValueError(f"reference missing keys: {sorted(missing)}")
+    expected = {
+        "root_pos": (3,), "root_quat": (4,), "root_rotation": (3, 3),
+        "root_lin_vel": (3,), "root_ang_vel": (3,), "joint_pos": (25,),
+        "joint_vel": (25,), "goal": (650,),
+    }
+    frames = ref["root_pos"].shape[0]
+    for name, shape in expected.items():
+        if ref[name].shape != (frames,) + shape or not np.isfinite(ref[name]).all():
+            raise ValueError(f"reference {name} has invalid shape or nonfinite values: {ref[name].shape}")
+    if frames < 2:
+        raise ValueError("reference must contain at least two frames")
+    if not np.allclose(np.linalg.norm(ref["root_quat"], axis=-1), 1.0, atol=1e-5):
+        raise ValueError("reference root quaternions must have unit norm")
+    return cfg, policy_path, ref_path, ref
+
+
+def _model_path(package: Path, cfg: dict[str, Any]) -> Path:
+    sdk_root = Path(__file__).resolve().parents[2]
+    configured = Path(cfg.get("mujoco_model_file", "assets/resource/t800.xml"))
+    path = configured if configured.is_absolute() else sdk_root / configured
+    if not path.is_file():
+        raise FileNotFoundError(f"MuJoCo model not found: {path}")
+    return path
+
+
+def run(args: argparse.Namespace) -> dict[str, Any]:
+    cfg, policy_path, ref_path, ref = _load_package(Path(args.package).resolve())
+    import mujoco  # delayed so pure contract tests do not require MuJoCo
+
+    model = mujoco.MjModel.from_xml_path(str(_model_path(Path(args.package), cfg)))
+    data = mujoco.MjData(model)
+    if not np.isfinite(float(args.hold_seconds)) or float(args.hold_seconds) < 0:
+        raise ValueError("hold_seconds must be nonnegative")
+    control_dt, physics_dt = float(cfg["control_dt"]), float(cfg["physics_dt"])
+    if not np.isfinite([control_dt, physics_dt]).all() or control_dt <= 0 or physics_dt <= 0:
+        raise ValueError("control_dt and physics_dt must be positive")
+    ratio = control_dt / physics_dt
+    if not np.isclose(ratio, round(ratio)) or round(ratio) <= 0:
+        raise ValueError("control_dt must be a positive integer multiple of physics_dt")
+    if not np.isclose(model.opt.timestep, physics_dt, atol=1e-9):
+        raise ValueError(f"SDK XML timestep {model.opt.timestep} differs from package physics_dt {physics_dt}")
+    policy_names = list(cfg["joint_names"])
+    mapping = sdk_joint_mapping(policy_names, list(cfg["mujoco_joint_names"]))
+    xml_joints = [cfg["mujoco_joint_names"][i] for i in mapping]
+    joint_ids = np.asarray([mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name) for name in xml_joints])
+    if (joint_ids < 0).any():
+        raise ValueError(f"configured MuJoCo joints absent from model: {xml_joints}")
+    qpos_ids = np.asarray([model.jnt_qposadr[i] for i in joint_ids])
+    qvel_ids = np.asarray([model.jnt_dofadr[i] for i in joint_ids])
+    root_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, cfg.get("root_body_name", "LINK_BASE"))
+    if root_id < 0:
+        raise ValueError("root body LINK_BASE absent from MuJoCo model")
+    free = np.flatnonzero(model.jnt_type == mujoco.mjtJoint.mjJNT_FREE)
+    if len(free) != 1:
+        raise ValueError(f"expected one free root joint, found {len(free)}")
+    free_q, free_v = model.jnt_qposadr[free[0]], model.jnt_dofadr[free[0]]
+
+    F = int(ref["root_pos"].shape[0])
+    steps = F - 1
+    hold_steps = max(0, round(float(args.hold_seconds) / control_dt))
+    data.qpos[free_q:free_q + 3] = ref["root_pos"][0]
+    data.qpos[free_q + 3:free_q + 7] = ref["root_quat"][0]
+    data.qvel[free_v:free_v + 3] = ref["root_lin_vel"][0]
+    root_R0 = ref["root_rotation"][0]
+    data.qvel[free_v + 3:free_v + 6] = root_R0.T @ ref["root_ang_vel"][0]
+    lo, hi = np.asarray(cfg["joint_lower_limits"]), np.asarray(cfg["joint_upper_limits"])
+    data.qpos[qpos_ids] = np.clip(ref["joint_pos"][0], lo, hi)
+    data.qvel[qvel_ids] = ref["joint_vel"][0]
+    mujoco.mj_forward(model, data)
+    policy = MNNPolicy(policy_path)
+    history = np.repeat(build_observation(data.qpos[qpos_ids], data.qvel[qvel_ids], root_R0,
+                                         ref["root_ang_vel"][0], root_R0, np.asarray(cfg["default_joint_pos"]),
+                                         np.zeros(25))[None, :], 10, axis=0)
+    prev_action = np.zeros(25, dtype=np.float64)
+    trace: dict[str, list[np.ndarray | float | int | bool]] = {"q": [], "qd": [], "action": [],
+        "root_pos": [], "root_quat": [], "root_rotation": [], "frame": [], "time_s": [], "tracking_term": []}
+    first_failure: int | None = None
+    rewardless_success = True
+    kp, kd, effort = (np.asarray(cfg[k], dtype=np.float64) for k in ("joint_stiffness", "joint_damping", "effort_limits"))
+    action_scale = np.asarray(cfg["action_scale"], dtype=np.float64)
+    if not all(x.shape == (25,) and np.isfinite(x).all() for x in (kp, kd, effort, action_scale, lo, hi)):
+        raise ValueError("nonfinite or incorrectly sized policy/control parameters")
+    actuator_for_policy = np.full(25, -1, dtype=np.int64)
+    for actuator in range(model.nu):
+        jid = int(model.actuator_trnid[actuator, 0])
+        matches = np.flatnonzero(joint_ids == jid)
+        if len(matches):
+            if len(matches) != 1 or actuator_for_policy[matches[0]] >= 0:
+                raise ValueError("each policy joint must map to exactly one actuator")
+            actuator_for_policy[matches[0]] = actuator
+            gear = np.asarray(model.actuator_gear[actuator])
+            if not np.isclose(gear[0], 1.0) or not np.allclose(gear[1:], 0.0):
+                raise ValueError("SuperMimic export requires SDK actuator gear=1")
+    if (actuator_for_policy < 0).any():
+        raise ValueError("one or more policy joints have no MuJoCo actuator")
+    viewer = None
+    if not args.headless:
+        import mujoco.viewer
+        viewer = mujoco.viewer.launch_passive(model, data)
+        atexit.register(viewer.close)
+
+    def state():
+        quat = np.asarray(data.qpos[free_q + 3:free_q + 7], dtype=np.float64)
+        R = quat_wxyz_to_mat(quat)
+        p = np.asarray(data.qpos[free_q:free_q + 3], dtype=np.float64).copy()
+        world_w = R @ np.asarray(data.qvel[free_v + 3:free_v + 6], dtype=np.float64)
+        return p, quat.copy(), R, world_w
+
+    def record(frame, t, failed=False):
+        p, quat, R, _ = state()
+        trace["q"].append(data.qpos[qpos_ids].copy()); trace["qd"].append(data.qvel[qvel_ids].copy())
+        trace["action"].append(prev_action.copy()); trace["root_pos"].append(p); trace["root_quat"].append(quat)
+        trace["root_rotation"].append(R); trace["frame"].append(frame); trace["time_s"].append(t); trace["tracking_term"].append(failed)
+    record(0, 0.0)
+    for step in range(steps + hold_steps):
+        tick_started = time.perf_counter()
+        frame = min(step, F - 2)
+        _, _, actual_R, world_w = state()
+        obs = build_observation(data.qpos[qpos_ids], data.qvel[qvel_ids],
+                                actual_R, world_w,
+                                ref["root_rotation"][frame], np.asarray(cfg["default_joint_pos"]), prev_action)
+        history = np.concatenate((history[1:], obs[None, :]), axis=0)
+        raw = policy(build_policy_input(history, ref["goal"][frame]))
+        target = np.asarray(cfg["default_joint_pos"]) + action_scale * raw
+        for _ in range(round(ratio)):
+            q = data.qpos[qpos_ids]
+            qd = data.qvel[qvel_ids]
+            tau = pd_torque(q, qd, target, kp, kd, effort)
+            data.ctrl[:] = 0.0
+            data.ctrl[actuator_for_policy] = tau
+            mujoco.mj_step(model, data)
+        actual_p, actual_quat, actual_R, _ = state()
+        if not all(np.isfinite(x).all() for x in (data.qpos, data.qvel, actual_p, actual_quat, actual_R, raw)):
+            raise RuntimeError(f"nonfinite MuJoCo state or policy action at step {step}")
+        post_frame = min(step + 1, F - 1)
+        height_error = abs(float(ref["root_pos"][post_frame, 2]) - float(actual_p[2]))
+        tilt_error = abs(float(ref["root_rotation"][post_frame, 2, 2]) - float(actual_R[2, 2]))
+        failed = height_error > 0.25 or tilt_error > 0.8
+        if step + 1 <= steps and failed and first_failure is None:
+            first_failure = step + 1
+        hold = step + 1 >= steps
+        if hold and (actual_p[2] < 0.8 or actual_R[2, 2] < 0.9):
+            rewardless_success = False
+        record(post_frame, (step + 1) * control_dt, failed if step + 1 <= steps else False)
+        trace["action"][-1] = raw.copy()
+        prev_action = raw
+        if viewer is not None:
+            viewer.sync()
+            time.sleep(max(0.0, control_dt - (time.perf_counter() - tick_started)))
+    if viewer is not None:
+        viewer.close()
+    out = Path(args.output_dir); out.mkdir(parents=True, exist_ok=True)
+    arrays = {k: np.asarray(v) for k, v in trace.items()}
+    np.savez_compressed(out / "rollout.npz", **arrays)
+    result = {"schema_version": 1, "method": "supermimic", "task": cfg["task"], "checkpoint_iteration": cfg["checkpoint_iteration"],
+              "tracking_completion": first_failure is None, "first_tracking_failure_step": first_failure,
+              "stood_and_held": rewardless_success, "getup_and_hold_success": first_failure is None and rewardless_success,
+              "clip_steps": steps, "hold_steps": hold_steps, "final_root_height_m": float(arrays["root_pos"][-1, 2]),
+              "final_upright_cosine": float(arrays["root_rotation"][-1, 2, 2]), "recorded_steps": len(arrays["frame"]),
+              "max_root_height_m": float(arrays["root_pos"][:, 2].max()),
+              "end_motion_root_height_m": float(arrays["root_pos"][steps, 2]),
+              "minimum_hold_root_height_m": float(arrays["root_pos"][steps:, 2].min()),
+              "minimum_hold_upright_cosine": float(arrays["root_rotation"][steps:, 2, 2].min()),
+              "policy_sha256": _sha256(policy_path), "reference_sha256": _sha256(ref_path), "finite": bool(all(np.isfinite(a).all() for a in arrays.values() if a.dtype.kind in "fc")),
+              "physics": {"model": str(_model_path(Path(args.package), cfg)), "model_xml_sha256": _xml_hashes(_model_path(Path(args.package), cfg)),
+                          "mujoco_version": mujoco.__version__, "control_dt": cfg["control_dt"], "physics_dt": cfg["physics_dt"], "elastic_band": False,
+                          "sdk_native_friction": "XML/defaults retained", "sdk_native_joint_damping": "XML/defaults retained",
+                          "training_armature": np.asarray(cfg["armature"]).tolist(), "difference_note": "No training-side friction/armature override applied."}}
+    (out / "evaluation.json").write_text(json.dumps(result, indent=2) + "\n")
+    return result
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--package", required=True)
+    parser.add_argument("--output_dir", required=True)
+    parser.add_argument("--hold_seconds", type=float, default=1.0)
+    parser.add_argument("--headless", action="store_true")
+    args = parser.parse_args()
+    print(json.dumps(run(args), indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

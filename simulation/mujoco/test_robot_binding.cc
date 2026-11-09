@@ -15,6 +15,14 @@ namespace {
 using Model = std::unique_ptr<mjModel, decltype(&mj_deleteModel)>;
 using Data = std::unique_ptr<mjData, decltype(&mj_deleteData)>;
 
+RobotBinding* callback_binding = nullptr;
+int callback_calls = 0;
+
+void BindingControlCallback(const mjModel* model, mjData* data) {
+  ++callback_calls;
+  if (callback_binding != nullptr) callback_binding->ApplyCommand(model, data);
+}
+
 void Require(bool condition, const std::string& message) {
   if (!condition) throw std::runtime_error(message);
 }
@@ -209,30 +217,30 @@ void TestAddressAndCommandIsolation() {
 
   d->ctrl[ab] = 123;
   Command(store_a, 1, .5, 10, 2, 3);
-  a.ApplyCommand(d.get());
+  a.ApplyCommand(m.get(), d.get());
   Near(d->ctrl[aa], 9.8, "A PD command");
   Near(d->ctrl[ab], 123, "Applying A must leave B unchanged");
   Command(store_b, -1, -.5, 20, 4, -2);
-  b.ApplyCommand(d.get());
+  b.ApplyCommand(m.get(), d.get());
   Near(d->ctrl[ab], -17.2, "B PD command");
   Near(d->ctrl[aa], 9.8, "Applying B must leave A unchanged");
 
   store_a->last_command_time_ns.store(Now() - 300000000);
-  a.ApplyCommand(d.get());
+  a.ApplyCommand(m.get(), d.get());
   Near(d->ctrl[aa], 0, "Stale A command must expire");
   Near(d->ctrl[ab], -17.2, "A timeout must leave B unchanged");
   Command(store_a, 1, 0, 10, 0, 0);
   auto malformed = store_a->sim_command();
   malformed.q.resize(2);
   store_a->sim_command.Set(malformed);
-  a.ApplyCommand(d.get());
+  a.ApplyCommand(m.get(), d.get());
   Near(d->ctrl[aa], 0, "Wrong command dimensions must be rejected");
   Command(store_a, 1, 0, std::numeric_limits<double>::quiet_NaN(), 0, 0);
-  a.ApplyCommand(d.get());
+  a.ApplyCommand(m.get(), d.get());
   Near(d->ctrl[aa], 0, "Non-finite command must be rejected");
   Command(store_a, 1, 0, 10, 0, 0);
   a.ClearCommand();
-  a.ApplyCommand(d.get());
+  a.ApplyCommand(m.get(), d.get());
   Near(d->ctrl[aa], 0, "Cleared command must not be applied");
   Require(store_a->last_command_time_ns.load() == 0, "Clear must invalidate command freshness");
 }
@@ -268,9 +276,53 @@ void TestReloadRebuildsAddresses() {
   binding.ReadState(d.get());
   Near(store->sim_state().q[0], .7, "Reload must use the new joint address");
   Command(store, 1, 0, 10, 0, 0);
-  binding.ApplyCommand(d.get());
+  binding.ApplyCommand(second.get(), d.get());
   Near(d->ctrl[Actuator(second.get(), "robot_a/")], 3, "Reload must use the new actuator address");
   Near(d->ctrl[Actuator(second.get(), "robot_b/")], 0, "Reload must not write the peer actuator");
+}
+
+void TestControlCallbackLifecycle() {
+  // MuJoCo may invoke the global control callback while compiling a new model.
+  // The binding must be inert until its addresses have been resolved.
+  const std::string xml =
+      "<mujoco><option gravity='0 0 0'/><worldbody><body pos='0 0 1'>"
+      "<joint name='j'/><geom type='sphere' size='.1' mass='1'/></body></worldbody>"
+      "<actuator><motor joint='j'/></actuator></mujoco>";
+  mjVFS vfs;
+  mj_defaultVFS(&vfs);
+  Require(mj_addBufferVFS(&vfs, "callback.xml", xml.data(), static_cast<int>(xml.size())) == 0,
+          "Cannot create callback fixture");
+  auto store = std::make_shared<LcmDataStore>(0, 0, 0);
+  RobotBinding unbound("robot_a/", store, {}, {});
+  callback_binding = &unbound;
+  callback_calls = 0;
+  mjcb_control = BindingControlCallback;
+  char error[1024] = {};
+  Model compiled(mj_loadXML("callback.xml", &vfs, error, sizeof(error)), &mj_deleteModel);
+  mj_deleteVFS(&vfs);
+  Require(compiled != nullptr, std::string("Callback fixture failed: ") + error);
+  Require(callback_calls > 0, "MuJoCo compile did not exercise the control callback");
+
+  // Once resolved, the callback may write only for the model it resolved.
+  auto first = Fixture();
+  auto binding_store = Store();
+  RobotBinding binding = Binding("robot_a/", binding_store);
+  callback_binding = &binding;
+  binding.Resolve(first.get());
+  Data first_data(mj_makeData(first.get()), &mj_deleteData);
+  Command(binding_store, 1, 0, 10, 0, 0);
+  mj_step(first.get(), first_data.get());
+  Require(callback_calls > 1, "Resolved binding callback was not invoked");
+
+  // A callback for a different model must not reuse stale actuator addresses.
+  auto second = Fixture(true);
+  Data second_data(mj_makeData(second.get()), &mj_deleteData);
+  second_data->ctrl[0] = 77;
+  mj_step(second.get(), second_data.get());
+  Near(second_data->ctrl[0], 77, "Stale binding wrote into a different model");
+
+  mjcb_control = nullptr;
+  callback_binding = nullptr;
 }
 
 void TestZeroPosePreparation(const mjModel* model, mjData* data, RobotBinding& a, RobotBinding& b,
@@ -305,8 +357,8 @@ void TestZeroPosePreparation(const mjModel* model, mjData* data, RobotBinding& a
   for (int step = 0; step < steps; ++step) {
     store_a->last_command_time_ns.store(Now());
     store_b->last_command_time_ns.store(Now());
-    a.ApplyCommand(data);
-    b.ApplyCommand(data);
+    a.ApplyCommand(model, data);
+    b.ApplyCommand(model, data);
     mj_step(model, data);
     for (size_t i = 0; i < prefixes.size(); ++i) {
       min_height[i] = std::min(min_height[i], data->qpos[root_addresses[i] + 2]);
@@ -405,12 +457,12 @@ void TestGeneratedScene(const char* filename) {
   store_b->sim_command.Set(command_b);
   store_a->last_command_time_ns.store(Now());
   store_b->last_command_time_ns.store(Now());
-  a.ApplyCommand(d.get());
+  a.ApplyCommand(m.get(), d.get());
   for (int i = 0; i < 25; ++i) {
     Near(d->ctrl[actuator_a[i]], 1 + .1 * i, "Real T800 A PD and feed-forward command");
     Near(d->ctrl[actuator_b[i]], 123, "Real T800 A must not write B");
   }
-  b.ApplyCommand(d.get());
+  b.ApplyCommand(m.get(), d.get());
   for (int i = 0; i < 25; ++i) {
     Near(d->ctrl[actuator_a[i]], 1 + .1 * i, "Real T800 B must not write A");
     Near(d->ctrl[actuator_b[i]], -2 - .2 * i, "Real T800 B PD and feed-forward command");
@@ -448,6 +500,7 @@ void TestGeneratedScene(const char* filename) {
 
 int main(int argc, char** argv) {
   try {
+    TestControlCallbackLifecycle();
     TestAddressAndCommandIsolation();
     TestMissingContractsAreRejected();
     TestReloadRebuildsAddresses();
