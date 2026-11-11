@@ -1,4 +1,4 @@
-#include "rl_dance_example/reference_pose_gate.h"
+#include "motion_transition/reference_pose_gate.h"
 
 #include <cmath>
 #include <limits>

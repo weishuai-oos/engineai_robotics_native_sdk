@@ -43,3 +43,8 @@ build
 .vscode
 safety_logs/
 docs/
+
+# Share the current runner reference while keeping other local documents ignored.
+!/docs/
+/docs/*
+!/docs/t800_runner_classification_and_transitions.md

@@ -32,8 +32,9 @@ import yaml
 LCM_TASK_STATE_HASH = 0x104561AA026A2B0E
 DEFAULT_LCM_URL = "udpm://239.255.76.67:7667?ttl=0"
 IMU_GRAVITY_MPS2 = 9.80665
-WALK_MOTIONS = frozenset({"walk", "walk_custom", "walk_leo", "walk_leo_terrain"})
+WALK_MOTIONS = frozenset({"walk", "walk_impact", "walk_leo", "walk_leo_terrain"})
 LEO_MOTION_PARAM_TAGS = {
+    "walk_impact": "rl_walking_leolab_impact_v2",
     "walk_leo": "rl_walking_leolab_example",
     "walk_leo_terrain": "rl_walking_leolab_terrain_example",
 }

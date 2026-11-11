@@ -46,7 +46,7 @@ tasks:
     manual_transition:
       - passive
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
       - supermimic_come_here
@@ -77,7 +77,7 @@ tasks:
       - pd_stand
       - pd_stand_y
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
       - supermimic_come_here
@@ -106,7 +106,7 @@ tasks:
       - pd_stand
       - pd_stand_x
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
       - supermimic_come_here
@@ -133,7 +133,7 @@ tasks:
     manual_transition:
       - passive
       - pd_stand
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
       - getup
@@ -150,12 +150,12 @@ tasks:
       - rl_punch_example
     key: [LB, B]
 
-  - motion: walk_custom
-    period: 0.01
+  - motion: walk_impact
+    period: 0.02
     runner:
-      - name: rl_walking_custom_example_runner
+      - name: rl_walking_leolab_example_runner
         enabled: true
-        param_tag: rl_walking_custom_example
+        param_tag: rl_walking_leolab_impact_v2
     manual_transition:
       - passive
       - pd_stand
@@ -186,7 +186,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo_terrain
       - leo_taunt
       - getup
@@ -226,7 +226,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - getup
       - getup2
@@ -252,7 +252,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo
@@ -268,7 +268,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo
@@ -284,7 +284,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo
@@ -300,7 +300,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo
@@ -316,7 +316,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo
@@ -332,7 +332,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo
@@ -348,7 +348,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo
@@ -364,7 +364,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo
@@ -380,7 +380,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo
@@ -422,7 +422,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo
@@ -438,7 +438,7 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_custom
+      - walk_impact
       - walk_leo
       - walk_leo_terrain
     auto_transition: walk_leo

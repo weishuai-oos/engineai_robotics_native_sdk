@@ -9,9 +9,12 @@
 | 旧 ridicule | `rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500` |
 | 更早的 WBT 俯卧起身 | `rl_prone_to_stance_hybrid_9825_m29500` |
 | 原 LB+A 步态 | `rl_walking_leolab_example` |
+| 原 RB+A 右高踢腿（184000 轮） | `rl_supermimic_zq_right_high_kick_20261102_j13551_m184000` |
 | 第二、第三个重训嘲讽 | `嘲讽/`，见该目录的 `README.md` |
 
 当前俯卧起身使用根目录的 `rl_supermimic_prone_j12768_m22000`；RB+B 使用第一个重训嘲讽。空庆祝模板、历史模型副本、整套配置备份和评测数据已清理。
+
+RB+A 当前使用根目录的 `rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000`（原虚拟测试 21 号、90000 轮）。本目录中的旧右高踢保留原配置、MNN 和参考；恢复时先移回 T800 根目录，再把 `mode.yaml` 两个模式的 `rl_supermimic_right_high_kick` scope 改回旧目录的 `/default`，重启会话即可，runner 与按键不变。
 
 ## 旧 Leo 走路
 

@@ -11,10 +11,14 @@ import re
 import sys
 import tempfile
 
-from .launcher import DISPLAY_ENV_KEYS, REPO_ROOT, child_environment, run_session, virtual_gamepad_plan
+from .launcher import (
+    DISPLAY_ENV_KEYS, REPO_ROOT, child_environment, copy_assets_config,
+    run_session, virtual_gamepad_plan,
+)
+from .numbered_actions import configure_numbered_actions
 
 
-def build_session(args, log_dir: Path) -> list[dict]:
+def build_session(args, log_dir: Path, runtime: Path | None = None) -> list[dict]:
     repo = args.repo.resolve()
     assets = repo / "assets"
     mode_path = assets / "config/t800/mode.yaml"
@@ -25,6 +29,11 @@ def build_session(args, log_dir: Path) -> list[dict]:
         r"active_mode:[ \t]*(?:sim|'sim'|\"sim\")[ \t]*(?:#[^\r\n]*)?", headers[0]
     ):
         raise ValueError(f"Single simulation requires active_mode: sim in {mode_path}")
+
+    catalog = None
+    if args.virtual_gamepad and (assets / "config/t800/numbered_actions/catalog.json").exists():
+        assets = copy_assets_config(assets, (runtime or log_dir / "runtime") / "assets")
+        catalog = configure_numbered_actions(assets / "config/t800")
 
     sim_command = [str(args.simulator.resolve()), "t800"]
     if args.headless:
@@ -47,7 +56,7 @@ def build_session(args, log_dir: Path) -> list[dict]:
         plans.append({"name": name, "command": command, "env": env,
                       "log": process_logs / "console.log"})
     if args.virtual_gamepad:
-        plans.append(virtual_gamepad_plan(repo, log_dir, "udpm://239.255.76.67:7667?ttl=0"))
+        plans.append(virtual_gamepad_plan(repo, log_dir, "udpm://239.255.76.67:7667?ttl=0", catalog))
     return plans
 
 
@@ -91,6 +100,7 @@ def parse_args(argv=None):
 def main(argv=None) -> int:
     args = parse_args(argv)
     preview_logs = None
+    runtime = None
     try:
         if not args.dry_run:
             running = existing_sdk_processes()
@@ -103,7 +113,9 @@ def main(argv=None) -> int:
             log_dir = Path(preview_logs.name)
         else:
             log_dir = Path(tempfile.mkdtemp(prefix="engineai-single-logs-"))
-        plans = build_session(args, log_dir)
+        if args.virtual_gamepad and (args.repo / "assets/config/t800/numbered_actions/catalog.json").exists():
+            runtime = tempfile.TemporaryDirectory(prefix="engineai-single-")
+        plans = build_session(args, log_dir, Path(runtime.name) if runtime else None)
         summary = [{"name": plan["name"], "command": plan["command"],
                     "env": {key: value for key, value in plan["env"].items() if key in DISPLAY_ENV_KEYS},
                     "log": str(plan["log"])} for plan in plans]
@@ -125,6 +137,8 @@ def main(argv=None) -> int:
         print(f"[ERROR] {error}", file=sys.stderr)
         return 1
     finally:
+        if runtime is not None:
+            runtime.cleanup()
         if preview_logs is not None:
             preview_logs.cleanup()
 

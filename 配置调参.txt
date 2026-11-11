@@ -65,17 +65,18 @@ pd_stand、pd_stand_x、pd_stand_y 共用 pd_stand_runner，参数分别为：
 - transition_time：SDK 步态自身的启动过渡时间。
 - disable_transition_joints：不参与 SDK 启动过渡的关节。
 
-2. new 普通步态 walk_custom
+2. 抗击打步态 walk_impact（LB + Y）
 
-  配置：assets/config/t800/rl_walking_custom_example/default.yaml
-  模型：assets/config/t800/rl_walking_custom_example/policies/
-  代码：src/runner/rl_walking_custom_example/
+  配置：assets/config/t800/rl_walking_leolab_impact_v2_154500/default.yaml
+  模型：assets/config/t800/rl_walking_leolab_impact_v2_154500/policies/boxing_policy.mnn
+  来源：T800_base-ImpactV2 的 ckpt_154500。
+  代码：src/runner/rl_walking_leolab_example/，与下述 CombinedV2 共用循环策略 runner。
 
-基础参数含义与 walk 相同。new 的上半身锁定和平滑插值仅存在于此 Runner：
+采用 50 Hz、84 维观测、25 维动作和两层 256 维 LSTM；四踝 Kp=40、Kd=2.0。默认姿态、关节映射、动作缩放、遥控指令和切入衔接与 CombinedV2 一致。
 
-- upper_body_lock_enabled：开关上半身锁定。
-- upper_body_lock_joint_q：J13～J17 左臂、J18～J22 右臂的 10 个目标角，单位 rad，顺序不能改变。
-- upper_body_lock_interpolation_duration：从进入状态时实测关节角平滑过渡到锁定姿势的时长。增大更柔和但到位更慢；设 0 立即到目标。
+ImpactV2 的导出图在归一化前固定头部位置观测，并清零头部速度、上一帧动作和输出动作。输出的头部归一化动作是零，SDK 仍按 default_joint_pos + action_scale * action 计算目标，得到 pitch 0.052337、yaw 0.621251 rad 的默认头姿，不是零弧度。override_action_joint_names 保持空，无需在 runner 再屏蔽一遍；其余 23 个身体关节继续执行策略动作。模型内含 RMS 和观测裁剪，SDK 不再重复归一化。
+
+LB+Y 已使用 walk_impact；HoST 起身 runner 的切换名单也已更新。109 容器内已完成重新编译和运行库更新，重启 SDK 后生效。以后若修改 C++ 切换名单，需重新编译并更新对应运行库。
 
 3. Leo Lab 步态 walk_leo
 
@@ -206,7 +207,7 @@ SuperMimic 动作使用 src/runner/rl_supermimic/，当前配置为：
   RB+B 嘲讽       assets/config/t800/rl_supermimic_zq_come_here_01_j13904_0_m36000/default.yaml
   RB+Y 左勾拳     assets/config/t800/rl_supermimic_zq_left_hook_02_j13564_m82000/default.yaml
   RB+X 拉锤       assets/config/t800/rl_supermimic_zq_pull_hammer_20261102_j13551_m182000/default.yaml
-  RB+A 右高踢腿   assets/config/t800/rl_supermimic_zq_right_high_kick_20261102_j13551_m184000/default.yaml
+  RB+A 右高踢腿   assets/config/t800/rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000/default.yaml（原虚拟测试21号，90000轮；旧184000轮包在old中备用）
 
 每个 SuperMimic 包仅含 default.yaml、policies/policy.mnn、trajectories/supermimic_reference.npz；hold_seconds: 0.0 表示参考结束后不额外保持，自动回 walk_leo。旧 dance、victory、ridicule 和更早的 WBT 俯卧起身的可运行备选在 assets/config/t800/old/，恢复方法见该目录 README.md。
 
@@ -261,5 +262,5 @@ SuperMimic 动作使用 src/runner/rl_supermimic/，当前配置为：
 - 只改 YAML、MNN、NPY/NPZ/CSV 或机器人资源：不需要重新编译 C++，但要重启程序；真机还需重新部署/同步 assets。
 - 改 src、simulation 或参数类头文件：需要重新编译。
 - 新增 Runner 目录且带 CMakeLists.txt：官方构建会自动发现，仍执行 ./build.sh；不增加新的构建指令。
-- 默认全量构建会包含全部迁移功能。若自行设置 ENGINEAI_ROBOTICS_USED_RUNNERS 并选中 walk_custom、walk_leo、getup/getup2 中任一 T800 专属 Runner，CMake 会从 task_motion/default.yaml、task_resident/robot.yaml、task_resident/sim.yaml 自动提取完整 T800 Runner 集并检查选择列表；缺少 SDK walk、SDK 起身/倒地、基础状态或 robot/sim 常驻 Runner 中任一项都会拒绝配置。仅选择其他机型 Runner 时不触发这项 T800 检查。
+- 默认全量构建会包含全部迁移功能。若自行设置 ENGINEAI_ROBOTICS_USED_RUNNERS 并选中 Leo 步态或 HoST 起身等任一 T800 专属 Runner，CMake 会从 task_motion/default.yaml、task_resident/robot.yaml、task_resident/sim.yaml 自动提取完整 T800 Runner 集并检查选择列表；缺少 SDK walk、SDK 起身/倒地、基础状态或 robot/sim 常驻 Runner 中任一项都会拒绝配置。仅选择其他机型 Runner 时不触发这项 T800 检查。
 - aarch64 与 x86_64 使用同一套源码和配置，但必须部署与机载 CPU 架构相符的 build/<arch>/_install。

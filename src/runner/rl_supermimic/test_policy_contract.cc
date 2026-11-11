@@ -55,7 +55,8 @@ TEST(SupermimicContract, HeadingAlignmentIsInvariantForOppositeDuelHeading) {
   const auto yaw = Eigen::AngleAxisd(2.1, Eigen::Vector3d::UnitZ()).toRotationMatrix();
   const auto actual = Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitX()).toRotationMatrix();
   const auto reference0 = Eigen::AngleAxisd(-1.0, Eigen::Vector3d::UnitZ()).toRotationMatrix();
-  const auto reference = reference0 * Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitY()).toRotationMatrix();
+  const Eigen::Matrix3d reference =
+      reference0 * Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitY()).toRotationMatrix();
   const Eigen::Matrix3d aligned = AlignReferenceYaw(actual, reference0, reference);
   const Eigen::Matrix3d rotated = AlignReferenceYaw(yaw * actual, reference0, reference);
   EXPECT_TRUE(rotated.isApprox(yaw * aligned, 1e-12));
@@ -89,6 +90,47 @@ TEST(SupermimicContract, SequenceUsesPenultimateFrameThroughoutClosedLoopHold) {
   EXPECT_FALSE(sequence.Configure(5, 1, std::numeric_limits<double>::quiet_NaN()));
 }
 
+TEST(SupermimicContract, SkippingStaticTailMatchesTheOriginalDynamicClipTiming) {
+  Sequence original;
+  Sequence numbered;
+  ASSERT_TRUE(original.Configure(99, 0, .02));
+  ASSERT_TRUE(numbered.Configure(199, 0, .02, 100));
+  for (int step = 0; step < 98; ++step) {
+    EXPECT_FALSE(numbered.finished());
+    EXPECT_EQ(numbered.frame(), original.frame());
+    EXPECT_LT(numbered.frame(), 99);  // The appended static tail starts at 99.
+    original.Advance();
+    numbered.Advance();
+  }
+  EXPECT_TRUE(original.finished());
+  EXPECT_TRUE(numbered.finished());
+  numbered.Reset();
+  EXPECT_FALSE(numbered.finished());
+  EXPECT_EQ(numbered.frame(), 0);
+}
+
+TEST(SupermimicContract, SkippingStaticTailValidatesBoundsAndKeepsDefaultPlayback) {
+  Sequence legacy;
+  Sequence explicit_zero;
+  ASSERT_TRUE(legacy.Configure(120, 0, .02));
+  ASSERT_TRUE(explicit_zero.Configure(120, 0, .02, 0));
+  for (int step = 0; step < 119; ++step) {
+    EXPECT_FALSE(explicit_zero.finished());
+    EXPECT_EQ(explicit_zero.frame(), legacy.frame());
+    explicit_zero.Advance();
+    legacy.Advance();
+  }
+  EXPECT_TRUE(explicit_zero.finished());
+  EXPECT_TRUE(legacy.finished());
+  EXPECT_FALSE(legacy.Configure(5, 0, .02, -1));
+  EXPECT_FALSE(legacy.Configure(5, 0, .02, 4));
+  EXPECT_FALSE(legacy.Configure(5, 0, .02, 100));
+  ASSERT_TRUE(legacy.Configure(5, 0, .02, 3));
+  EXPECT_EQ(legacy.frame(), 0);
+  legacy.Advance();
+  EXPECT_TRUE(legacy.finished());
+}
+
 TEST(SupermimicContract, NonfiniteOrWrongSizedValuesAreRejected) {
   History history = History::Zero();
   Eigen::VectorXf goal = Eigen::VectorXf::Zero(kGoal);
@@ -116,6 +158,12 @@ TEST(SupermimicReference, ExportedReferenceHasValidRootStateAndGoal) {
   EXPECT_EQ(reference.goals.rows(), reference.frames());
   EXPECT_EQ(reference.goals.cols(), kGoal);
   EXPECT_TRUE(reference.goals.allFinite());
+  const auto arrays = cnpy::npz_load((std::filesystem::path(package) /
+                                     "trajectories/supermimic_reference.npz").string());
+  const Eigen::VectorXd first_pose = Eigen::Map<const Eigen::VectorXf>(
+      arrays.at("joint_pos").data<float>(), kActions).cast<double>();
+  ASSERT_EQ(reference.initial_joint_pos.size(), kActions);
+  EXPECT_TRUE(reference.initial_joint_pos.isApprox(first_pose, 1e-12));
 }
 
 TEST(SupermimicPolicy, NativeMnnRunsDeterministicallyOnReferenceStates) {

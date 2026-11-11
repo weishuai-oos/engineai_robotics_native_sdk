@@ -22,6 +22,7 @@ class RlSupermimicParam : public BasicParam {
   double LOAD_PARAM(control_dt);
   double LOAD_PARAM(physics_dt);
   double LOAD_PARAM(hold_seconds);
+  std::optional<int> LOAD_PARAM(skip_terminal_hold_frames);
   int LOAD_PARAM(history_length);
   int LOAD_PARAM(observation_dim);
   int LOAD_PARAM(goal_dim);
@@ -43,7 +44,12 @@ class RlSupermimicParam : public BasicParam {
   std::optional<double> LOAD_PARAM(entry_transition_max_duration);
   std::optional<double> LOAD_PARAM(entry_transition_max_joint_velocity);
   std::optional<double> LOAD_PARAM(entry_transition_max_joint_acceleration);
+  std::optional<double> LOAD_PARAM(entry_transition_reference_pose_weight);
   std::optional<double> LOAD_PARAM(entry_transition_source_tracking_error);
+  std::optional<bool> LOAD_PARAM(entry_transition_to_reference_pose);
+  std::optional<double> LOAD_PARAM(entry_transition_reference_pose_tolerance);
+  std::optional<int> LOAD_PARAM(entry_transition_reference_pose_settle_cycles);
+  std::optional<double> LOAD_PARAM(entry_transition_reference_pose_arm_stiffness_scale);
 };
 
 }  // namespace data

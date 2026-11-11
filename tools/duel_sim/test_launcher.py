@@ -4,6 +4,7 @@ import contextlib
 import ast
 import hashlib
 import io
+import json
 import os
 import shutil
 from pathlib import Path
@@ -139,8 +140,64 @@ class DuelLauncherTest(unittest.TestCase):
         self.assertIn("Robot B has no readable gamepad", output.getvalue())
 
     def test_virtual_gamepad_requires_controllers(self):
-        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
-            launcher.parse_args(["--virtual-gamepad", "--no-controllers"])
+        for option in ("--virtual-gamepad", "--virtual-gamepads"):
+            with self.subTest(option=option), contextlib.redirect_stderr(io.StringIO()), \
+                    self.assertRaises(SystemExit):
+                launcher.parse_args([option, "--no-controllers"])
+
+    def test_two_virtual_gamepads_isolate_inputs_ports_logs_and_numbered_actions(self):
+        fixture = self.root / "fixture"
+        assets = launcher.copy_assets_config(self.assets, fixture / "assets")
+        private = assets / "config/t800/numbered_actions"
+        shutil.rmtree(private, ignore_errors=True)
+        action = {"id": 1, "label": "测试动作", "batch": 1, "iteration": 1000,
+                  "package": "rl_supermimic_fixture"}
+        for relative in ("default.yaml", "policies/policy.mnn",
+                         "trajectories/supermimic_reference.npz"):
+            path = private / action["package"] / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"fixture")
+        (private / "catalog.json").write_text(json.dumps(
+            {"schema_version": 1, "capacity": 50, "actions": [action]}))
+        sim, first, second, virtual_a, virtual_b = self.session(
+            "--repo", str(fixture), "--virtual-gamepads",
+            "--port-a", "28667", "--port-b", "28668")
+        for robot, virtual, port, label in ((first, virtual_a, 28667, "A"),
+                                           (second, virtual_b, 28668, "B")):
+            self.assertEqual(robot["env"]["ENGINEAI_INPUT_SOURCE"], "virtual")
+            self.assertNotIn("ENGINEAI_GAMEPAD_DEVICE", robot["env"])
+            self.assertEqual(virtual["command"][-3:],
+                             ["--lcm-url", f"udpm://239.255.76.67:{port}?ttl=0", "--connect"])
+            command = virtual["command"]
+            self.assertEqual(command[command.index("--window-title") + 1],
+                             f"Virtual Gamepad - Robot {label}")
+            config = Path(robot["env"]["ENGINEAI_ROBOTICS_CONFIG"]) / "t800"
+            self.assertIn(f"239.255.76.67:{port}", (config / "lcm/default.yaml").read_text())
+        self.assertIn("--test-catalog", virtual_a["command"])
+        self.assertNotIn("--test-catalog", virtual_b["command"])
+        second_config = Path(second["env"]["ENGINEAI_ROBOTICS_CONFIG"]) / "t800"
+        self.assertFalse((second_config / "task_motion/numbered_actions.yaml").exists())
+        self.assertNotIn("test_action_", (second_config / "mode.yaml").read_text())
+        self.assertEqual(len({plan["name"] for plan in (sim, first, second, virtual_a, virtual_b)}), 5)
+        self.assertEqual(len({plan["log"] for plan in (sim, first, second, virtual_a, virtual_b)}), 5)
+
+    def test_two_virtual_launch_requires_no_devices_and_cleans_runtime(self):
+        output = io.StringIO()
+        with mock.patch.object(launcher, "run_session", return_value=0) as run, \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+            code = launcher.main([
+                "--virtual-gamepads", "--gamepad-a", str(self.root / "missing"),
+                "--gamepad-b", str(self.root / "missing"),
+                "--simulator", sys.executable, "--executor", sys.executable,
+                "--log-dir", str(self.root / "logs")])
+        self.assertEqual(code, 0)
+        run.assert_called_once()
+        plans = run.call_args.args[0]
+        self.assertEqual(len(plans), 5)
+        for robot in plans[1:3]:
+            self.assertFalse(Path(robot["env"]["ENGINEAI_ROBOTICS_ASSETS"]).exists())
+        self.assertIn("Separate virtual gamepads", output.getvalue())
+        self.assertNotIn("physical gamepad", output.getvalue())
 
     def test_private_pd_target_matches_zero_pose_and_preserves_gains_and_timing(self):
         original_path = self.assets / "config/t800/pd_stand/default.yaml"

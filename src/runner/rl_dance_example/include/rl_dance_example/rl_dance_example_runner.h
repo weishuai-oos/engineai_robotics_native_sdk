@@ -5,7 +5,7 @@
 #include "basic/motion_runner.h"
 #include "basic/runner_registry.h"
 #include "rl_dance_example/wbt_obs_registry.h"
-#include "rl_dance_example/reference_pose_gate.h"
+#include "motion_transition/reference_pose_gate.h"
 #include "rl_dance_example_param/rl_dance_example_param.h"
 
 #include "cnpy.h"

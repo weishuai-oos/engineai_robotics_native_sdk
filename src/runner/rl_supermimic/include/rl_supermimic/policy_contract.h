@@ -5,6 +5,8 @@
 #include <cmath>
 #include <stdexcept>
 
+#include "motion_transition/heading_alignment.h"
+
 namespace runner::supermimic {
 
 constexpr int kActions = 25;
@@ -16,15 +18,12 @@ using Observation = Eigen::Matrix<float, kObservation, 1>;
 using History = Eigen::Matrix<float, kHistory, kObservation, Eigen::RowMajor>;
 using Input = Eigen::Matrix<float, kInput, 1>;
 
-inline Eigen::Matrix3d Yaw(const Eigen::Matrix3d& rotation) {
-  return Eigen::AngleAxisd(std::atan2(rotation(1, 0), rotation(0, 0)),
-                           Eigen::Vector3d::UnitZ()).toRotationMatrix();
-}
+using motion_transition::AlignYaw;
 
 inline Eigen::Matrix3d AlignReferenceYaw(const Eigen::Matrix3d& actual_initial,
                                         const Eigen::Matrix3d& reference_initial,
                                         const Eigen::Matrix3d& reference) {
-  return Yaw(actual_initial) * Yaw(reference_initial).transpose() * reference;
+  return AlignYaw(actual_initial, reference_initial) * reference;
 }
 
 inline Observation BuildObservation(const Eigen::VectorXd& q, const Eigen::VectorXd& qd,
@@ -77,11 +76,14 @@ inline Eigen::VectorXd ActionTarget(const Eigen::VectorXd& default_q, const Eige
 
 class Sequence {
  public:
-  bool Configure(int frames, double hold_seconds, double control_dt) {
+  bool Configure(int frames, double hold_seconds, double control_dt, int skip_terminal_hold_frames = 0) {
     if (frames < 2 || !std::isfinite(hold_seconds) || hold_seconds < 0.0 ||
-        !std::isfinite(control_dt) || control_dt <= 0.0 || hold_seconds / control_dt > 1000000.0) return false;
-    frames_ = frames;
-    total_steps_ = frames - 1 + static_cast<int>(std::llround(hold_seconds / control_dt));
+        !std::isfinite(control_dt) || control_dt <= 0.0 || hold_seconds / control_dt > 1000000.0 ||
+        skip_terminal_hold_frames < 0 || skip_terminal_hold_frames > frames - 2) return false;
+    // Shorten playback only; leave the exported reference and look-ahead goals intact.
+    // Keep the same N-1 control intervals as a standalone dynamic reference clip.
+    frames_ = frames - skip_terminal_hold_frames;
+    total_steps_ = frames_ - 1 + static_cast<int>(std::llround(hold_seconds / control_dt));
     step_ = 0;
     return true;
   }

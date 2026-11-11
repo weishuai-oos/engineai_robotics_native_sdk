@@ -15,4 +15,4 @@ for duel_ros_distro in "${ROS_DISTRO:-humble}" humble jazzy; do
   fi
 done
 
-exec python3 "$script_dir/../tools/duel_sim/launcher.py" "$@"
+exec python3 -B "$script_dir/../tools/duel_sim/launcher.py" "$@"

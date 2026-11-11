@@ -16,4 +16,4 @@ for single_ros_distro in "${ROS_DISTRO:-humble}" humble jazzy; do
 done
 
 cd "$script_dir/.."
-exec python3 -m tools.duel_sim.single_launcher "$@"
+exec python3 -B -m tools.duel_sim.single_launcher "$@"

@@ -42,7 +42,9 @@
 
 #include <glog/logging.h>
 
+#include "math/roll_pitch_yaw.h"
 #include "math/rotation_matrix.h"
+#include "motion_transition/heading_alignment.h"
 #include "rl_dance_example/wbt_obs_registry.h"
 
 namespace runner {
@@ -310,6 +312,10 @@ void RlDanceExampleRunner::fillObsContextConstantPart() {
  * so the robot holds the final pose once the trajectory is fully played.
  */
 void RlDanceExampleRunner::Run() {
+  if (GetRunnerState() == RunnerState::kFault) {
+    SendMotorCommand();
+    return;
+  }
   if (trajectory_hold_active_) {
     SendMotorCommand();
     return;
@@ -333,7 +339,33 @@ void RlDanceExampleRunner::Run() {
     return;
   }
 
-  CalculateObservation();   // Assemble observation from registered components
+  try {
+    CalculateObservation();  // Assemble observation from registered components
+    if (!mlp_net_observation_vec.allFinite()) {
+      throw std::runtime_error("Nonfinite trajectory observation");
+    }
+  } catch (const std::exception& error) {
+    LOG(ERROR) << "[WbtRunner] Invalid heading alignment or observation: " << error.what();
+    Eigen::VectorXd measured_q;
+    data_store_->joint_info.GetState(data::JointInfoType::kPosition, measured_q);
+    const int joint_count = model_param_->num_total_joints;
+    if (measured_q.size() == joint_count && measured_q.allFinite()) {
+      q_des_ = measured_q;
+    } else if (q_des_.size() != joint_count || !q_des_.allFinite()) {
+      q_des_ = Eigen::VectorXd::Zero(joint_count);
+    }
+    qd_des_ = Eigen::VectorXd::Zero(joint_count);
+    tau_ff_des_ = Eigen::VectorXd::Zero(joint_count);
+    joint_kp_cmd_ = Eigen::VectorXd::Zero(joint_count);
+    joint_kd_cmd_ = joint_kd_;
+    if (joint_kd_cmd_.size() != joint_count || !joint_kd_cmd_.allFinite() ||
+        (joint_kd_cmd_.array() < 0.0).any()) {
+      joint_kd_cmd_ = Eigen::VectorXd::Constant(joint_count, 8.0);
+    }
+    SetRunnerState(RunnerState::kFault);
+    SendMotorCommand();
+    return;
+  }
   CalculateMotorCommand();  // Run policy inference and compute target positions
   ApplyEntryTransition();    // Policy runs from cycle one; only its command is blended
   SendMotorCommand();       // Send PD commands to motors
@@ -413,18 +445,20 @@ void RlDanceExampleRunner::CalculateObservation() {
 /**
  * @brief Computes yaw alignment on the first frame.
  *
- * Extracts the yaw angle from both:
- *   - The robot's current IMU orientation (actual heading)
- *   - The reference trajectory's first-frame body orientation
- *
- * These yaw rotations are stored and used by observation functions to transform
- * reference trajectory data into the robot's local coordinate frame. This ensures
- * the dance motion starts in the direction the robot is actually facing, regardless
- * of its initial heading.
+ * Fits a pure world-Z rotation between the complete initial body orientations,
+ * including prone/supine poses where separate Euler yaw extraction is unstable.
+ * The offset stays fixed throughout playback so real turns remain observable.
  */
 void RlDanceExampleRunner::updateFirstFrameYawAlignment() {
-  // Get the robot's current orientation from IMU
-  Eigen::Matrix3d R_local = math::RotationMatrixd(data_store_->imu_info.Get()->quaternion).matrix();
+  // Use the same installation-corrected body frame as motion_anchor_ori_b.
+  const auto imu = data_store_->imu_info.Get();
+  if (!imu || !imu->quaternion.coeffs().allFinite() || imu->quaternion.norm() < 1e-8) {
+    throw std::runtime_error("Invalid measured orientation for heading alignment");
+  }
+  const Eigen::Matrix3d R_local = math::RotationMatrixd(imu->quaternion).matrix();
+  const Eigen::Matrix3d R_install =
+      math::RotationMatrixd(math::RollPitchYawd(obs_ctx_.imu_install_bias)).matrix();
+  const Eigen::Matrix3d body_rotation = R_local * R_install.transpose();
 
   // Get the reference trajectory's first-frame body orientation (quaternion: w, x, y, z)
   Eigen::Quaterniond ref_anchor_ori_quat_w(
@@ -432,13 +466,10 @@ void RlDanceExampleRunner::updateFirstFrameYawAlignment() {
       (*ref_body_quat_w_all_)(policy_step, 2), (*ref_body_quat_w_all_)(policy_step, 3));
   Eigen::Matrix3d ref_anchor_ori_rot_w = math::RotationMatrixd(ref_anchor_ori_quat_w).matrix();
 
-  // Extract yaw angles (rotation about Z-axis) from both orientations
-  double ref_yaw = std::atan2(ref_anchor_ori_rot_w(1, 0), ref_anchor_ori_rot_w(0, 0));
-  double body_yaw = std::atan2(R_local(1, 0), R_local(0, 0));
-
-  // Store pure yaw rotation matrices for coordinate frame alignment in observations
-  ref_init_yaw_rot_ = Eigen::AngleAxisd(ref_yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix();
-  body_init_yaw_rot_ = Eigen::AngleAxisd(body_yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+  // The observation evaluates body^T * body_init * ref_init^T * reference.
+  // Store the fitted offset in body_init and keep ref_init at identity.
+  ref_init_yaw_rot_ = Eigen::Matrix3d::Identity();
+  body_init_yaw_rot_ = motion_transition::AlignYaw(body_rotation, ref_anchor_ori_rot_w);
 
   // Share with the observation context so observation functions can use them
   obs_ctx_.ref_init_yaw_rot = ref_init_yaw_rot_;

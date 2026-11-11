@@ -8,6 +8,7 @@ namespace runner::supermimic {
 
 struct Reference {
   std::vector<Eigen::Matrix3d> rotations;
+  Eigen::VectorXd initial_joint_pos;
   Eigen::MatrixXf goals;
   int frames() const { return static_cast<int>(rotations.size()); }
 };

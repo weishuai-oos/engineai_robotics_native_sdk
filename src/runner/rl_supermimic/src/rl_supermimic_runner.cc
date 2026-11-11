@@ -24,6 +24,11 @@ bool FiniteVector(const Eigen::VectorXd& values, bool nonnegative = false) {
          (!nonnegative || (values.array() >= 0.0).all());
 }
 
+bool IsArmJoint(std::string_view name) {
+  return name.find("SHOULDER") != std::string_view::npos ||
+         name.find("ELBOW") != std::string_view::npos;
+}
+
 }  // namespace
 
 void RlSupermimicRunner::ValidateParameters() {
@@ -84,6 +89,14 @@ bool RlSupermimicRunner::Enter() {
     if (!param_) throw std::runtime_error("Cannot load SuperMimic parameters");
     ValidateParameters();
     BuildJointMapping();
+    entry_transition_to_reference_pose_ = param_->entry_transition_to_reference_pose.value_or(false);
+    const double pose_tolerance = param_->entry_transition_reference_pose_tolerance.value_or(0.12);
+    const int settle_cycles = param_->entry_transition_reference_pose_settle_cycles.value_or(8);
+    const double arm_stiffness_scale =
+        param_->entry_transition_reference_pose_arm_stiffness_scale.value_or(1.0);
+    if (!reference_pose_gate_.Configure(entry_transition_to_reference_pose_, pose_tolerance, settle_cycles) ||
+        !std::isfinite(arm_stiffness_scale) || arm_stiffness_scale <= 0.0)
+      throw std::runtime_error("Invalid SuperMimic reference pose entry configuration");
     const auto package = std::filesystem::path(common::GlobalPathManager::GetInstance().GetConfigPath()) /
                          std::filesystem::path(param_->GetScope()).parent_path();
     const auto asset = [&](const std::string& path) {
@@ -96,21 +109,35 @@ bool RlSupermimicRunner::Enter() {
     };
     reference_ = supermimic::LoadReference(asset(param_->reference_file));
     policy_ = std::make_unique<supermimic::FlatPolicy>(asset(param_->policy_file));
-    if (!sequence_.Configure(reference_.frames(), param_->hold_seconds, param_->control_dt))
+    const int skipped_tail = param_->skip_terminal_hold_frames.value_or(0);
+    if (!sequence_.Configure(reference_.frames(), param_->hold_seconds, param_->control_dt, skipped_tail))
       throw std::runtime_error("Invalid SuperMimic playback duration");
     const Eigen::Vector3d bias = param_->imu_install_bias.value_or(Eigen::Vector3d::Zero());
     installation_ = math::RotationMatrixd(math::RollPitchYawd(bias)).matrix();
     Eigen::Matrix3d rotation;
     Eigen::Vector3d angular_velocity;
     ReadState(&rotation, &angular_velocity);
-    yaw_alignment_ = supermimic::Yaw(rotation) * supermimic::Yaw(reference_.rotations.front()).transpose();
     previous_action_ = Eigen::VectorXd::Zero(supermimic::kActions);
+    history_.setZero();
     first_observation_ = true;
+    policy_start_pending_ = false;
+    yaw_alignment_.setIdentity();
+    if (!entry_transition_to_reference_pose_) ResetPolicy(rotation);
     live_command_.Resize(model_param_->num_total_joints);
     live_command_.q = actual_q_;
     live_command_.kp(mapping_) = param_->joint_stiffness;
     live_command_.kd(mapping_) = param_->joint_damping;
     command_ = live_command_;
+    reference_pose_command_ = live_command_;
+    reference_pose_command_.q(mapping_) = reference_.initial_joint_pos;
+    if (entry_transition_to_reference_pose_) {
+      const double damping_scale = std::sqrt(arm_stiffness_scale);
+      for (int i = 0; i < supermimic::kActions; ++i) {
+        if (!IsArmJoint(param_->joint_names[i])) continue;
+        reference_pose_command_.kp(mapping_(i)) *= arm_stiffness_scale;
+        reference_pose_command_.kd(mapping_(i)) *= damping_scale;
+      }
+    }
 
     motion_transition::EntryTransitionConfig config;
     config.enabled = param_->entry_transition_enabled.value_or(true);
@@ -119,20 +146,37 @@ bool RlSupermimicRunner::Enter() {
     config.max_duration = param_->entry_transition_max_duration.value_or(std::max(0.28, config.nominal_duration));
     config.max_joint_velocity = param_->entry_transition_max_joint_velocity.value_or(8.0);
     config.max_joint_acceleration = param_->entry_transition_max_joint_acceleration.value_or(120.0);
-    // The reference can include a raised leg: blend the live policy output,
-    // without adding a separate PD transition to the reference joint pose.
-    config.reference_pose_weight = 0.0;
+    // Ordinary punches can start with a raised leg and keep their live-policy
+    // bridge.  Recovery entry starts at the measured pose and targets frame zero.
+    config.reference_pose_weight = entry_transition_to_reference_pose_
+        ? param_->entry_transition_reference_pose_weight.value_or(0.35) : 0.0;
     config.source_command_tracking_error = param_->entry_transition_source_tracking_error.value_or(0.75);
     motion_transition::JointCommand source;
     motion_transition::CaptureJointCommand(data_store_->joint_info, model_param_->num_total_joints, &source);
-    if (!transition_.Configure(config) || !transition_.Start(source, actual_q_, actual_qd_, live_command_))
+    if (entry_transition_to_reference_pose_) {
+      source = reference_pose_command_;
+      source.q = actual_q_;
+      source.qd = actual_qd_;
+    }
+    const auto& fallback = entry_transition_to_reference_pose_ ? reference_pose_command_ : live_command_;
+    if (!transition_.Configure(config) || !transition_.Start(source, actual_q_, actual_qd_, fallback))
       throw std::runtime_error("Cannot initialize SuperMimic entry bridge");
+    reference_pose_log_elapsed_ = 0.0;
+    reference_pose_log_pending_ = true;
     GetMutableOutput().Reset();
     SetRunnerState(RunnerState::kRunning);
     LOG(INFO) << "[SuperMimic] Enter tag=" << param_->GetTag() << ", frames=" << reference_.frames()
+              << ", playback_frames=" << reference_.frames() - skipped_tail
+              << ", skip_terminal_hold_frames=" << skipped_tail
               << ", hold_seconds=" << param_->hold_seconds << ", input=1520, actions=25, bridge="
               << (transition_.IsActive() ? "active" : "disabled");
-    if (!transition_.IsActive()) LOG(INFO) << "[SuperMimic] Starting policy at frame 0";
+    if (entry_transition_to_reference_pose_) {
+      LOG(INFO) << "[SuperMimic] Preparing reference frame 0 with PD; tolerance=" << pose_tolerance
+                << " rad, settle_cycles=" << settle_cycles
+                << ", arm_stiffness_scale=" << arm_stiffness_scale;
+    } else if (!transition_.IsActive()) {
+      LOG(INFO) << "[SuperMimic] Starting policy at frame 0";
+    }
     return true;
   } catch (const std::exception& error) {
     LOG(ERROR) << "[SuperMimic] Enter failed: " << error.what();
@@ -142,12 +186,54 @@ bool RlSupermimicRunner::Enter() {
   }
 }
 
+void RlSupermimicRunner::ResetPolicy(const Eigen::Matrix3d& rotation) {
+  sequence_.Reset();
+  previous_action_.setZero();
+  history_.setZero();
+  first_observation_ = true;
+  yaw_alignment_ = supermimic::AlignYaw(rotation, reference_.rotations.front());
+}
+
+void RlSupermimicRunner::RunReferencePoseEntry() {
+  const bool bridging = transition_.IsActive();
+  if (!transition_.Apply(reference_pose_command_, reference_pose_command_.q, actual_q_,
+                         param_->control_dt, &command_))
+    throw std::runtime_error("Reference pose entry bridge failed");
+  SendCommand();
+  const double max_error =
+      (actual_q_(mapping_) - reference_.initial_joint_pos).cwiseAbs().maxCoeff();
+  reference_pose_gate_.Observe(bridging, max_error);
+  reference_pose_log_elapsed_ += param_->control_dt;
+  if (reference_pose_log_pending_ || reference_pose_log_elapsed_ >= 0.5) {
+    reference_pose_log_pending_ = false;
+    reference_pose_log_elapsed_ = 0.0;
+    LOG(INFO) << "[SuperMimic ReferencePoseTracking] phase=" << (bridging ? "bridge" : "settle")
+              << ", max_measured_error=" << max_error
+              << " rad, settle_cycles=" << reference_pose_gate_.settle_cycles()
+              << "/" << reference_pose_gate_.settle_cycles_required();
+  }
+  if (!reference_pose_gate_.IsActive()) {
+    policy_start_pending_ = true;
+    LOG(INFO) << "[SuperMimic] Reference pose reached; starting policy at frame 0 next cycle";
+  }
+}
+
 void RlSupermimicRunner::Run() {
   try {
     if (GetRunnerState() != RunnerState::kRunning) { SendCommand(); return; }
     Eigen::Matrix3d rotation;
     Eigen::Vector3d angular_velocity;
     ReadState(&rotation, &angular_velocity);
+    // Match the WBT recovery entry: do not infer, fill history, align heading,
+    // or consume reference frames until the measured first pose has settled.
+    if (entry_transition_to_reference_pose_ && reference_pose_gate_.IsActive()) {
+      RunReferencePoseEntry();
+      return;
+    }
+    if (policy_start_pending_) {
+      ResetPolicy(rotation);
+      policy_start_pending_ = false;
+    }
     const int frame = sequence_.frame();
     const auto observation = supermimic::BuildObservation(
         actual_q_(mapping_), actual_qd_(mapping_), rotation, angular_velocity,
@@ -165,10 +251,7 @@ void RlSupermimicRunner::Run() {
     SendCommand();
     if (bridging) {
       if (!transition_.IsActive()) {
-        sequence_.Reset();
-        previous_action_.setZero();
-        first_observation_ = true;
-        yaw_alignment_ = supermimic::Yaw(rotation) * supermimic::Yaw(reference_.rotations.front()).transpose();
+        ResetPolicy(rotation);
         LOG(INFO) << "[SuperMimic] Entry bridge completed; starting policy at frame 0";
       }
     } else {

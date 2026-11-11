@@ -23,13 +23,24 @@ ARCHIVED_DIRS = {
     "rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500",
     "rl_prone_to_stance_hybrid_9825_m29500",
     "rl_walking_leolab_example",
+    "rl_supermimic_zq_right_high_kick_20261102_j13551_m184000",
 }
 TAUNT_BACKUP_PACKAGES = {
     "rl_supermimic_zq_come_here_02_j13904_1_m36000",
     "rl_supermimic_zq_come_here_03_j13904_2_m38000",
 }
 COMBINED_WALKING_PROFILE = "rl_walking_leolab_ankle_combined_v2_140000"
+IMPACT_WALKING_PROFILE = "rl_walking_leolab_impact_v2_154500"
 PRONE_PACKAGE = "rl_supermimic_prone_j12768_m22000"
+RECOVERY_ENTRY_KEYS = {
+    "entry_transition_enabled", "entry_transition_duration",
+    "entry_transition_min_duration", "entry_transition_max_duration",
+    "entry_transition_max_joint_velocity", "entry_transition_max_joint_acceleration",
+    "entry_transition_reference_pose_weight", "entry_transition_source_tracking_error",
+    "entry_transition_to_reference_pose", "entry_transition_reference_pose_tolerance",
+    "entry_transition_reference_pose_settle_cycles",
+    "entry_transition_reference_pose_arm_stiffness_scale",
+}
 SUPER_MOTIONS = {
     "supermimic_come_here": (
         "rl_supermimic_come_here", "B", "rl_supermimic_zq_come_here_01_j13904_0_m36000"),
@@ -38,7 +49,7 @@ SUPER_MOTIONS = {
     "supermimic_pull_hammer": (
         "rl_supermimic_pull_hammer", "X", "rl_supermimic_zq_pull_hammer_20261102_j13551_m182000"),
     "supermimic_right_high_kick": (
-        "rl_supermimic_right_high_kick", "A", "rl_supermimic_zq_right_high_kick_20261102_j13551_m184000"),
+        "rl_supermimic_right_high_kick", "A", "rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000"),
 }
 SUPER_PACKAGES = {directory for _, _, directory in SUPER_MOTIONS.values()} | {PRONE_PACKAGE}
 
@@ -99,9 +110,14 @@ RUNTIME_PACKAGES = {
             "policies/policy.mnn": "ef63eee96609f6080de4fa4d6509d9a1668f4144682c7b8a53ab9b4143672874",
             "trajectories/supermimic_reference.npz": "8ffda8a171e728c04de6adcf454c5afcee9a37d909a9d65cba76fd21f7fcae2d",
         }),
-    "rl_supermimic_zq_right_high_kick_20261102_j13551_m184000": (
+    "old/rl_supermimic_zq_right_high_kick_20261102_j13551_m184000": (
         "65c9d51f425a46fc149b577ef0dc9357bb6da219d1d21b8e78b55d396c089610", {
             "policies/policy.mnn": "98183bed912505954a5664d72b0af4f99d9956ef893ae20bc8b3f50f55cbb182",
+            "trajectories/supermimic_reference.npz": "64598ce4d55b4e94a5554ccfda8cf3e2a64c931c80b9c1ef0fc73f6356bb9c28",
+        }),
+    "rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000": (
+        "3e17ca18d733f232041a0bc122c33ed7ee7fed97b66fd3781b72ed68a387fded", {
+            "policies/policy.mnn": "ac6ca413de2c9bb335fda54c38cf0cbe7a04947b66c7c02d1a3f7ea6b9f42d6c",
             "trajectories/supermimic_reference.npz": "64598ce4d55b4e94a5554ccfda8cf3e2a64c931c80b9c1ef0fc73f6356bb9c28",
         }),
     "rl_supine_to_stance_v1_hybrid_9843_m13000": (
@@ -119,7 +135,7 @@ RUNTIME_PACKAGES = {
 # They cover the other fourteen motions after replacing the prone recovery too.
 PRESERVED_MOTIONS = {
     "walk": (0.01, ["LB", "B"], "rl_walking_example_runner", "rl_walking_example"),
-    "walk_custom": (0.01, ["LB", "Y"], "rl_walking_custom_example_runner", "rl_walking_custom_example"),
+    "walk_impact": (0.02, ["LB", "Y"], "rl_walking_leolab_example_runner", "rl_walking_leolab_impact_v2"),
     "walk_leo": (0.02, ["LB", "A"], "rl_walking_leolab_example_runner", "rl_walking_leolab_example"),
     "leo_taunt": (0.02, ["CROSS_Y_LEFT", "CROSS_Y_RIGHT", "B"],
                   "rl_walking_leolab_example_runner", "rl_walking_leolab_taunt"),
@@ -162,7 +178,7 @@ PRESERVED_SIM_SCOPES = {
     "rl_supine_to_stance": "rl_supine_to_stance_v1_hybrid_9843_m13000/default",
     "rl_prone_to_stance": PRONE_PACKAGE + "/default",
     "rl_stance_to_supine": "rl_stance_to_supine/default",
-    "rl_walking_custom_example": "rl_walking_custom_example/default",
+    "rl_walking_leolab_impact_v2": IMPACT_WALKING_PROFILE + "/default",
     "rl_walking_leolab_example": COMBINED_WALKING_PROFILE + "/default",
     "rl_walking_leolab_taunt": "rl_walking_leolab_taunt/default",
     "rl_walking_leolab_terrain_example": "rl_walking_leolab_terrain_example/default",
@@ -226,7 +242,7 @@ class T800ActionBaselineTest(unittest.TestCase):
 
     def test_fourteen_other_motions_keep_keys_runners_tags_and_periods(self):
         self.assertEqual(len(PRESERVED_MOTIONS), 14)
-        walking = ["walk", "walk_custom", "walk_leo", "walk_leo_terrain"]
+        walking = ["walk", "walk_impact", "walk_leo", "walk_leo_terrain"]
         returns = ["passive", "pd_stand"] + walking
         strikes = ["rl_left_front_kick_002_complete_heightfall", "rl_roundhouse_kick",
                    "rl_straight_punch_L_improved", "rl_left_hook_001_improved", "rl_punch_example"]
@@ -299,6 +315,27 @@ class T800ActionBaselineTest(unittest.TestCase):
         self.assertTrue(terrain_policy.is_file())
         self.assertEqual(file_sha256(taunt_policy), file_sha256(terrain_policy))
 
+    def test_impact_walking_profile_replaces_lb_y_with_combined_control_contract(self):
+        impact = load_yaml(CONFIG_ROOT / IMPACT_WALKING_PROFILE / "default.yaml")
+        combined = load_yaml(CONFIG_ROOT / COMBINED_WALKING_PROFILE / "default.yaml")
+        self.assertNotIn("walk_custom", self.tasks)
+        task = self.tasks["walk_impact"]
+        self.assertEqual(task["key"], ["LB", "Y"])
+        self.assertEqual(task["period"], 0.02)
+        self.assertEqual(task["runner"], [{"name": "rl_walking_leolab_example_runner",
+                                         "enabled": True, "param_tag": "rl_walking_leolab_impact_v2"}])
+        self.assertEqual(impact["policy_file"], IMPACT_WALKING_PROFILE + "/policies/boxing_policy.mnn")
+        self.assertEqual(impact["num_observations"], 84)
+        self.assertEqual(impact["num_actions"], 25)
+        self.assertTrue(impact["policy_recurrent"])
+        self.assertEqual(impact["default_joint_pos"][-2:], [0.052337, 0.621251])
+        for index in (4, 5, 10, 11):
+            self.assertEqual(impact["joint_stiffness"][index], 40)
+            self.assertEqual(impact["joint_damping"][index], 2.0)
+        for key in combined:
+            if key != "policy_file":
+                self.assertEqual(impact[key], combined[key], key)
+
 
 class T800SuperMimicMigrationTest(unittest.TestCase):
     @classmethod
@@ -328,7 +365,7 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
 
     def test_four_new_keys_are_reachable_from_every_former_entry_state(self):
         entry_states = {"pd_stand", "pd_stand_x", "pd_stand_y", "walk",
-                        "walk_custom", "walk_leo", "walk_leo_terrain"}
+                        "walk_impact", "walk_leo", "walk_leo_terrain"}
         for motion, (tag, button, directory) in SUPER_MOTIONS.items():
             with self.subTest(motion=motion):
                 task = self.tasks[motion]
@@ -338,7 +375,7 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                     {"name": "rl_supermimic_runner", "enabled": True, "param_tag": tag}])
                 self.assertEqual(task["auto_transition"], "walk_leo")
                 self.assertEqual(task["manual_transition"],
-                                 ["passive", "pd_stand", "walk", "walk_custom", "walk_leo", "walk_leo_terrain"])
+                                 ["passive", "pd_stand", "walk", "walk_impact", "walk_leo", "walk_leo_terrain"])
                 for source in entry_states:
                     self.assertIn(motion, self.tasks[source]["manual_transition"], source)
                 for entries in self.mode["mode"].values():
@@ -355,7 +392,12 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                                   for path in package.rglob("*") if path.is_file()},
                                  {"default.yaml"} | set(assets))
                 config = load_yaml(package / "default.yaml")
-                serialized = json.dumps(config, sort_keys=True, separators=(",", ":"))
+                # Prone preparation now matches supine; the original export,
+                # policy gains, reference and playback settings stay intact.
+                preserved_config = ({key: value for key, value in config.items()
+                                     if key not in RECOVERY_ENTRY_KEYS}
+                                    if directory == PRONE_PACKAGE else config)
+                serialized = json.dumps(preserved_config, sort_keys=True, separators=(",", ":"))
                 self.assertEqual(hashlib.sha256(serialized.encode()).hexdigest(), expected_config)
                 for name, expected in assets.items():
                     self.assertEqual(file_sha256(package / name), expected, name)
@@ -366,6 +408,26 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                         self.assertTrue((asset_root / config[key]).is_file(), config[key])
                 if directory in SUPER_PACKAGES:
                     self.assertEqual(config["hold_seconds"], 0.0)
+
+    def test_prone_and_supine_share_pd_preparation_and_settle_conditions(self):
+        prone = load_yaml(CONFIG_ROOT / PRONE_PACKAGE / "default.yaml")
+        supine = load_yaml(CONFIG_ROOT / "rl_supine_to_stance_v1_hybrid_9843_m13000/default.yaml")
+        for key in RECOVERY_ENTRY_KEYS:
+            with self.subTest(parameter=key):
+                self.assertIn(key, prone)
+                self.assertEqual(prone[key], supine[key])
+        self.assertTrue(prone["entry_transition_to_reference_pose"])
+        self.assertEqual(prone["entry_transition_reference_pose_tolerance"], 0.80)
+        self.assertEqual(prone["entry_transition_reference_pose_settle_cycles"], 5)
+        self.assertEqual(prone["control_dt"] *
+                         prone["entry_transition_reference_pose_settle_cycles"], 0.10)
+        self.assertEqual(prone["hold_seconds"], 0)
+
+    def test_formal_strikes_keep_live_policy_entry(self):
+        for directory in SUPER_PACKAGES - {PRONE_PACKAGE}:
+            with self.subTest(package=directory):
+                config = load_yaml(CONFIG_ROOT / directory / "default.yaml")
+                self.assertFalse(config.get("entry_transition_to_reference_pose", False))
 
     def test_prone_replacement_preserves_controls_transitions_and_other_recoveries(self):
         self.assertEqual(self.tasks["prone_to_stance"], {
@@ -386,8 +448,8 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                 self.assertEqual(scopes["rl_prone_to_stance"], PRONE_PACKAGE + "/default")
         recovery_transitions = {
             "supine_to_stance": (["passive", "pd_stand", "walk_leo"], "walk_leo"),
-            "getup": (["passive", "pd_stand", "walk", "walk_custom", "walk_leo", "walk_leo_terrain"], "walk_leo"),
-            "getup2": (["passive", "pd_stand", "walk", "walk_custom", "walk_leo", "walk_leo_terrain"], "walk_leo"),
+            "getup": (["passive", "pd_stand", "walk", "walk_impact", "walk_leo", "walk_leo_terrain"], "walk_leo"),
+            "getup2": (["passive", "pd_stand", "walk", "walk_impact", "walk_leo", "walk_leo_terrain"], "walk_leo"),
             "stance_to_supine": (["passive", "pd_stand"], "passive"),
         }
         for motion, (manual, automatic) in recovery_transitions.items():

@@ -25,6 +25,12 @@ import xml.etree.ElementTree as ET
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in (None, ""):
+    # run_duel.sh also supports executing this file directly.
+    sys.path.insert(0, str(REPO_ROOT))
+from tools.duel_sim.numbered_actions import configure_numbered_actions
+
+
 ROBOT_PREFIXES = ("robot_a/", "robot_b/")
 DISPLAY_ENV_KEYS = {
     "ENGINEAI_ROBOTICS_DIR", "ENGINEAI_ROBOTICS_ASSETS", "ENGINEAI_ROBOTICS_CONFIG",
@@ -139,6 +145,16 @@ def copy_config_file(source: str, destination: str) -> None:
         Path(destination).symlink_to(source_path.resolve())
 
 
+def copy_assets_config(assets: Path, destination: Path) -> Path:
+    """Copy writable YAML and link immutable assets without copying policies."""
+    shutil.copytree(assets / "config/t800", destination / "config/t800",
+                    symlinks=True, copy_function=copy_config_file)
+    for child in assets.iterdir():
+        if child.name != "config":
+            (destination / child.name).symlink_to(child, target_is_directory=child.is_dir())
+    return destination
+
+
 def replace_config(source: Path, destination: Path, transform) -> None:
     destination.write_text(transform(source.read_text()), encoding="utf-8")
 
@@ -186,10 +202,7 @@ def create_overlay(assets: Path, destination: Path, name: str, port: int, log_di
     if (config / "mode.yaml").is_symlink():
         raise ValueError("mode.yaml must be a real file")
     # Keep compatibility links as links: the SDK skips symlinked YAML/scopes.
-    shutil.copytree(config, target, symlinks=True, copy_function=copy_config_file)
-    for child in assets.iterdir():
-        if child.name != "config":
-            (destination / child.name).symlink_to(child, target_is_directory=child.is_dir())
+    copy_assets_config(assets, destination)
     mode = config.joinpath("mode.yaml").read_text()
     mode, count = re.subn(r"(?m)^active_mode:\s*\S+\s*$", "active_mode: sim", mode, count=1)
     if count != 1:
@@ -232,13 +245,19 @@ def child_environment(repo: Path, assets: Path, log_dir: Path) -> dict[str, str]
     return env
 
 
-def virtual_gamepad_plan(repo: Path, log_dir: Path, url: str) -> dict:
-    process_logs = log_dir / "virtual_gamepad"
+def virtual_gamepad_plan(repo: Path, log_dir: Path, url: str, catalog: Path | None = None,
+                         *, name: str = "virtual_gamepad", title: str | None = None) -> dict:
+    process_logs = log_dir / name
     process_logs.mkdir(parents=True, exist_ok=True)
+    command = [sys.executable, "-B", str(repo / "tools/virtual_gamepad/virtual_gamepad.py")]
+    if title is not None:
+        command.extend(("--window-title", title))
+    if catalog is not None:
+        command.extend(("--test-catalog", str(catalog)))
+    command.extend(("--lcm-url", url, "--connect"))
     return {
-        "name": "virtual_gamepad",
-        "command": [sys.executable, str(repo / "tools/virtual_gamepad/virtual_gamepad.py"),
-                    "--lcm-url", url, "--connect"],
+        "name": name,
+        "command": command,
         "env": os.environ.copy(),
         "log": process_logs / "console.log",
     }
@@ -250,17 +269,20 @@ def build_session(args, runtime: Path, log_dir: Path) -> list[dict]:
     scene = generate_scene(assets, runtime / "t800_duel.xml", args.separation)
     plans = []
     overlays = []
+    catalog = None
     for index, (name, port, device) in enumerate(zip(
         ("robot_a", "robot_b"), (args.port_a, args.port_b), (args.gamepad_a, args.gamepad_b)
     )):
         process_logs = log_dir / name
         process_logs.mkdir(parents=True, exist_ok=True)
         overlay = create_overlay(assets, runtime / name / "assets", name, port, process_logs)
+        if args.virtual_gamepad and index == 0:
+            catalog = configure_numbered_actions(overlay / "config/t800")
         overlays.append(overlay)
         if not args.no_controllers:
             env = child_environment(repo, overlay, process_logs)
             env.update(ENGINEAI_GAMEPAD_DEVICE=device, ROS_DOMAIN_ID=str(args.ros_domain_a + index))
-            if args.virtual_gamepad and index == 0:
+            if args.virtual_gamepad and (index == 0 or args.virtual_gamepads):
                 env["ENGINEAI_INPUT_SOURCE"] = "virtual"
                 env.pop("ENGINEAI_GAMEPAD_DEVICE", None)
             plans.append({"name": name, "command": [str(args.executor.resolve()), "t800"],
@@ -278,7 +300,13 @@ def build_session(args, runtime: Path, log_dir: Path) -> list[dict]:
     plans.insert(0, {"name": "simulation", "command": command, "env": env,
                      "log": sim_logs / "console.log"})
     if args.virtual_gamepad:
-        plans.append(virtual_gamepad_plan(repo, log_dir, f"udpm://239.255.76.67:{args.port_a}?ttl=0"))
+        plans.append(virtual_gamepad_plan(
+            repo, log_dir, f"udpm://239.255.76.67:{args.port_a}?ttl=0", catalog,
+            title="Virtual Gamepad - Robot A"))
+    if args.virtual_gamepads:
+        plans.append(virtual_gamepad_plan(
+            repo, log_dir, f"udpm://239.255.76.67:{args.port_b}?ttl=0",
+            name="virtual_gamepad_b", title="Virtual Gamepad - Robot B"))
     return plans
 
 
@@ -346,6 +374,8 @@ def parse_args(argv=None):
     parser.add_argument("--gamepad-b", default="/dev/input/js1")
     parser.add_argument("--virtual-gamepad", action="store_true",
                         help="open a virtual gamepad for robot A; robot B's physical gamepad is optional")
+    parser.add_argument("--virtual-gamepads", action="store_true",
+                        help="open separate virtual gamepads for robots A and B; no physical devices required")
     parser.add_argument("--port-a", type=int, default=17667)
     parser.add_argument("--port-b", type=int, default=17668)
     parser.add_argument("--ros-domain-a", type=int, default=70,
@@ -361,6 +391,8 @@ def parse_args(argv=None):
     parser.add_argument("--log-dir", type=Path, help="persistent process logs (default: a new /tmp/engineai-duel-logs-* directory)")
     parser.add_argument("--keep-runtime", action="store_true", help="retain generated scene/config after exit for inspection")
     args = parser.parse_args(argv)
+    if args.virtual_gamepads:
+        args.virtual_gamepad = True
     if not all(1024 <= port <= 65535 for port in (args.port_a, args.port_b)) or args.port_a == args.port_b:
         parser.error("ports must be distinct numbers between 1024 and 65535")
     if not 0 <= args.ros_domain_a <= 231:
@@ -404,7 +436,9 @@ def main(argv=None) -> int:
                 if not Path(device).exists() or not os.access(device, os.R_OK):
                     raise ValueError(f"Gamepad is missing or unreadable: {device}")
         print(f"[INFO] Process logs: {log_dir}", flush=True)
-        if args.virtual_gamepad:
+        if args.virtual_gamepads:
+            print("[INFO] Separate virtual gamepads control robots A and B. Press F5/Enable in each window to send input.", flush=True)
+        elif args.virtual_gamepad:
             print("[INFO] Virtual gamepad controls robot A only. Press F5/Enable in its window to send input.", flush=True)
             if not Path(args.gamepad_b).exists() or not os.access(args.gamepad_b, os.R_OK):
                 print(f"[INFO] Robot B has no readable gamepad ({args.gamepad_b}); it stays in its initial control state.", flush=True)

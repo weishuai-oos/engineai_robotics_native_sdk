@@ -97,6 +97,8 @@ class VirtualGamepadWidget(QWidget):
         self.gamepad_keys = GamepadKeys()
         self.is_sending = False
         self.should_send_macro_count = 0
+        self.neutral_macro_frames = 0
+        self.marcro_button_combination = ()
         # set keyboard shortcuts
         self.shortcuts = {
             'A': Qt.Key.Key_J,
@@ -142,7 +144,7 @@ class VirtualGamepadWidget(QWidget):
             "pd_stand_y: [LT, Y]": ("LT", "Y"),
             "passive: [LB, RB]": ("LB", "RB"),
             "walk: [LB, B]": ("LB", "B"),
-            "walk_custom: [LB, Y]": ("LB", "Y"),
+            "walk_impact: [LB, Y]": ("LB", "Y"),
             "walk_leo: [LB, A]": ("LB", "A"),
             "walk_leo_terrain: [LB, X]": ("LB", "X"),
             "leo_taunt: [LT, B]": ("LT", "B"),
@@ -436,6 +438,9 @@ class VirtualGamepadWidget(QWidget):
             current_row_layout.addStretch()
 
     def on_lcm_status_changed(self, connected):
+        # A command belongs to one connection only. Reconnecting must never
+        # replay a queued action or a held walking command.
+        self.discard_pending_inputs()
         if connected:
             self.status_light.set_active(self.is_sending)
         else:
@@ -531,6 +536,8 @@ class VirtualGamepadWidget(QWidget):
     def discard_pending_inputs(self):
         self.gamepad_keys = GamepadKeys()
         self.should_send_macro_count = 0
+        self.neutral_macro_frames = 0
+        self.marcro_button_combination = ()
         self.shortcut_states = {name: False for name in self.shortcuts}
         self.keyboard_motion_states = {
             key: False for key in self.keyboard_motion_keys
@@ -650,11 +657,25 @@ class VirtualGamepadWidget(QWidget):
             self.button_state_changed(index, pressed)
 
     def handle_macro_button_pressed(self, clicked, macro_button: MacroButton):
-        if not self.is_sending:
-            return
-        MACRO_BUTTON_SENDING_COUNT = 10
-        self.should_send_macro_count = MACRO_BUTTON_SENDING_COUNT
-        self.marcro_button_combination = macro_button.button_combination
+        self.send_macro(macro_button.button_combination, reset_inputs=False)
+
+    def send_macro(self, combination, reset_inputs=True):
+        """Queue one existing gamepad macro, with fresh centered input."""
+        if not self.is_sending or not LcmManager().is_connected():
+            return False
+        if any(name not in self.button_map and name not in ("LT", "RT")
+               for name in combination):
+            return False
+        if reset_inputs:
+            self.discard_pending_inputs()
+        self.marcro_button_combination = tuple(combination)
+        self.should_send_macro_count = 10
+        # State-machine commands are edge-triggered. Release an earlier key
+        # before replaying it; passive remains immediately available.
+        self.neutral_macro_frames = (
+            0 if not reset_inputs or set(combination) == {"LB", "RB"} else 1
+        )
+        return True
 
     def button_state_changed(self, index, pressed):
         if not self.is_sending:
@@ -672,10 +693,14 @@ class VirtualGamepadWidget(QWidget):
 
         lcm_handle = LcmManager().lcm_handle
         if not lcm_handle:
+            self.discard_pending_inputs()
             self.status_light.set_active(False)
             return
 
-        if self.should_send_macro_count > 0:
+        if self.neutral_macro_frames > 0:
+            self.neutral_macro_frames -= 1
+            gamepad_keys = GamepadKeys()
+        elif self.should_send_macro_count > 0:
             self.should_send_macro_count -= 1
             # Create a fresh gamepad state for macro button playback.
             gamepad_keys = self.convert_button_combination_to_gamepad_keys(
@@ -695,6 +720,9 @@ class VirtualGamepadWidget(QWidget):
             self.status_light.set_blink_color(QColor("orange"))
 
     def closeEvent(self, event):
+        self.timer.stop()
+        self.discard_pending_inputs()
+        self.is_sending = False
         if self._application is not None:
             self._application.removeEventFilter(self)
         LcmManager().remove_connection_listener(self.on_lcm_status_changed)

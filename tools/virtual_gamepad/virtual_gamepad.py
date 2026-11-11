@@ -8,14 +8,17 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication, QMainWindow, QTabWidget, QVBoxLayout, QWidget
 from ui.lcm_manager_widget import LcmManagerWidget
 from ui.virtual_gamepad_widget import VirtualGamepadWidget
+from ui.numbered_actions_widget import NumberedActionsWidget
 
 
 class VirtualGamepadWindow(QMainWindow):
-    def __init__(self, lcm_url=None, auto_connect=False):
+    def __init__(self, lcm_url=None, auto_connect=False, test_catalog=None,
+                 window_title="Virtual Gamepad"):
         super().__init__()
-        self.setWindowTitle("Virtual Gamepad")
+        self.setWindowTitle(window_title)
         self.lcm_url = lcm_url
         self.auto_connect = auto_connect
+        self.test_catalog = test_catalog
 
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -24,7 +27,6 @@ class VirtualGamepadWindow(QMainWindow):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle("Virtual Gamepad")
         current_directory = os.path.dirname(os.path.abspath(__file__))
         self.setWindowIcon(
             QIcon(os.path.join(current_directory, 'assets/logo.jpg')))
@@ -39,6 +41,10 @@ class VirtualGamepadWindow(QMainWindow):
 
         self.gamepad_simulator = VirtualGamepadWidget()
         self.tab_widget.addTab(self.gamepad_simulator, "Virtual Gamepad")
+        # Keep F5 available while the original gamepad tab is hidden.
+        self.gamepad_simulator.lcm_enabled_shortcut.setParent(self)
+        self.numbered_actions = NumberedActionsWidget(self.gamepad_simulator, self.test_catalog)
+        self.tab_widget.addTab(self.numbered_actions, "策略测试")
 
         self.main_layout.addWidget(self.tab_widget)
 
@@ -46,6 +52,12 @@ class VirtualGamepadWindow(QMainWindow):
             # Let Qt finish constructing/showing the window before displaying
             # a possible connection error dialog from the existing widget.
             QTimer.singleShot(0, self.lcm_manager.toggle_connection)
+
+    def closeEvent(self, event):
+        self.numbered_actions.close()
+        self.gamepad_simulator.close()
+        self.lcm_manager.close()
+        super().closeEvent(event)
 
 
 def signal_handler(signal, frame):
@@ -59,6 +71,15 @@ def parse_args(argv=None):
         "--lcm-url",
         default="udpm://239.255.76.67:7667?ttl=0",
         help="LCM URL used by the virtual gamepad publisher",
+    )
+    parser.add_argument(
+        "--window-title",
+        default="Virtual Gamepad",
+        help="window title identifying the controlled robot",
+    )
+    parser.add_argument(
+        "--test-catalog",
+        help="numbered policy catalog registered by the simulation launcher",
     )
     parser.add_argument(
         "--connect",
@@ -77,6 +98,8 @@ if __name__ == "__main__":
     window = VirtualGamepadWindow(
         lcm_url=virtual_args.lcm_url,
         auto_connect=virtual_args.connect,
+        test_catalog=virtual_args.test_catalog,
+        window_title=virtual_args.window_title,
     )
     window.show()
     if sys.platform != "win32":

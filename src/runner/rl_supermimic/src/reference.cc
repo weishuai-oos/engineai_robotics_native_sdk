@@ -115,6 +115,8 @@ Reference LoadReference(const std::string& path) {
     ValidateArray(found->second, shape, name);
   }
   Reference reference;
+  reference.initial_joint_pos = Eigen::Map<const Eigen::VectorXf>(
+      arrays.at("joint_pos").data<float>(), kActions).cast<double>();
   reference.rotations.reserve(frames);
   const float* rotations = arrays.at("root_rotation").data<float>();
   const float* quaternions = arrays.at("root_quat").data<float>();

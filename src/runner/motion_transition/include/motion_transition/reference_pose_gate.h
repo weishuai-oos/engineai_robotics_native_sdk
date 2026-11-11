@@ -4,7 +4,7 @@
 
 namespace runner {
 
-// Small, deterministic gate used while a trajectory runner brings the robot to
+// Small, deterministic gate used while a motion runner brings the robot to
 // the trajectory's frame-zero pose.  It deliberately has no timeout: a policy
 // must not start until the measured pose has settled for the configured number
 // of consecutive cycles.

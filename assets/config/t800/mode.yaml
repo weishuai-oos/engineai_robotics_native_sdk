@@ -55,8 +55,8 @@ mode:
       scope: rl_stance_to_supine/default
     - tag: rl_supermimic_come_here
       scope: rl_supermimic_zq_come_here_01_j13904_0_m36000/default
-    - tag: rl_walking_custom_example
-      scope: rl_walking_custom_example/default
+    - tag: rl_walking_leolab_impact_v2
+      scope: rl_walking_leolab_impact_v2_154500/default
     - tag: rl_walking_leolab_example
       scope: rl_walking_leolab_ankle_combined_v2_140000/default
     - tag: rl_walking_leolab_taunt
@@ -70,7 +70,7 @@ mode:
     - tag: rl_supermimic_pull_hammer
       scope: rl_supermimic_zq_pull_hammer_20261102_j13551_m182000/default
     - tag: rl_supermimic_right_high_kick
-      scope: rl_supermimic_zq_right_high_kick_20261102_j13551_m184000/default
+      scope: rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
     - tag: rl_left_front_kick_002_complete_heightfall
@@ -127,8 +127,8 @@ mode:
       scope: rl_stance_to_supine/default
     - tag: rl_supermimic_come_here
       scope: rl_supermimic_zq_come_here_01_j13904_0_m36000/default
-    - tag: rl_walking_custom_example
-      scope: rl_walking_custom_example/default
+    - tag: rl_walking_leolab_impact_v2
+      scope: rl_walking_leolab_impact_v2_154500/default
     - tag: rl_walking_leolab_example
       scope: rl_walking_leolab_ankle_combined_v2_140000/default
     - tag: rl_walking_leolab_taunt
@@ -142,7 +142,7 @@ mode:
     - tag: rl_supermimic_pull_hammer
       scope: rl_supermimic_zq_pull_hammer_20261102_j13551_m182000/default
     - tag: rl_supermimic_right_high_kick
-      scope: rl_supermimic_zq_right_high_kick_20261102_j13551_m184000/default
+      scope: rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
     - tag: rl_left_front_kick_002_complete_heightfall
