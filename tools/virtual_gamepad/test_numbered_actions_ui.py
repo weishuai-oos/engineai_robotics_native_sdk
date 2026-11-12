@@ -1,5 +1,7 @@
 """Offscreen regressions; run with python3 -B -m unittest discover -s tools/virtual_gamepad."""
 
+from contextlib import redirect_stderr
+import io
 import json
 import os
 from pathlib import Path
@@ -8,11 +10,13 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont, QFontDatabase, QFontMetrics
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
@@ -20,7 +24,7 @@ from core.lcm_manager import LcmManager
 from lcm_msgs.data import GamepadKeys
 from ui.numbered_actions_widget import NumberedActionsWidget
 from ui.virtual_gamepad_widget import VirtualGamepadWidget
-from virtual_gamepad import VirtualGamepadWindow, parse_args
+from virtual_gamepad import VirtualGamepadWindow, configure_chinese_font, parse_args
 
 
 def state_payload(name):
@@ -54,6 +58,44 @@ class FakeLcm:
             if selected == channel:
                 callback(channel, payload)
         return 1
+
+
+class ChineseFontTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def setUp(self):
+        self.original_font = QFont(self.app.font())
+        self.addCleanup(self.app.setFont, self.original_font)
+
+    def test_missing_font_explains_repair_in_readable_english(self):
+        output = io.StringIO()
+        with patch("virtual_gamepad.QFontDatabase") as database, redirect_stderr(output):
+            database.families.return_value = []
+            self.assertFalse(configure_chinese_font(self.app))
+        self.assertIn("Chinese font missing", output.getvalue())
+        self.assertIn("fonts-noto-cjk", output.getvalue())
+        self.assertTrue(output.getvalue().isascii())
+        self.assertEqual(self.app.font(), self.original_font)
+
+    def test_preferred_chinese_font_preserves_existing_size_and_fallback(self):
+        with patch("virtual_gamepad.QFontDatabase") as database:
+            database.families.return_value = ["Droid Sans Fallback", "Noto Sans CJK SC"]
+            self.assertTrue(configure_chinese_font(self.app))
+        self.assertEqual(self.app.font().families()[0], "Noto Sans CJK SC")
+        self.assertEqual(self.app.font().pointSizeF(), self.original_font.pointSizeF())
+        self.assertTrue(set(self.original_font.families()).issubset(self.app.font().families()))
+
+    def test_available_font_renders_test_page_and_current_action_names(self):
+        families = QFontDatabase.families(QFontDatabase.WritingSystem.SimplifiedChinese)
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(configure_chinese_font(self.app), bool(families))
+        if families:
+            metrics = QFontMetrics(self.app.font())
+            for character in "策略测试左勾拳拉锤左直拳左抖拳中启用发送当前机器人状态":
+                with self.subTest(character=character):
+                    self.assertTrue(metrics.inFontUcs4(ord(character)))
 
 
 class NumberedActionsUiTest(unittest.TestCase):

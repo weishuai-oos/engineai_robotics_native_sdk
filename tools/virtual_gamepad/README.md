@@ -11,6 +11,7 @@ PyQt6-based visualization and debugging tools for the virtual gamepad workflow. 
 - Python 3.7+
 - PyQt6
 - lcm
+- A Chinese font in the environment running the GUI (included in newly built SDK containers)
 
 In the SDK container, install the required dependencies with:
 ```bash
@@ -138,14 +139,26 @@ evaluation reports, and videos outside the runtime packages.
 
 ### Chinese font setup
 
-If Chinese labels appear as boxes and `fc-list :lang=zh` finds no fonts, the
-existing 109 setup uses the host's Droid font. When that font file is available,
-run these commands on the host, then reopen the virtual gamepad:
+If Chinese labels appear as boxes while English and numbers look normal,
+check fonts **inside the environment running the virtual gamepad**. Installing
+fonts only on the host does not make them available inside a container.
+Source files and `catalog.json` use UTF-8; changing the locale does not add
+missing font glyphs.
+
+New SDK container builds install `fonts-noto-cjk` and `fontconfig`. An existing
+container is not updated by `git pull`; repair it once inside that container:
 
 ```bash
-docker cp /usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf engineai_robotics_env:/usr/local/share/fonts/
-docker exec engineai_robotics_env fc-cache -f /usr/local/share/fonts
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends fonts-noto-cjk fontconfig
+fc-cache -f
+fc-list :lang=zh family
 ```
+
+Close and reopen the virtual gamepad afterwards. A simple container restart
+keeps the installed fonts; a recreated container needs the updated image or
+the installation above again. The GUI selects an available Chinese font at
+startup and prints an English repair message when none is installed.
 
 Available widgets/components:
 

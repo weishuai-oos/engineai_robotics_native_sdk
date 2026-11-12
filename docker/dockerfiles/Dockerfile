@@ -8,6 +8,12 @@ ARG GROUP_ID
 ARG USER_HOME
 ARG PROJECT_NAME
 
+# The virtual gamepad policy-test page contains Chinese labels.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends fontconfig fonts-noto-cjk && \
+    fc-cache -f && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN mkdir -p ${USER_HOME} && \
     echo "${USER_NAME}:x:${USER_ID}:${GROUP_ID}::${USER_HOME}:/bin/bash" >> /etc/passwd && \
     echo "${USER_NAME}:x:${GROUP_ID}:" >> /etc/group && \

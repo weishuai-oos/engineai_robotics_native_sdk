@@ -4,11 +4,33 @@ import sys
 import argparse
 
 from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QFontDatabase, QIcon
 from PyQt6.QtWidgets import QApplication, QMainWindow, QTabWidget, QVBoxLayout, QWidget
 from ui.lcm_manager_widget import LcmManagerWidget
 from ui.virtual_gamepad_widget import VirtualGamepadWidget
 from ui.numbered_actions_widget import NumberedActionsWidget
+
+
+def configure_chinese_font(app):
+    """Select an installed CJK font, or explain the missing GUI dependency."""
+    families = QFontDatabase.families(QFontDatabase.WritingSystem.SimplifiedChinese)
+    if not families:
+        print(
+            "[WARNING] Chinese font missing in the GUI environment; Chinese labels "
+            "may appear as squares. In the SDK container run: sudo apt-get update "
+            "&& sudo apt-get install -y --no-install-recommends fonts-noto-cjk fontconfig "
+            "&& fc-cache -f. Then restart the virtual gamepad. "
+            "See tools/virtual_gamepad/README.md#chinese-font-setup.",
+            file=sys.stderr,
+        )
+        return False
+    preferred = ("Noto Sans CJK SC", "Source Han Sans SC", "Microsoft YaHei",
+                 "PingFang SC", "WenQuanYi Micro Hei", "Droid Sans Fallback")
+    family = next((name for name in preferred if name in families), families[0])
+    font = app.font()
+    font.setFamilies([family, *(name for name in font.families() if name != family)])
+    app.setFont(font)
+    return True
 
 
 class VirtualGamepadWindow(QMainWindow):
@@ -95,6 +117,7 @@ if __name__ == "__main__":
 
     virtual_args, qt_args = parse_args(sys.argv[1:])
     app = QApplication([sys.argv[0], *qt_args])
+    configure_chinese_font(app)
     window = VirtualGamepadWindow(
         lcm_url=virtual_args.lcm_url,
         auto_connect=virtual_args.connect,
