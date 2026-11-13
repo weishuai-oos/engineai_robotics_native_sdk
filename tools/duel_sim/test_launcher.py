@@ -89,7 +89,8 @@ class DuelLauncherTest(unittest.TestCase):
             self.assertFalse(combined.is_symlink())
             self.assertTrue((combined / "default.yaml").is_file())
             self.assertTrue((combined / "policies/boxing_policy.mnn").is_file())
-            policy = overlay / "config/t800/rl_straight_punch_L_improved/policies/policy.mnn"
+            policy = (overlay / "config/t800/numbered_actions" /
+                      "rl_supermimic_s2air20_zq_left_straight_05_j14393_0_m12000/policies/policy.mnn")
             self.assertTrue(policy.is_symlink())
             self.assertEqual(policy.resolve(), (config / policy.relative_to(overlay / "config/t800")).resolve())
             self.assertTrue((overlay / "resource").is_symlink())

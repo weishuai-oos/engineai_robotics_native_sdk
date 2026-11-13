@@ -194,13 +194,9 @@ WBT 动作代码：
 
   src/runner/rl_dance_example/
 
-当前 WBT 击打动作配置：
+WBT 的仰卧起身当前仍使用该 runner；上次比赛的五个 WBT 拳脚备选放在：
 
-  rl_left_front_kick_002_complete_heightfall  assets/config/t800/rl_left_front_kick_002_complete_heightfall/default.yaml
-  rl_roundhouse_kick                         assets/config/t800/rl_roundhouse_kick/default.yaml
-  rl_straight_punch_L_improved               assets/config/t800/rl_straight_punch_L_improved/default.yaml
-  rl_left_hook_001_improved                  assets/config/t800/rl_left_hook_001_improved/default.yaml
-  rl_punch_example                          assets/config/t800/rl_punch_example/default.yaml
+  assets/config/t800/old/上次比赛/
 
 SuperMimic 动作使用 src/runner/rl_supermimic/，当前配置为：
 
@@ -208,8 +204,13 @@ SuperMimic 动作使用 src/runner/rl_supermimic/，当前配置为：
   RB+Y 左勾拳     assets/config/t800/rl_supermimic_zq_left_hook_02_j13564_m82000/default.yaml
   RB+X 拉锤       assets/config/t800/rl_supermimic_zq_pull_hammer_20261102_j13551_m182000/default.yaml
   RB+A 右高踢腿   assets/config/t800/rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000/default.yaml（原虚拟测试21号，90000轮；旧184000轮包在old中备用）
+  RB+十字上  左勾拳，测试01、26000轮    assets/config/t800/numbered_actions/rl_supermimic_s2bf_zq_left_hook_02_j13961_3_m26000/default.yaml
+  RB+十字下  左直拳，测试03、12000轮    assets/config/t800/numbered_actions/rl_supermimic_s2air20_zq_left_straight_05_j14393_0_m12000/default.yaml
+  RB+十字左  左抖拳中，测试04、8000轮   assets/config/t800/numbered_actions/rl_supermimic_s2air20_zq_left_flick_mid_01_j14282_1_m8000/default.yaml
+  RT+十字右  拉锤，测试02、56000轮      assets/config/t800/numbered_actions/rl_supermimic_s2air25_zq_pull_hammer_20261102_j14016_4_m56000/default.yaml
+  RB+十字右  拉锤，测试05、22000轮      assets/config/t800/numbered_actions/rl_supermimic_s2air20_zq_pull_hammer_20261102_j14282_2_m22000/default.yaml
 
-每个 SuperMimic 包仅含 default.yaml、policies/policy.mnn、trajectories/supermimic_reference.npz；hold_seconds: 0.0 表示参考结束后不额外保持，自动回 walk_leo。旧 dance、victory、ridicule 和更早的 WBT 俯卧起身的可运行备选在 assets/config/t800/old/，恢复方法见该目录 README.md。
+每个 SuperMimic 包仅含 default.yaml、policies/policy.mnn、trajectories/supermimic_reference.npz；hold_seconds: 0.0 表示参考结束后不额外保持，自动回 walk_leo。上述测试01～05 与对应正式按键共用文件，均配置 skip_terminal_hold_frames: 100。旧 dance、victory、ridicule 和更早的 WBT 俯卧起身的可运行备选在 assets/config/t800/old/，恢复方法见该目录 README.md。
 
 实际按键和状态进入关系以 assets/config/t800/task_motion/default.yaml 为准，策略目录由 mode.yaml 的 scope 选择。下列参数与 NPZ 要求适用于 WBT runner；不要直接套用到 SuperMimic 包。
 
@@ -223,7 +224,7 @@ SuperMimic 动作使用 src/runner/rl_supermimic/，当前配置为：
 - upper_body_startup_interpolation_duration：下半身启动过渡结束后，上半身到参考轨迹目标帧的过渡时间。
 - lower_body_policy_blend_duration：开始策略后，下半身从轨迹起点到策略命令的混合时间。
 - trajectory_body_index：body_quat_w 为 N×B×4 时选择第几个 body；当前 T800 轨迹统一取 0。若 body_quat_w 已是 N×4，该值必须为 0。
-- trajectory_end_behavior：WBT 的 exit 表示轨迹结束后触发状态机自动切换；hold 表示保持末帧，需人工切换。当前五个 WBT 击打动作和上键 WBT 仰卧起身使用 exit，完成后回 walk_leo；SuperMimic 使用参考播放完成与 hold_seconds 控制退出；stance_to_supine 仍按任务图自动回 passive。
+- trajectory_end_behavior：WBT 的 exit 表示轨迹结束后触发状态机自动切换；hold 表示保持末帧，需人工切换。当前 WBT 仰卧起身使用 exit，完成后回 walk_leo；SuperMimic 使用参考播放完成与 hold_seconds 控制退出；stance_to_supine 仍按任务图自动回 passive。
 
 替换动作模型或轨迹时，可以保持文件名覆盖，也可以把新文件放入对应目录后修改 YAML 路径。NPZ 至少需要 float32、C-order 的 joint_pos、joint_vel、body_quat_w；前两项 Runner 视图必须为 N×25，四元数 Runner 视图必须为 N×4，帧数 N 一致且四元数必须归一化。Runner 只读取这三个键，body_pos_w、body_lin_vel_w、body_ang_vel_w、fps、body_names、schema 和 derived_* 等扩展键会被忽略，不影响策略执行，也不必为了适配当前 Runner 删除。Runner 进入状态时会检查这些条件，并用全零观测做一次模型输出维度/有限值校验。模型输入、输出、观测顺序、关节顺序和轨迹采样频率必须与 Runner 配置一致。
 

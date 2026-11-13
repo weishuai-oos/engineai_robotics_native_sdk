@@ -53,11 +53,11 @@ tasks:
       - supermimic_left_hook
       - supermimic_pull_hammer
       - supermimic_right_high_kick
-      - rl_left_front_kick_002_complete_heightfall
-      - rl_roundhouse_kick
-      - rl_straight_punch_L_improved
-      - rl_left_hook_001_improved
-      - rl_punch_example
+      - supermimic_left_hook_26000
+      - supermimic_left_straight_12000
+      - supermimic_left_flick_mid_8000
+      - supermimic_pull_hammer_56000
+      - supermimic_pull_hammer_22000
       - supine_to_stance
       - prone_to_stance
       - getup
@@ -84,11 +84,11 @@ tasks:
       - supermimic_left_hook
       - supermimic_pull_hammer
       - supermimic_right_high_kick
-      - rl_left_front_kick_002_complete_heightfall
-      - rl_roundhouse_kick
-      - rl_straight_punch_L_improved
-      - rl_left_hook_001_improved
-      - rl_punch_example
+      - supermimic_left_hook_26000
+      - supermimic_left_straight_12000
+      - supermimic_left_flick_mid_8000
+      - supermimic_pull_hammer_56000
+      - supermimic_pull_hammer_22000
       - supine_to_stance
       - prone_to_stance
       - getup
@@ -113,11 +113,11 @@ tasks:
       - supermimic_left_hook
       - supermimic_pull_hammer
       - supermimic_right_high_kick
-      - rl_left_front_kick_002_complete_heightfall
-      - rl_roundhouse_kick
-      - rl_straight_punch_L_improved
-      - rl_left_hook_001_improved
-      - rl_punch_example
+      - supermimic_left_hook_26000
+      - supermimic_left_straight_12000
+      - supermimic_left_flick_mid_8000
+      - supermimic_pull_hammer_56000
+      - supermimic_pull_hammer_22000
       - supine_to_stance
       - prone_to_stance
       - getup
@@ -143,11 +143,11 @@ tasks:
       - supermimic_left_hook
       - supermimic_pull_hammer
       - supermimic_right_high_kick
-      - rl_left_front_kick_002_complete_heightfall
-      - rl_roundhouse_kick
-      - rl_straight_punch_L_improved
-      - rl_left_hook_001_improved
-      - rl_punch_example
+      - supermimic_left_hook_26000
+      - supermimic_left_straight_12000
+      - supermimic_left_flick_mid_8000
+      - supermimic_pull_hammer_56000
+      - supermimic_pull_hammer_22000
     key: [LB, B]
 
   - motion: walk_impact
@@ -169,11 +169,11 @@ tasks:
       - supermimic_left_hook
       - supermimic_pull_hammer
       - supermimic_right_high_kick
-      - rl_left_front_kick_002_complete_heightfall
-      - rl_roundhouse_kick
-      - rl_straight_punch_L_improved
-      - rl_left_hook_001_improved
-      - rl_punch_example
+      - supermimic_left_hook_26000
+      - supermimic_left_straight_12000
+      - supermimic_left_flick_mid_8000
+      - supermimic_pull_hammer_56000
+      - supermimic_pull_hammer_22000
     key: [LB, Y]
 
   - motion: walk_leo
@@ -196,11 +196,11 @@ tasks:
       - supermimic_left_hook
       - supermimic_pull_hammer
       - supermimic_right_high_kick
-      - rl_left_front_kick_002_complete_heightfall
-      - rl_roundhouse_kick
-      - rl_straight_punch_L_improved
-      - rl_left_hook_001_improved
-      - rl_punch_example
+      - supermimic_left_hook_26000
+      - supermimic_left_straight_12000
+      - supermimic_left_flick_mid_8000
+      - supermimic_pull_hammer_56000
+      - supermimic_pull_hammer_22000
     key: [LB, A]
 
   - motion: leo_taunt
@@ -235,11 +235,11 @@ tasks:
       - supermimic_left_hook
       - supermimic_pull_hammer
       - supermimic_right_high_kick
-      - rl_left_front_kick_002_complete_heightfall
-      - rl_roundhouse_kick
-      - rl_straight_punch_L_improved
-      - rl_left_hook_001_improved
-      - rl_punch_example
+      - supermimic_left_hook_26000
+      - supermimic_left_straight_12000
+      - supermimic_left_flick_mid_8000
+      - supermimic_pull_hammer_56000
+      - supermimic_pull_hammer_22000
     key: [LB, X]
 
   - motion: supermimic_come_here
@@ -306,12 +306,12 @@ tasks:
     auto_transition: walk_leo
     key: [RB, A]
 
-  - motion: rl_left_front_kick_002_complete_heightfall
+  - motion: supermimic_left_hook_26000
     period: 0.02
     runner:
-      - name: rl_dance_example_runner
+      - name: rl_supermimic_runner
         enabled: true
-        param_tag: rl_left_front_kick_002_complete_heightfall
+        param_tag: rl_supermimic_left_hook_26000
     manual_transition:
       - passive
       - pd_stand
@@ -322,12 +322,12 @@ tasks:
     auto_transition: walk_leo
     key: [RB, CROSS_X_UP]
 
-  - motion: rl_roundhouse_kick
+  - motion: supermimic_left_straight_12000
     period: 0.02
     runner:
-      - name: rl_dance_example_runner
+      - name: rl_supermimic_runner
         enabled: true
-        param_tag: rl_roundhouse_kick
+        param_tag: rl_supermimic_left_straight_12000
     manual_transition:
       - passive
       - pd_stand
@@ -338,12 +338,12 @@ tasks:
     auto_transition: walk_leo
     key: [RB, CROSS_X_DOWN]
 
-  - motion: rl_straight_punch_L_improved
+  - motion: supermimic_left_flick_mid_8000
     period: 0.02
     runner:
-      - name: rl_dance_example_runner
+      - name: rl_supermimic_runner
         enabled: true
-        param_tag: rl_straight_punch_L_improved
+        param_tag: rl_supermimic_left_flick_mid_8000
     manual_transition:
       - passive
       - pd_stand
@@ -354,12 +354,12 @@ tasks:
     auto_transition: walk_leo
     key: [RB, CROSS_Y_LEFT]
 
-  - motion: rl_left_hook_001_improved
+  - motion: supermimic_pull_hammer_56000
     period: 0.02
     runner:
-      - name: rl_dance_example_runner
+      - name: rl_supermimic_runner
         enabled: true
-        param_tag: rl_left_hook_001_improved
+        param_tag: rl_supermimic_pull_hammer_56000
     manual_transition:
       - passive
       - pd_stand
@@ -370,12 +370,12 @@ tasks:
     auto_transition: walk_leo
     key: [CROSS_X_UP, CROSS_X_DOWN, CROSS_Y_RIGHT]  # physical RT + d-pad right
 
-  - motion: rl_punch_example
+  - motion: supermimic_pull_hammer_22000
     period: 0.02
     runner:
-      - name: rl_dance_example_runner
+      - name: rl_supermimic_runner
         enabled: true
-        param_tag: rl_punch_example
+        param_tag: rl_supermimic_pull_hammer_22000
     manual_transition:
       - passive
       - pd_stand

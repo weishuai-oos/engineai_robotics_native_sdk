@@ -11,6 +11,7 @@
 | 原 LB+A 步态 | `rl_walking_leolab_example` |
 | 原 RB+A 右高踢腿（184000 轮） | `rl_supermimic_zq_right_high_kick_20261102_j13551_m184000` |
 | 第二、第三个重训嘲讽 | `嘲讽/`，见该目录的 `README.md` |
+| 上次比赛的五个 WBT 拳脚动作 | `上次比赛/`：左前踢、回旋踢、左直拳、左勾拳和示例拳 |
 
 当前俯卧起身使用根目录的 `rl_supermimic_prone_j12768_m22000`；RB+B 使用第一个重训嘲讽。空庆祝模板、历史模型副本、整套配置备份和评测数据已清理。
 
@@ -27,3 +28,5 @@ RB+A 当前使用根目录的 `rl_supermimic_lab3_zq_right_high_kick_20261102_j1
 先退出 SDK，将所选动作目录移回 T800 根目录，使 YAML 内的资源相对路径有效。再在 `mode.yaml` 的相应模式中选择它的 `目录名/default` scope，并在 `task_motion/default.yaml` 为目标状态选择对应参数 tag 和 `rl_dance_example_runner`，核对进入、退出与完成切换关系后重启。当前四个 RB 动作和俯卧起身使用 SuperMimic runner，恢复 WBT 备选时不能只换 scope。
 
 不再提供整套 mode/task 配置覆盖备份，恢复单个备选时保留其他状态和按键配置。第二、第三个嘲讽仍使用 SuperMimic runner，切换方法见 [嘲讽备用动作](嘲讽/README.md)。
+
+`上次比赛/` 的五个目录保留各自原始配置和运行资源。恢复其中一个时，将该目录移回 T800 配置根目录；在 `mode.robot` 和 `mode.sim` 恢复对应 tag/scope，并将动作图中的对应状态和所有入口边改回原状态名、`rl_dance_example_runner` 和参数 tag。旧 YAML 的模型、轨迹路径相对 T800 配置根目录，不能只把 scope 指向 `old/上次比赛/`。

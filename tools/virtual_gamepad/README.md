@@ -78,7 +78,7 @@ are cancelled on disconnect, disable, stale feedback, or confirmation timeout;
 reconnection never replays a pending action. `--test-catalog` is supplied by
 the launcher, so a standalone window without that option cannot execute
 numbered actions. See the shared catalog setup below; simulation startup
-commands are in [the startup guide](../duel_sim/README.md).
+commands are in [the startup guide](../../操作.txt).
 
 ### Shared test policies and Git
 
@@ -87,6 +87,9 @@ commands are in [the startup guide](../duel_sim/README.md).
 and reference motion. The catalog maps 01–05 to left hook, pull hammer,
 left straight, left flick mid, and pull hammer; checkpoints and previous
 numbers are listed in the [runner and transition reference](../../docs/t800_runner_classification_and_transitions.md#当前编号测试动作).
+The same five packages also drive the regular gamepad buttons: 01 is RB+Up,
+03 is RB+Down, 04 is RB+Left, 02 is RT+Right, and 05 is RB+Right. The
+numbered test buttons remain available and use those same files.
 
 A fresh clone includes these five tests. For a checkout without a catalog,
 initialize an empty one from the SDK root:

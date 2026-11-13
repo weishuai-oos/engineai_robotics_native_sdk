@@ -250,15 +250,20 @@ State transition logic varies by robot model. Refer to the per-model sections be
 | supermimic_left_hook | SuperMimic left hook, RB + Y. |
 | supermimic_pull_hammer | SuperMimic pull hammer, RB + X. |
 | supermimic_right_high_kick | SuperMimic right high kick, RB + A. |
+| supermimic_left_hook_26000 | Test 01 left hook, RB + d-pad up. |
+| supermimic_left_straight_12000 | Test 03 left straight, RB + d-pad down. |
+| supermimic_left_flick_mid_8000 | Test 04 left flick mid, RB + d-pad left. |
+| supermimic_pull_hammer_56000 | Test 02 pull hammer, RT + d-pad right. |
+| supermimic_pull_hammer_22000 | Test 05 pull hammer, RB + d-pad right. |
 | stance_to_supine | Lie-down task. The robot transitions from standing posture to a supine (lying on back) posture. |
 
 **State Machine Configuration:** `assets/config/t800/task_motion/default.yaml`
 
 `LB+A` enters `walk_leo`, whose `rl_walking_leolab_example` tag now selects `assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/default.yaml`. This is the final AnkleCombinedV2 `ckpt_140000` export. Its four ankle joints (indices 4, 5, 10, and 11) use Kd 2.0; the remaining joint order, Kp, default pose, action scale, recurrent contract, and terrain-style remote-command settings are unchanged. The previous `rl_walking_leolab_example` configuration and its referenced model remain under `assets/config/t800/old/rl_walking_leolab_example` for rollback. The old top-level compatibility symlink has been removed. `LB+X` still selects `walk_leo_terrain` and its Kd remains 0.3.
 
-The four SuperMimic motions use `rl_supermimic_runner` with the exported 1520-input / 25-output contract and return to `walk_leo` after the reference clip. All four currently set `hold_seconds: 0.0`, removing the extra terminal hold while retaining the gait entry transition. Each package contains its runtime YAML, MNN policy, and reference NPZ. Runnable dance, victory, and ridicule backups remain under `assets/config/t800/old`; export intermediates and evaluation data have been removed.
+The nine formal SuperMimic motions use `rl_supermimic_runner` with the exported 1520-input / 25-output contract and return to `walk_leo` after the reference clip. They set `hold_seconds: 0.0` and retain the gait entry transition. The five newly assigned controls share their policy files with virtual test actions 01–05 and skip the appended 100-frame static tail. The five previous WBT actions are archived under `assets/config/t800/old/上次比赛`.
 
-`prone_to_stance` uses `rl_supermimic_prone_j12768_m22000` and plays the complete 143-frame reference over 2.84 seconds, with `hold_seconds: 0.0` adding no terminal hold. The policy returns raw actions, and its history stores the previous raw action. It can be entered from `passive`, `pd_stand`, `pd_stand_x`, or `pd_stand_y`; during execution, manual transitions to `passive`, `pd_stand`, and `walk_leo` remain available. Completion automatically returns to `walk_leo`. The gait takes over directly after get-up, without the gait entry blend used after the four boxing motions. The earlier `rl_prone_to_stance_hybrid_9825_m29500` package is archived under `assets/config/t800/old`; START + d-pad up still selects WBT supine get-up, and the HoST get-up tasks are unchanged. The prone package contains only its runtime YAML, MNN policy, and reference NPZ.
+`prone_to_stance` uses `rl_supermimic_prone_j12768_m22000` and plays the complete 143-frame reference over 2.84 seconds, with `hold_seconds: 0.0` adding no terminal hold. The policy returns raw actions, and its history stores the previous raw action. It can be entered from `passive`, `pd_stand`, `pd_stand_x`, or `pd_stand_y`; during execution, manual transitions to `passive`, `pd_stand`, and `walk_leo` remain available. Completion automatically returns to `walk_leo`. The gait takes over directly after get-up, without the gait entry blend used after ordinary fighting motions. The earlier `rl_prone_to_stance_hybrid_9825_m29500` package is archived under `assets/config/t800/old`; START + d-pad up still selects WBT supine get-up, and the HoST get-up tasks are unchanged. The prone package contains only its runtime YAML, MNN policy, and reference NPZ.
 
 #### Global Safety Mechanism (Emergency Fallback)
 

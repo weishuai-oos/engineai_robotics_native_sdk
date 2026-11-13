@@ -73,16 +73,16 @@ mode:
       scope: rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
-    - tag: rl_left_front_kick_002_complete_heightfall
-      scope: rl_left_front_kick_002_complete_heightfall/default
-    - tag: rl_roundhouse_kick
-      scope: rl_roundhouse_kick/default
-    - tag: rl_straight_punch_L_improved
-      scope: rl_straight_punch_L_improved/default
-    - tag: rl_left_hook_001_improved
-      scope: rl_left_hook_001_improved/default
-    - tag: rl_punch_example
-      scope: rl_punch_example/default
+    - tag: rl_supermimic_left_hook_26000
+      scope: numbered_actions/rl_supermimic_s2bf_zq_left_hook_02_j13961_3_m26000/default
+    - tag: rl_supermimic_left_straight_12000
+      scope: numbered_actions/rl_supermimic_s2air20_zq_left_straight_05_j14393_0_m12000/default
+    - tag: rl_supermimic_left_flick_mid_8000
+      scope: numbered_actions/rl_supermimic_s2air20_zq_left_flick_mid_01_j14282_1_m8000/default
+    - tag: rl_supermimic_pull_hammer_56000
+      scope: numbered_actions/rl_supermimic_s2air25_zq_pull_hammer_20261102_j14016_4_m56000/default
+    - tag: rl_supermimic_pull_hammer_22000
+      scope: numbered_actions/rl_supermimic_s2air20_zq_pull_hammer_20261102_j14282_2_m22000/default
 
   sim:
     - tag: resident_task
@@ -145,13 +145,13 @@ mode:
       scope: rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
-    - tag: rl_left_front_kick_002_complete_heightfall
-      scope: rl_left_front_kick_002_complete_heightfall/default
-    - tag: rl_roundhouse_kick
-      scope: rl_roundhouse_kick/default
-    - tag: rl_straight_punch_L_improved
-      scope: rl_straight_punch_L_improved/default
-    - tag: rl_left_hook_001_improved
-      scope: rl_left_hook_001_improved/default
-    - tag: rl_punch_example
-      scope: rl_punch_example/default
+    - tag: rl_supermimic_left_hook_26000
+      scope: numbered_actions/rl_supermimic_s2bf_zq_left_hook_02_j13961_3_m26000/default
+    - tag: rl_supermimic_left_straight_12000
+      scope: numbered_actions/rl_supermimic_s2air20_zq_left_straight_05_j14393_0_m12000/default
+    - tag: rl_supermimic_left_flick_mid_8000
+      scope: numbered_actions/rl_supermimic_s2air20_zq_left_flick_mid_01_j14282_1_m8000/default
+    - tag: rl_supermimic_pull_hammer_56000
+      scope: numbered_actions/rl_supermimic_s2air25_zq_pull_hammer_20261102_j14016_4_m56000/default
+    - tag: rl_supermimic_pull_hammer_22000
+      scope: numbered_actions/rl_supermimic_s2air20_zq_pull_hammer_20261102_j14282_2_m22000/default

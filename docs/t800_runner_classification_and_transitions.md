@@ -1,6 +1,6 @@
 # T800 动作分类、Runner 与切换衔接
 
-更新日期：2026-11-11。本文描述当前部署配置，适用于单机与双机中的每个 T800。
+本文描述当前部署配置，适用于单机与双机中的每个 T800。
 正式动作以 [task_motion/default.yaml](../assets/config/t800/task_motion/default.yaml) 为准，策略目录由 [mode.yaml](../assets/config/t800/mode.yaml) 选择。当前有 **24 个正式状态**；使用虚拟手柄启动时，单机或双机 A 额外注册 **5 个编号测试动作**，编号容量仍为 50。编号测试通过会话临时配置注册，不写入正式实机动作图。
 
 ## 正式动作与 Runner
@@ -21,11 +21,11 @@ Runner 是执行动作的程序，同一个 runner 可以运行不同模型；�
 | SuperMimic 左勾拳 | `supermimic_left_hook` | RB+Y | `rl_supermimic_runner` |
 | SuperMimic 拉锤 | `supermimic_pull_hammer` | RB+X | `rl_supermimic_runner` |
 | SuperMimic 右高踢腿 | `supermimic_right_high_kick` | RB+A | `rl_supermimic_runner` |
-| SDK 左前踢 | `rl_left_front_kick_002_complete_heightfall` | RB+十字上 | `rl_dance_example_runner` |
-| SDK 回旋踢 | `rl_roundhouse_kick` | RB+十字下 | `rl_dance_example_runner` |
-| SDK 左直拳 | `rl_straight_punch_L_improved` | RB+十字左 | `rl_dance_example_runner` |
-| SDK 左勾拳 | `rl_left_hook_001_improved` | **RT+十字右** | `rl_dance_example_runner` |
-| SDK 示例直拳 | `rl_punch_example` | RB+十字右 | `rl_dance_example_runner` |
+| 01 左勾拳（26000 轮） | `supermimic_left_hook_26000` | RB+十字上 | `rl_supermimic_runner` |
+| 03 左直拳（12000 轮） | `supermimic_left_straight_12000` | RB+十字下 | `rl_supermimic_runner` |
+| 04 左抖拳中（8000 轮） | `supermimic_left_flick_mid_8000` | RB+十字左 | `rl_supermimic_runner` |
+| 02 拉锤（56000 轮） | `supermimic_pull_hammer_56000` | **RT+十字右** | `rl_supermimic_runner` |
+| 05 拉锤（22000 轮） | `supermimic_pull_hammer_22000` | RB+十字右 | `rl_supermimic_runner` |
 | 俯卧起身 | `prone_to_stance` | START+十字右 | `rl_supermimic_runner` |
 | 仰卧起身 | `supine_to_stance` | START+十字上 | `rl_dance_example_runner` |
 | HoST 起身 | `getup` / `getup2` | LB+START / LB+BACK | `rl_getup_example_runner` |
@@ -58,7 +58,7 @@ LT+B 的 `leo_taunt` 与 RB+B 的 SuperMimic 嘲讽是两种动作。前者只�
 
 - 普通 SuperMimic 动作进入时先对齐；入口桥结束后清空历史和上一动作，以当时姿态重新对齐，从参考第 0 帧正式播放。
 - 俯卧和仰卧起身先完成 PD 首姿态准备；这期间不推理策略、不填策略历史、不计算对齐，也不消耗参考帧。到位后的首次策略周期才对齐并开始动作。
-- 普通 dance 动作在第一次组装策略观测时对齐。dance 的观测和初始对齐均使用 IMU 安装偏置修正后的机身坐标。
+- dance 的观测和初始对齐均使用 IMU 安装偏置修正后的机身坐标，仰卧起身准备完成后的第一个策略周期对齐。
 
 正式播放期间，对齐偏移保持固定，每周期仍使用实时机身姿态和对齐后的当前参考姿态计算误差，因此机器人真正的转身不会被逐帧重新对齐消除。该修改改善计算稳定性；IMU 估计或安装偏置不准确仍会影响策略观测，也不能仅凭对齐修复推断起身一定成功。
 
@@ -71,15 +71,14 @@ LT+B 的 `leo_taunt` 与 RB+B 的 SuperMimic 嘲讽是两种动作。前者只�
 | 动作类别 | 进入方式 | 完成或退出方式 |
 |---|---|---|
 | 四种走路 | 通常采用 0.16 秒指令桥，范围 0.10～0.28 秒；目标策略从首周期运行 | 持续运行，等待手动切换 |
-| 四个正式 SuperMimic 动作及编号测试 | 通常采用 0.20 秒实时策略指令桥，范围 0.10～0.28 秒；期间参考停第 0 帧，策略闭环推理；无独立 PD 到位等待 | 参考播放完自动回 `walk_leo`，通常经过走路的 0.16 秒入口桥 |
-| 五个普通 dance 拳脚动作 | 0.16 秒入口桥，范围 0.10～0.28 秒；参考停第 0 帧，策略闭环推理 | 参考播放完自动回 `walk_leo`，通常经过走路入口桥 |
+| 九个正式 SuperMimic 动作及编号测试 | 通常采用 0.20 秒实时策略指令桥，范围 0.10～0.28 秒；期间参考停第 0 帧，策略闭环推理；无独立 PD 到位等待 | 参考播放完自动回 `walk_leo`，通常经过走路的 0.16 秒入口桥 |
 | 俯卧、仰卧起身 | 先 PD 过渡到参考首姿态，再连续检查关节到位；满足后才启动策略 | 参考播放完请求回 `walk_leo`，走路直接接管 |
 | `getup/getup2` | 姿态、角速度检查通过后运行起身策略，无上述参考首姿态 PD 等待 | 满足直立稳定判据后回 `walk_leo`，走路直接接管；超时则故障回阻尼 |
 | 三种 PD 姿态 | 自身执行 3 秒五次关节插值 | 完成后继续 PD 控制，等待手动切换 |
 | 主动躺下 | 自身 0.1 秒位置混合，同时推进策略和参考 | 完成后进入 `passive` |
 | `idle/passive` | 直接切换控制状态 | `idle` 自动到 `passive`；`passive` 持续速度阻尼 |
 
-普通 SuperMimic 实时指令桥的参考姿态引导权重为 0；普通 dance 入口配置为 0.35；走路入口配置为 0.25。这些用于入口指令构造，不是动作结束后的静态保持时间。
+普通 SuperMimic 实时指令桥的参考姿态引导权重为 0；俯卧、仰卧 PD 准备的参考姿态权重为 0.35；走路入口配置为 0.25。这些用于入口指令构造，不是动作结束后的静态保持时间。
 
 四个走路配置都包含直接接管来源：`getup`、`getup2`、`supine_to_stance`、`prone_to_stance`。从这些来源切入走路时跳过走路入口桥；能切到哪种走路还受动作图允许边约束。目前俯卧、仰卧只允许手动切 `passive`、`pd_stand`、`walk_leo`，自动目标也是 `walk_leo`。
 
@@ -116,7 +115,7 @@ LT+B 的 `leo_taunt` 与 RB+B 的 SuperMimic 嘲讽是两种动作。前者只�
 ### 动作图允许的主要切换
 
 - `passive` 可进入三种 PD 姿态和四种起身，不能直接进入走路或拳脚。
-- 三种 PD 姿态可进入四种走路、四个正式 SuperMimic 动作、五个普通 dance 拳脚和四种起身。
+- 三种 PD 姿态可进入四种走路、九个正式 SuperMimic 动作和四种起身。
 - 四种走路可相互切换，均可进入正式拳脚、`getup/getup2` 和主动躺下。俯卧、仰卧入口需要先经 `passive` 或 PD；走路没有直接进入这两种参考起身的边。
 - 正式拳脚完成后自动回 `walk_leo`；也可手动切到 `passive`、`pd_stand` 或四种走路。正式拳脚之间没有直接互切边。
 - 编号测试仅从三种 PD 姿态或四种走路进入；完成后自动回 `walk_leo`，也可手动回任一上述准备状态或 `passive`。编号之间没有直接互切边。
@@ -126,7 +125,7 @@ LT+B 的 `leo_taunt` 与 RB+B 的 SuperMimic 嘲讽是两种动作。前者只�
 
 ## 当前编号测试动作
 
-清单：[catalog.json](../assets/config/t800/numbered_actions/catalog.json)。以下 5 个策略及清单随 Git 共享；每个目录只保留运行需要的 `default.yaml`、`policies/policy.mnn`、`trajectories/supermimic_reference.npz`。
+清单：[catalog.json](../assets/config/t800/numbered_actions/catalog.json)。以下 5 个策略及清单随 Git 共享；实体/普通虚拟遥控正式按键与编号测试页引用同一份文件，每个目录只保留运行需要的 `default.yaml`、`policies/policy.mnn`、`trajectories/supermimic_reference.npz`。
 
 | 当前编号 | 原编号 | 动作 | 批次 | 训练轮数 | 策略目录（位于 `assets/config/t800/numbered_actions/`） |
 |---|---|---|---|---|---|
@@ -136,13 +135,13 @@ LT+B 的 `leo_taunt` 与 RB+B 的 SuperMimic 嘲讽是两种动作。前者只�
 | 04 | 29 | 左抖拳中 | 6 | 8000 | `rl_supermimic_s2air20_zq_left_flick_mid_01_j14282_1_m8000` |
 | 05 | 30 | 拉锤 | 6 | 22000 | `rl_supermimic_s2air20_zq_pull_hammer_20261102_j14282_2_m22000` |
 
-原 21 号右高踢腿已成为正式 RB+A，其余未保留的测试策略已删除。五个编号动作均使用 SuperMimic 普通动作入口和自动回 LB+A 的走路桥；双虚拟手柄模式下，测试页只控制 A，B 使用普通虚拟手柄。新增动作和启动方式见[虚拟手柄 README](../tools/virtual_gamepad/README.md#shared-test-policies-and-git)及[启动说明](../tools/duel_sim/README.md)。
+原 21 号右高踢腿已成为正式 RB+A，其余未保留的测试策略已删除。当前 01、03、04 分别对应 RB+十字上、下、左；02 对应 RT+十字右；05 对应 RB+十字右。五个编号动作均使用 SuperMimic 普通动作入口和自动回 LB+A 的走路桥；双虚拟手柄模式下，测试页只控制 A，B 使用普通虚拟手柄。新增动作和启动方式见[虚拟手柄 README](../tools/virtual_gamepad/README.md#shared-test-policies-and-git)及[启动说明](../操作.txt)。
 
 ## 末尾静态保持与参考尾段
 
-- 四个正式 SuperMimic 动作、俯卧起身及当前五个编号动作的 `hold_seconds` 均为 **0.0**，不额外停留 1 秒。
+- 九个正式 SuperMimic 动作、俯卧起身及当前五个编号动作的 `hold_seconds` 均为 **0.0**，不额外停留 1 秒。
 - 五个编号参考动作各有导出时附加的 100 帧静态尾段，均配置 `skip_terminal_hold_frames: 100`，部署播放时跳过，NPZ 文件本身不改写。
 - 正式 RB+A 的 Lab3 踢腿没有这段附加尾部，配置 `skip_terminal_hold_frames: 0`。
-- 当前普通 dance 拳脚和仰卧起身在参考结束时退出，不配置末尾继续静态保持。
+- 仰卧起身在参考结束时退出，不配置末尾继续静态保持。旧五个 dance 拳脚在 `old/上次比赛/` 中备选。
 
 额外保持、参考动作自带静态段、入口 PD 到位等待、起身成功稳定确认、走路指令混合分别作用于不同阶段。取消额外保持不会自动消除参考中原本存在的所有停顿，也不能保证策略本身平衡稳定。

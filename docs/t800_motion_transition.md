@@ -2,12 +2,12 @@
 
 ## 1. 目标和结论
 
-T800 的四个行走状态、九种普通动作策略（四个 SuperMimic 和五个 WBT 击打动作）及两套 SDK 起身策略支持“目标状态入口衔接”。`walk_leo` 与 `walk_leo_terrain` 复用同一个 Leo runner；五个 WBT 击打动作和上键仰卧起身使用 `rl_dance_example_runner`；四个 SuperMimic 动作使用 `rl_supermimic_runner`；俯卧起身也使用该 runner，通过 `param_tag: rl_prone_to_stance` 加载旧模型 `rl_supermimic_prone_j12768_m22000`。当前四个步态配置只对 `getup`、`getup2`、`supine_to_stance` 和 `prone_to_stance` 关闭入口 bridge，其他来源进入步态仍保留衔接。核心原则按目标状态区分：
+T800 的四个行走状态、九种普通 SuperMimic 动作及两套参考起身策略支持目标状态入口衔接。`walk_impact`、`walk_leo` 和 `walk_leo_terrain` 共用 Leo runner；九个普通动作和俯卧起身使用 `rl_supermimic_runner`，仰卧起身使用 `rl_dance_example_runner`。俯卧通过 `param_tag: rl_prone_to_stance` 加载 `rl_supermimic_prone_j12768_m22000`。当前四个步态配置只对 `getup`、`getup2`、`supine_to_stance` 和 `prone_to_stance` 关闭入口 bridge，其他来源进入步态仍保留衔接。核心原则按目标状态区分：
 
 1. 对普通 walk 和动作策略，切换后目标策略从第一个控制周期就开始推理，不设置“等待策略启动”的空挡阶段。
 2. 对俯卧和仰卧起身，先执行首帧 PD 过渡和连续误差检查；误差连续达标后，策略才从轨迹第 0 帧开始推理。
 3. 对启用入口 bridge 的来源，电机命令从上一个状态最后实际下发的完整命令平滑过渡到下一个策略的实时输出；四个指定起身来源直接使用步态策略命令。
-4. 启用 bridge 时，下一个动作的参考首帧或 walk 默认姿势只作为短时、衰减的姿态引导，不替代普通策略输出。
+4. 启用 bridge 时，可选参考姿态引导随衔接进度衰减；普通 SuperMimic 动作当前引导权重为 0，walk 使用短时默认姿势引导。
 5. 启用 bridge 时，衔接时间根据切换瞬间的最大关节位置差自动调整，同时由最大时长限制，避免过慢切换长时间压制策略。
 6. 同时衔接 `q_des`、`qd_des`、`Kp`、`Kd` 和 `tau_ff`，衔接结束后严格等于下一个策略的实时命令。
 
@@ -20,11 +20,11 @@ T800 的四个行走状态、九种普通动作策略（四个 SuperMimic 和五
 | 状态 | 按键 | runner | 控制周期 | 控制频率 |
 | --- | --- | --- | ---: | ---: |
 | `walk` | `LB + B` | `rl_walking_example_runner` | 0.01 s | 100 Hz |
-| `walk_custom` | `LB + Y` | `rl_walking_custom_example_runner` | 0.01 s | 100 Hz |
+| `walk_impact` | `LB + Y` | `rl_walking_leolab_example_runner` | 0.02 s | 50 Hz |
 | `walk_leo` | `LB + A` | `rl_walking_leolab_example_runner` | 0.02 s | 50 Hz |
 | `walk_leo_terrain` | `LB + X` | `rl_walking_leolab_example_runner` | 0.02 s | 50 Hz |
 
-四种 walk 状态所用的三个 runner 都支持按来源选择入口行为。当前 T800 配置的 `entry_transition_direct_source_motions` 列出四个起身状态；命中名单时目标步态直接接管，其他来源仍使用 bridge。terrain 状态复用 Leo runner 后会自动走同一套入口逻辑，无需复制一份衔接实现。
+四种 walk 状态所用的两个 runner 都支持按来源选择入口行为。当前 T800 配置的 `entry_transition_direct_source_motions` 列出四个起身状态；命中名单时目标步态直接接管，其他来源仍使用 bridge。
 
 ### 2.2 动作策略状态
 
@@ -32,17 +32,17 @@ T800 的四个行走状态、九种普通动作策略（四个 SuperMimic 和五
 | --- | --- | --- | ---: | ---: |
 | `supermimic_come_here` | `RB + B` | `rl_supermimic_runner` | 0.02 s | 50 Hz |
 | `supermimic_left_hook` | `RB + Y` | `rl_supermimic_runner` | 0.02 s | 50 Hz |
-| `rl_left_front_kick_002_complete_heightfall` | `RB + 十字键上` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
-| `rl_roundhouse_kick` | `RB + 十字键下` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
-| `rl_straight_punch_L_improved` | `RB + 十字键左` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
-| `rl_left_hook_001_improved` | `RT + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
-| `rl_punch_example` | `RB + 十字键右` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
+| `supermimic_left_hook_26000` | `RB + 十字键上` | `rl_supermimic_runner` | 0.02 s | 50 Hz |
+| `supermimic_left_straight_12000` | `RB + 十字键下` | `rl_supermimic_runner` | 0.02 s | 50 Hz |
+| `supermimic_left_flick_mid_8000` | `RB + 十字键左` | `rl_supermimic_runner` | 0.02 s | 50 Hz |
+| `supermimic_pull_hammer_56000` | `RT + 十字键右` | `rl_supermimic_runner` | 0.02 s | 50 Hz |
+| `supermimic_pull_hammer_22000` | `RB + 十字键右` | `rl_supermimic_runner` | 0.02 s | 50 Hz |
 | `supermimic_pull_hammer` | `RB + X` | `rl_supermimic_runner` | 0.02 s | 50 Hz |
 | `supermimic_right_high_kick` | `RB + A` | `rl_supermimic_runner` | 0.02 s | 50 Hz |
 | `supine_to_stance` | `START + 十字键上` | `rl_dance_example_runner` | 0.02 s | 50 Hz |
 | `prone_to_stance` | `START + 十字键右` | `rl_supermimic_runner` | 0.02 s | 50 Hz |
 
-各动作通过不同的 `param_tag` 加载模型和参考轨迹，runner 见上表。它们的入口使用普通 bridge，以参考轨迹第 0 帧作为短时姿态引导；上键 WBT 仰卧和右键 SuperMimic 俯卧起身启用首帧参考姿态衔接，要求实测关节误差连续达标后再交给策略。四个 SuperMimic 动作和五个 WBT 击打动作不启用该等待选项。
+各动作通过不同的 `param_tag` 加载模型和参考轨迹，runner 见上表。九个普通动作使用实时策略命令 bridge，不启用首姿态等待；仰卧和俯卧起身启用首帧参考姿态衔接，要求实测关节误差连续达标后再交给策略。
 
 ## 3. 状态机与衔接覆盖
 
@@ -52,7 +52,7 @@ T800 的四个行走状态、九种普通动作策略（四个 SuperMimic 和五
 flowchart LR
   PD[pd_stand]
   W1[walk]
-  W2[walk_custom]
+  W2[walk_impact]
   W3[walk_leo]
   W4[walk_leo_terrain]
   PX[pd_stand_x]
@@ -110,7 +110,7 @@ flowchart LR
 | 切换方向 | 是否衔接 | 入口参考 | 说明 |
 | --- | --- | --- | --- |
 | 四种 walk 相互切换 | 是 | 目标 walk 的默认姿势 | 目标 walk 策略从第一个周期运行 |
-| 四种 walk → 九种普通动作策略 | 是 | 目标动作参考轨迹第 0 帧 | 动作策略运行，但轨迹帧暂时保持在第 0 帧 |
+| 四种 walk → 九种普通动作策略 | 是 | 实时策略命令 | 动作策略运行，但轨迹帧暂时保持在第 0 帧；普通 SuperMimic 引导权重为 0 |
 | `pd_stand` → 四种 walk | 是 | 目标 walk 默认姿势 | 来源是 `pd_stand` 最后实际命令 |
 | `pd_stand` → 九种普通动作及两套 SDK 起身 | 是 | 目标动作第 0 帧 | 由动作 runner 在入口衔接 |
 | `passive`/`pd_stand` → `pd_stand_x`/`pd_stand_y` | 否 | 目标 PD 姿态 | 使用 `pd_stand_runner` 自身的三秒姿态插值 |
@@ -155,14 +155,14 @@ flowchart LR
 
 ### 4.2 进入参考动作时
 
-普通动作（四个 SuperMimic 和五个 WBT 击打动作）进入衔接期间：
+九个普通 SuperMimic 动作进入衔接期间：
 
 - 策略每周期正常推理。
 - 参考轨迹固定在第 0 帧，不提前消耗动作轨迹。
-- 第 0 帧只作为衰减引导，策略实时输出仍参与最终命令。
+- 策略实时输出参与最终命令；当前参考姿态引导权重为 0。
 - 衔接完成后，`policy_step` 才按 50 Hz 正常递增。
 
-这样既利用参考动作的合理初始姿势，又不会先花 0.1～0.5 秒做纯插值、随后才突然启动策略。
+参考帧在 bridge 期间暂停，策略从第一个周期运行；bridge 完成后重置策略历史并正式从第 0 帧播放。
 
 上键 WBT 仰卧和右键 SuperMimic 俯卧起身均启用首帧参考姿态阶段：该阶段只用 PD 将实测关节带到轨迹第 0 帧附近，不组装 observation、不执行策略推理，也不推进动作帧。最大实测关节位置误差不超过 0.80 rad，并连续保持 5 个控制周期后，才从轨迹第 0 帧开始运行策略。这个条件只表示进入策略前的关节位置误差达标，不代表起身已经站稳。
 
@@ -181,7 +181,7 @@ flowchart LR
 
 ### 4.4 参考动作正常结束时
 
-五个 WBT 击打动作和上键 WBT 仰卧起身使用 `trajectory_end_behavior: exit`；四个 SuperMimic 动作和俯卧起身在参考播放完成、`hold_seconds: 0.0` 后请求退出。状态机均自动进入 `walk_leo`。九种普通动作结束时，`walk_leo` 从动作最后实际下发的命令开始入口衔接；两套 SDK 起身按当前配置由步态直接接管。
+仰卧起身使用 `trajectory_end_behavior: exit`；九个 SuperMimic 动作和俯卧起身在参考播放完成、`hold_seconds: 0.0` 后请求退出。状态机均自动进入 `walk_leo`。九种普通动作结束时，`walk_leo` 从动作最后实际下发的命令开始入口衔接；两套起身按当前配置由步态直接接管。编号 01～05 均跳过附加的 100 帧静态尾段。
 
 ## 5. 衔接算法
 
@@ -229,20 +229,20 @@ T_actual       = clamp(T_requested, min_duration, max_duration)
 | --- | ---: | ---: | --- |
 | `entry_transition_enabled` | `true` | `true` | 是否启用入口衔接；名单来源可单独跳过 |
 | `entry_transition_direct_source_motions` | 四个起身状态 | 不适用 | 命中来源时步态策略直接接管 |
-| `entry_transition_duration` | 0.16 s | 0.16 s | 名义时长 |
+| `entry_transition_duration` | 0.16 s | 0.20 s（普通 SuperMimic）；0.16 s（起身） | 名义时长 |
 | `entry_transition_min_duration` | 0.10 s | 0.10 s | 最短时长 |
 | `entry_transition_max_duration` | 0.28 s | 0.28 s | 最长时长，防止过慢切换 |
 | `entry_transition_max_joint_velocity` | 8.0 rad/s | 8.0 rad/s | 时长估算和 `qd` 裁剪参考 |
 | `entry_transition_max_joint_acceleration` | 120.0 rad/s² | 120.0 rad/s² | 时长估算参考 |
-| `entry_transition_reference_pose_weight` | 0.25 | 0.35 | 参考姿势初始引导权重 |
+| `entry_transition_reference_pose_weight` | 0.25 | 0（普通 SuperMimic）；0.35（起身 PD） | 参考姿势初始引导权重 |
 | `entry_transition_source_tracking_error` | 0.75 rad | 0.75 rad | 来源命令相对实测位置的最大初始偏差 |
 
 T800 配置显式开启了该功能，并通过 `entry_transition_direct_source_motions` 做来源级例外。将该列表设为空列表即可让所有来源都使用 bridge；将 `entry_transition_enabled` 设为 `false` 则会对该目标步态关闭所有来源的 bridge。其他机型如果没有配置这些新字段，不会因为本次 T800 修改被无条件开启；普通 walk 和参考动作仅保留各自旧参数所表达的兼容行为。
 
 对应控制周期数量：
 
-- 非四个指定起身来源进入 `walk` / `walk_custom`：名义 16 个周期，范围 10～28 个周期。
-- 非四个指定起身来源进入 `walk_leo` / `walk_leo_terrain`：名义 8 个周期，范围 5～14 个周期。
+- 非四个指定起身来源进入 `walk`：名义 16 个周期，范围 10～28 个周期。
+- 非四个指定起身来源进入 `walk_impact` / `walk_leo` / `walk_leo_terrain`：名义 8 个周期，范围 5～14 个周期。
 - 四个指定起身来源进入任一步态：跳过入口 bridge，目标策略从第一个周期直接接管。
 
 当关节差过大、理论所需时间超过 0.28 s 时，系统会打印 `Entry transition required ... capped at 0.28s`。这是“不要让策略被压制太久”的主动上限；此时速度/加速度估算约束不再保证满足。实机若频繁出现该日志，优先检查切换时机和两个策略的姿态兼容性，再考虑适当增加 `entry_transition_max_duration`。
@@ -258,14 +258,14 @@ T800 配置显式开启了该功能，并通过 `entry_transition_direct_source_
 1. 将 `entry_transition_duration` 从 0.16 s 增加到 0.18～0.22 s。
 2. 如果日志显示 duration 被速度或加速度约束自动拉长，先不要继续增大名义时长。
 3. 如果频繁出现 0.28 s 封顶警告，可将 `entry_transition_max_duration` 小幅提高到 0.32～0.36 s，但必须重新检查策略接管是否过慢。
-4. 若动作入口方向不自然，可小幅提高该动作的 `entry_transition_reference_pose_weight`，不建议直接超过 0.5。
+4. 先确认目标 runner 是否采用参考姿态权重；普通 SuperMimic 实时策略 bridge 当前固定使用权重 0，单独修改该字段不会改变它。
 
 ### 7.2 策略接管感觉太慢
 
 1. 先降低 `entry_transition_duration`，例如 0.16 s → 0.12～0.14 s。
 2. 保留 `entry_transition_min_duration` 至少 0.08～0.10 s，避免只有少数控制周期。
 3. 不要先增大 `max_joint_velocity` 或 `max_joint_acceleration`；这会放宽保护含义，而且在实机上更难定位冲击来源。
-4. 不建议通过将参考权重设为 0 来解决慢接管；参考权重只影响早期路径，主要接管速度由时长决定。
+4. 参考权重只影响有使用该权重的入口早期路径，主要接管速度由时长决定。
 
 ### 7.3 上一个命令与实测位置差异大
 
@@ -304,7 +304,7 @@ T800 配置显式开启了该功能，并通过 `entry_transition_direct_source_
 1. 仿真中将遥控速度置零，逐一验证四种 walk 相互切换。
 2. 验证四种 walk 分别进入九种普通动作策略，并等待动作自动回 `walk_leo`；再从 `passive`/`pd_stand` 分别验证俯卧和仰卧起身的首帧 PD 阶段及连续到位判据，以及两者自动回到走路。
 3. 在参考动作前半段和后半段分别手动切回四种 walk，观察是否出现 0.28 s 封顶或 tracking error 日志。
-4. 吊架/保护绳下实机测试 `pd_stand → walk_leo`、`walk_leo ↔ walk_custom`。
+4. 吊架/保护绳下实机测试 `pd_stand → walk_leo`、`walk_leo ↔ walk_impact`。
 5. 再测试低动态动作，最后测试嘲讽和五个击打动作的手动提前退出。
 6. 只有在零速切换稳定后，再逐步加入行走速度命令。
 
@@ -314,9 +314,8 @@ T800 配置显式开启了该功能，并通过 `entry_transition_direct_source_
 
 - 共享衔接器：`src/runner/motion_transition/`
 - 普通 walk 接入：`src/runner/rl_walking_example/`
-- custom walk 接入：`src/runner/rl_walking_custom_example/`
 - Leo Lab recurrent walk 接入：`src/runner/rl_walking_leolab_example/`
-- WBT 动作和上键仰卧起身：`src/runner/rl_dance_example/`
+- 上键仰卧起身：`src/runner/rl_dance_example/`
 - SuperMimic 动作和俯卧起身：`src/runner/rl_supermimic/`
 - T800 参数：`assets/config/t800/rl_*_example/default.yaml`
 - T800 状态机：`assets/config/t800/task_motion/default.yaml`
@@ -334,7 +333,7 @@ T800 配置显式开启了该功能，并通过 `entry_transition_direct_source_
 
 SuperMimic 与 WBT/dance 统一使用 `motion_transition/heading_alignment.h`：从实际首姿态和参考首姿态的完整旋转关系拟合一个绕世界 Z 轴的偏移，避免分别提取 Euler yaw 在趴卧时对微小倾斜的放大。相对倾斜恰为 180°时纯朝向拟合没有唯一解，采用共同水平投影最充分的身体轴作确定性回退；这不证明身体姿态适合起身。算法只负责参考姿态观测的坐标对齐，不直接旋转机器人、不修改关节参考或模型。IMU噪声、漂移和初始姿态偏差仍可能带来误差。
 
-俯卧和仰卧都在 PD 到位检查通过后的首个策略周期，用最新身体姿态确定对齐偏移，后续保持偏移固定并每周期更新相对姿态观测；真实转向仍会反馈给策略。普通 SuperMimic 拳脚保留入口和实时策略 bridge 结束时的对齐时机，WBT 普通拳脚保留首策略周期的时机。
+俯卧和仰卧都在 PD 到位检查通过后的首个策略周期，用最新身体姿态确定对齐偏移，后续保持偏移固定并每周期更新相对姿态观测；真实转向仍会反馈给策略。普通 SuperMimic 拳脚在入口及实时策略 bridge 结束时计算对齐。
 
 当前俯卧（START+十字右）和仰卧（START+十字上）的起身启动条件：
 

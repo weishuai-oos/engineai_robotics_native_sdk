@@ -160,8 +160,16 @@ class VirtualGamepadWidget(QWidget):
             "supermimic_left_hook: [RB, Y]": ("RB", "Y"),
             "supermimic_pull_hammer: [RB, X]": ("RB", "X"),
             "supermimic_right_high_kick: [RB, A]": ("RB", "A"),
-            "rl_left_hook_001_improved: [RT, CROSS_Y_RIGHT]":
+            "supermimic_left_hook_26000: [RB, CROSS_X_UP]":
+                ("RB", "CROSS_X_UP"),
+            "supermimic_left_straight_12000: [RB, CROSS_X_DOWN]":
+                ("RB", "CROSS_X_DOWN"),
+            "supermimic_left_flick_mid_8000: [RB, CROSS_Y_LEFT]":
+                ("RB", "CROSS_Y_LEFT"),
+            "supermimic_pull_hammer_56000: [RT, CROSS_Y_RIGHT]":
                 ("RT", "CROSS_Y_RIGHT"),
+            "supermimic_pull_hammer_22000: [RB, CROSS_Y_RIGHT]":
+                ("RB", "CROSS_Y_RIGHT"),
         }
 
         self.init_ui()

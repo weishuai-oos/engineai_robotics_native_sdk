@@ -53,6 +53,26 @@ SUPER_MOTIONS = {
 }
 SUPER_PACKAGES = {directory for _, _, directory in SUPER_MOTIONS.values()} | {PRONE_PACKAGE}
 
+# Shared numbered policies promoted to the five former competition keys.
+PROMOTED_STRIKES = {
+    'supermimic_left_hook_26000': ('rl_left_front_kick_002_complete_heightfall', 1, ['RB', 'CROSS_X_UP'], 'rl_supermimic_s2bf_zq_left_hook_02_j13961_3_m26000'),
+    'supermimic_left_straight_12000': ('rl_roundhouse_kick', 3, ['RB', 'CROSS_X_DOWN'], 'rl_supermimic_s2air20_zq_left_straight_05_j14393_0_m12000'),
+    'supermimic_left_flick_mid_8000': ('rl_straight_punch_L_improved', 4, ['RB', 'CROSS_Y_LEFT'], 'rl_supermimic_s2air20_zq_left_flick_mid_01_j14282_1_m8000'),
+    'supermimic_pull_hammer_56000': ('rl_left_hook_001_improved', 2, ['CROSS_X_UP', 'CROSS_X_DOWN', 'CROSS_Y_RIGHT'], 'rl_supermimic_s2air25_zq_pull_hammer_20261102_j14016_4_m56000'),
+    'supermimic_pull_hammer_22000': ('rl_punch_example', 5, ['RB', 'CROSS_Y_RIGHT'], 'rl_supermimic_s2air20_zq_pull_hammer_20261102_j14282_2_m22000'),
+}
+REPLACED_TAGS.update(value[0] for value in PROMOTED_STRIKES.values())
+NEW_TAGS.update("rl_" + motion for motion in PROMOTED_STRIKES)
+SUPER_PACKAGES.update("numbered_actions/" + value[3] for value in PROMOTED_STRIKES.values())
+
+COMPETITION_ASSET_HASHES = {
+    'rl_left_front_kick_002_complete_heightfall': {'default.yaml': 'eef561e1b83f6a90657d26fbc5938d35c448e2842632e0c9faec9cee994b19b7', 'policies/policy.mnn': 'e0f2af34ff0c7290ff8dfd04243de6bfc983d4612d3237f25db7f49d8d1d57cd', 'trajectories/left_front_kick_002_terminal_hold_1s.npz': 'f7dc8d50a9c4e553b6ff4da9b8457461a8a57b1b46d1eefff2bd313c88f8a523'},
+    'rl_roundhouse_kick': {'default.yaml': '10b09c98fadd9efd22771dbf01ec85b41fa70b26ccd293b507d578ae4d09210f', 'policies/policy.mnn': '0fbf95134b518cdc59f0fa0c70ba5fc74f773eae2ce5d6efd11fbbb01b6a6ca8', 'trajectories/roundhouse_kick_001_retimed_terminal_hold_1s.npz': '26826a6be34403d79eb38960a23ee4a7356501a5f714ad8c315e02291ef38b0d'},
+    'rl_straight_punch_L_improved': {'default.yaml': '0e22a422fb6ed61794e70053f2fad89fdf07c4ca985c80dfcbab2b44e056dcb5', 'policies/policy.mnn': '8d7a2013384689818bd4397773f67d169623c0cba656447c007a96233d473a2b', 'trajectories/straight_punch_L_terminal_hold_0p5s.npz': 'c2304b8cbccddd796f12056f5264f97642936396d89cd98d6b0774945c3fedf0'},
+    'rl_left_hook_001_improved': {'default.yaml': '6c7fb598c151d54dac903561e9edaf78095c6e84478d789fee958ce5d9c8d842', 'policies/policy.mnn': '176efc1dae758c4c4d950676d5b13678bae93cfc98e64b645cf4477bafd07b76', 'trajectories/left_hook_001_terminal_hold_0p5s.npz': '52baa6dd3d1f49a869ae5179dd03da6b001535709773133d1873ecb1b2a8889c'},
+    'rl_punch_example': {'default.yaml': '25a7e7fc75274683c01ff898387c2940bdb65397d8c7ff80875272d2170e459d', 'policies/policy.mnn': '4306b1ffcc6028a3f1ac72011afc7e0a440d86347a3fa7cb6f084527d79d009b', 'trajectories/Punch_Swing_L_50hz.npz': '8d55be2b9cbb795b7fb68a29164cddebd63de7ab2c9526fd745fa7adfdf221ed'},
+}
+
 # Retained runtime bytes and parsed settings captured before asset cleanup.
 # These checks cover PD/timing/order without keeping export reports or fixtures.
 RUNTIME_PACKAGES = {
@@ -131,8 +151,7 @@ RUNTIME_PACKAGES = {
         }),
 }
 
-# These values were captured before replacing the four RB+face-button motions.
-# They cover the other fourteen motions after replacing the prone recovery too.
+# These nine motions retain their keys, runners and transitions after migration.
 PRESERVED_MOTIONS = {
     "walk": (0.01, ["LB", "B"], "rl_walking_example_runner", "rl_walking_example"),
     "walk_impact": (0.02, ["LB", "Y"], "rl_walking_leolab_example_runner", "rl_walking_leolab_impact_v2"),
@@ -141,15 +160,6 @@ PRESERVED_MOTIONS = {
                   "rl_walking_leolab_example_runner", "rl_walking_leolab_taunt"),
     "walk_leo_terrain": (0.02, ["LB", "X"], "rl_walking_leolab_example_runner",
                          "rl_walking_leolab_terrain_example"),
-    "rl_left_front_kick_002_complete_heightfall": (0.02, ["RB", "CROSS_X_UP"],
-        "rl_dance_example_runner", "rl_left_front_kick_002_complete_heightfall"),
-    "rl_roundhouse_kick": (0.02, ["RB", "CROSS_X_DOWN"],
-        "rl_dance_example_runner", "rl_roundhouse_kick"),
-    "rl_straight_punch_L_improved": (0.02, ["RB", "CROSS_Y_LEFT"],
-        "rl_dance_example_runner", "rl_straight_punch_L_improved"),
-    "rl_left_hook_001_improved": (0.02, ["CROSS_X_UP", "CROSS_X_DOWN", "CROSS_Y_RIGHT"],
-        "rl_dance_example_runner", "rl_left_hook_001_improved"),
-    "rl_punch_example": (0.02, ["RB", "CROSS_Y_RIGHT"], "rl_dance_example_runner", "rl_punch_example"),
     "supine_to_stance": (0.02, ["START", "CROSS_X_UP"], "rl_dance_example_runner", "rl_supine_to_stance"),
     "getup": (0.02, ["LB", "START"], "rl_getup_example_runner", "rl_getup_example"),
     "getup2": (0.02, ["LB", "BACK"], "rl_getup_example_runner", "rl_getup2_example"),
@@ -184,11 +194,6 @@ PRESERVED_SIM_SCOPES = {
     "rl_walking_leolab_terrain_example": "rl_walking_leolab_terrain_example/default",
     "rl_getup_example": "rl_getup_example/default",
     "rl_getup2_example": "rl_getup2_example/default",
-    "rl_left_front_kick_002_complete_heightfall": "rl_left_front_kick_002_complete_heightfall/default",
-    "rl_roundhouse_kick": "rl_roundhouse_kick/default",
-    "rl_straight_punch_L_improved": "rl_straight_punch_L_improved/default",
-    "rl_left_hook_001_improved": "rl_left_hook_001_improved/default",
-    "rl_punch_example": "rl_punch_example/default",
 }
 
 
@@ -240,12 +245,11 @@ class T800ActionBaselineTest(unittest.TestCase):
                         with self.subTest(mode=name, motion=task["motion"]):
                             self.assertIn(runner["param_tag"], scopes)
 
-    def test_fourteen_other_motions_keep_keys_runners_tags_and_periods(self):
-        self.assertEqual(len(PRESERVED_MOTIONS), 14)
+    def test_nine_other_motions_keep_keys_runners_tags_and_periods(self):
+        self.assertEqual(len(PRESERVED_MOTIONS), 9)
         walking = ["walk", "walk_impact", "walk_leo", "walk_leo_terrain"]
         returns = ["passive", "pd_stand"] + walking
-        strikes = ["rl_left_front_kick_002_complete_heightfall", "rl_roundhouse_kick",
-                   "rl_straight_punch_L_improved", "rl_left_hook_001_improved", "rl_punch_example"]
+        strikes = list(PROMOTED_STRIKES)
         transitions = {
             name: (["passive", "pd_stand"] + [other for other in walking if other != name] +
                    (["leo_taunt"] if name == "walk_leo" else []) +
@@ -347,7 +351,7 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
 
     def test_old_actions_keep_only_runtime_files_and_remain_inactive(self):
         self.assertEqual({path.name for path in self.old.iterdir()},
-                         ARCHIVED_DIRS | {"嘲讽", "README.md"})
+                         ARCHIVED_DIRS | {"嘲讽", "上次比赛", "README.md"})
         for directory in ARCHIVED_DIRS:
             self.assertFalse((CONFIG_ROOT / directory).exists(), directory)
             self.assertTrue((self.old / directory).is_dir(), directory)
@@ -383,6 +387,51 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                     self.assertEqual(scopes[tag], directory + "/default")
                 collisions = [name for name, other in self.tasks.items() if other["key"] == task["key"]]
                 self.assertEqual(collisions, [motion])
+
+    def test_five_competition_keys_share_the_numbered_policies_in_both_modes(self):
+        catalog = json.loads((CONFIG_ROOT / "numbered_actions/catalog.json").read_text())
+        numbered = {action["id"]: action for action in catalog["actions"]}
+        self.assertEqual(set(numbered), {1, 2, 3, 4, 5})
+        ready = {"pd_stand", "pd_stand_x", "pd_stand_y", "walk",
+                 "walk_impact", "walk_leo", "walk_leo_terrain"}
+        for motion, (old, number, key, package) in PROMOTED_STRIKES.items():
+            with self.subTest(motion=motion, number=number):
+                self.assertFalse(old in self.tasks, old)
+                task = self.tasks[motion]
+                tag = "rl_" + motion
+                self.assertEqual(task["key"], key)
+                self.assertEqual(task["period"], 0.02)
+                self.assertEqual(task["runner"], [{"name": "rl_supermimic_runner",
+                                 "enabled": True, "param_tag": tag}])
+                self.assertEqual(task["auto_transition"], "walk_leo")
+                self.assertEqual(task["manual_transition"], ["passive", "pd_stand", "walk",
+                                 "walk_impact", "walk_leo", "walk_leo_terrain"])
+                self.assertEqual(numbered[number]["package"], package)
+                for entries in self.mode["mode"].values():
+                    scopes = {entry["tag"]: entry["scope"] for entry in entries}
+                    self.assertEqual(scopes[tag], "numbered_actions/" + package + "/default")
+                    self.assertNotIn(old, scopes)
+                for source in ready:
+                    self.assertIn(motion, self.tasks[source]["manual_transition"], source)
+                self.assertEqual([name for name, other in self.tasks.items()
+                                  if other["key"] == key], [motion])
+                config = load_yaml(CONFIG_ROOT / "numbered_actions" / package / "default.yaml")
+                self.assertEqual(config["hold_seconds"], 0.0)
+                self.assertEqual(config["skip_terminal_hold_frames"], 100)
+                self.assertEqual(config["skip_terminal_hold_frames"], config["terminal_hold_frames"])
+                self.assertFalse(config.get("entry_transition_to_reference_pose", False))
+
+    def test_previous_competition_packages_are_archived_without_changes(self):
+        folder = CONFIG_ROOT / "old/上次比赛"
+        self.assertEqual({path.name for path in folder.iterdir()}, set(COMPETITION_ASSET_HASHES))
+        for directory, expected in COMPETITION_ASSET_HASHES.items():
+            with self.subTest(package=directory):
+                self.assertFalse((CONFIG_ROOT / directory).exists())
+                package = folder / directory
+                self.assertEqual({path.relative_to(package).as_posix()
+                                  for path in package.rglob("*") if path.is_file()}, set(expected))
+                for name, digest in expected.items():
+                    self.assertEqual(file_sha256(package / name), digest, name)
 
     def test_runtime_packages_preserve_settings_and_asset_bytes(self):
         for directory, (expected_config, assets) in RUNTIME_PACKAGES.items():
@@ -487,8 +536,9 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                     "q-default_q:25", "joint_velocity:25", "body_angular_velocity:3",
                     "projected_gravity:3", previous_action + ":25", "relative_root_orientation_6d:6"])
                 if not raw_action_export:
-                    self.assertEqual(config["action_output_contract"],
-                        "export wrapper returns executed_action(raw_action)=clamp(raw_action,-20,20)")
+                    self.assertIn(config["action_output_contract"], (
+                        "export wrapper returns executed_action(raw_action)=clamp(raw_action,-20,20)",
+                        "clamp(raw_action,-20,20); previous action is executed action"))
                 with np.load(package / config["reference_file"], allow_pickle=False) as reference:
                     frames = reference["joint_pos"].shape[0]
                     self.assertGreaterEqual(frames, 2)

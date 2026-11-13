@@ -181,6 +181,31 @@ class NumberedActionsUiTest(unittest.TestCase):
         self.state("walk_impact")
         self.assertTrue(self.page.can_execute())
 
+    def test_competition_macros_use_the_five_physical_combinations(self):
+        self.ready()
+        mappings = {
+            "supermimic_left_hook_26000": (("RB", "CROSS_X_UP"), [1, 8], None),
+            "supermimic_left_straight_12000": (("RB", "CROSS_X_DOWN"), [1, 9], None),
+            "supermimic_left_flick_mid_8000": (("RB", "CROSS_Y_LEFT"), [1, 10], None),
+            "supermimic_pull_hammer_56000": (("RT", "CROSS_Y_RIGHT"), [11], 1),
+            "supermimic_pull_hammer_22000": (("RB", "CROSS_Y_RIGHT"), [1, 11], None),
+        }
+        self.assertFalse(any("rl_left_hook_001_improved" in label
+                             for label in self.gamepad.macros))
+        for motion, (keys, digital, trigger) in mappings.items():
+            with self.subTest(motion=motion):
+                label = f"{motion}: [{', '.join(keys)}]"
+                self.assertEqual(self.gamepad.macros[label], keys)
+                self.gamepad.discard_pending_inputs()
+                self.assertTrue(self.gamepad.send_macro(self.gamepad.macros[label]))
+                self.gamepad.send_state()  # neutral release frame
+                self.gamepad.send_state()
+                state = self.sent_state()
+                self.assertEqual(list(state.digital_states),
+                                 [int(index in digital) for index in range(12)])
+                self.assertEqual(list(state.analog_states),
+                                 [float(index == trigger) for index in range(6)])
+
     def test_only_configured_numbered_buttons_are_shown(self):
         self.page.show()
         self.app.processEvents()
