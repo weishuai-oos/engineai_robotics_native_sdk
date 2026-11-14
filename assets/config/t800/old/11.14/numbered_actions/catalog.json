@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "capacity": 50,
+  "actions": [
+    {
+      "id": 1,
+      "label": "左勾拳",
+      "batch": 2,
+      "iteration": 26000,
+      "package": "rl_supermimic_s2bf_zq_left_hook_02_j13961_3_m26000"
+    },
+    {
+      "id": 2,
+      "label": "拉锤",
+      "batch": 3,
+      "iteration": 56000,
+      "package": "rl_supermimic_s2air25_zq_pull_hammer_20261102_j14016_4_m56000"
+    },
+    {
+      "id": 3,
+      "label": "左直拳",
+      "batch": 6,
+      "iteration": 12000,
+      "package": "rl_supermimic_s2air20_zq_left_straight_05_j14393_0_m12000"
+    },
+    {
+      "id": 4,
+      "label": "左抖拳中",
+      "batch": 6,
+      "iteration": 8000,
+      "package": "rl_supermimic_s2air20_zq_left_flick_mid_01_j14282_1_m8000"
+    },
+    {
+      "id": 5,
+      "label": "拉锤",
+      "batch": 6,
+      "iteration": 22000,
+      "package": "rl_supermimic_s2air20_zq_pull_hammer_20261102_j14282_2_m22000"
+    }
+  ]
+}

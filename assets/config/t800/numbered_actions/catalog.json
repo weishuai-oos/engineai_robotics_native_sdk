@@ -3,39 +3,95 @@
   "capacity": 50,
   "actions": [
     {
-      "id": 1,
+      "id": 6,
+      "label": "左抖拳（高）",
+      "batch": 1,
+      "iteration": 32000,
+      "package": "rl_supermimic_local_clip_zq_xjh_3_10_02_strike_04"
+    },
+    {
+      "id": 8,
       "label": "左勾拳",
-      "batch": 2,
+      "batch": 1,
+      "iteration": 32000,
+      "package": "rl_supermimic_local_clip_zq_xjh_3_5_01_strike_08"
+    },
+    {
+      "id": 9,
+      "label": "左勾拳",
+      "batch": 1,
+      "iteration": 20000,
+      "package": "rl_supermimic_local_clip_zq_xjh_3_5_01_strike_10"
+    },
+    {
+      "id": 11,
+      "label": "左手下拉捅锤",
+      "batch": 1,
+      "iteration": 18000,
+      "package": "rl_supermimic_local_clip_zq_xjh_3_7_01_strike_09"
+    },
+    {
+      "id": 12,
+      "label": "左抖拳（低）",
+      "batch": 1,
+      "iteration": 32000,
+      "package": "rl_supermimic_local_clip_zq_xjh_3_8_01_strike_04"
+    },
+    {
+      "id": 13,
+      "label": "左抖拳（中）",
+      "batch": 1,
+      "iteration": 32000,
+      "package": "rl_supermimic_local_clip_zq_xjh_3_9_01_strike_05"
+    },
+    {
+      "id": 14,
+      "label": "左正蹬",
+      "batch": 1,
+      "iteration": 18000,
+      "package": "rl_supermimic_local_clip_zq_xjh_4_10_01_strike_02"
+    },
+    {
+      "id": 15,
+      "label": "前腿侧踩",
+      "batch": 1,
+      "iteration": 18000,
+      "package": "rl_supermimic_local_clip_zq_xjh_4_14_01_strike_04"
+    },
+    {
+      "id": 16,
+      "label": "左低弹踢",
+      "batch": 1,
       "iteration": 26000,
-      "package": "rl_supermimic_s2bf_zq_left_hook_02_j13961_3_m26000"
+      "package": "rl_supermimic_local_clip_zq_xjh_4_1_01_strike_07"
     },
     {
-      "id": 2,
-      "label": "拉锤",
-      "batch": 3,
-      "iteration": 56000,
-      "package": "rl_supermimic_s2air25_zq_pull_hammer_20261102_j14016_4_m56000"
+      "id": 17,
+      "label": "左高弹踢",
+      "batch": 1,
+      "iteration": 18000,
+      "package": "rl_supermimic_local_clip_zq_xjh_4_2_01_strike_02"
     },
     {
-      "id": 3,
-      "label": "左直拳",
-      "batch": 6,
-      "iteration": 12000,
-      "package": "rl_supermimic_s2air20_zq_left_straight_05_j14393_0_m12000"
+      "id": 18,
+      "label": "右高弹踢",
+      "batch": 1,
+      "iteration": 18000,
+      "package": "rl_supermimic_local_clip_zq_xjh_4_3_02_strike_05"
     },
     {
-      "id": 4,
-      "label": "左抖拳中",
-      "batch": 6,
-      "iteration": 8000,
-      "package": "rl_supermimic_s2air20_zq_left_flick_mid_01_j14282_1_m8000"
+      "id": 19,
+      "label": "左低鞭",
+      "batch": 1,
+      "iteration": 18000,
+      "package": "rl_supermimic_local_clip_zq_xjh_4_4_01_strike_01"
     },
     {
-      "id": 5,
-      "label": "拉锤",
-      "batch": 6,
-      "iteration": 22000,
-      "package": "rl_supermimic_s2air20_zq_pull_hammer_20261102_j14282_2_m22000"
+      "id": 20,
+      "label": "左中鞭",
+      "batch": 1,
+      "iteration": 18000,
+      "package": "rl_supermimic_local_clip_zq_xjh_4_5_01_strike_06"
     }
   ]
 }

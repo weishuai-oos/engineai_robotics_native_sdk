@@ -246,22 +246,28 @@ State transition logic varies by robot model. Refer to the per-model sections be
 | walk | Walking task. The robot executes gait locomotion. |
 | supine_to_stance | Stand-up task using the local `rl_dance_example_runner` with a 50 Hz, 134-observation/25-action policy. Trigger: START + d-pad up; `walk_leo` can also be selected manually before the trajectory ends. |
 | prone_to_stance | Prone get-up using `rl_supermimic_runner` at 50 Hz, with 1520 inputs and 25 outputs. Trigger: START + d-pad right. |
-| supermimic_come_here | SuperMimic taunt, RB + B. |
-| supermimic_left_hook | SuperMimic left hook, RB + Y. |
-| supermimic_pull_hammer | SuperMimic pull hammer, RB + X. |
-| supermimic_right_high_kick | SuperMimic right high kick, RB + A. |
-| supermimic_left_hook_26000 | Test 01 left hook, RB + d-pad up. |
-| supermimic_left_straight_12000 | Test 03 left straight, RB + d-pad down. |
-| supermimic_left_flick_mid_8000 | Test 04 left flick mid, RB + d-pad left. |
-| supermimic_pull_hammer_56000 | Test 02 pull hammer, RT + d-pad right. |
-| supermimic_pull_hammer_22000 | Test 05 pull hammer, RB + d-pad right. |
+| supermimic_action_06 | 06 High left flick punch, 32000 iterations, LB + d-pad up. |
+| supermimic_action_08 | 08 Left hook, 32000 iterations, LB + d-pad down. |
+| supermimic_action_09 | 09 Left hook, 20000 iterations, LB + d-pad left. |
+| supermimic_action_11 | 11 Left pull-down hammer, 18000 iterations, LB + d-pad right. |
+| supermimic_action_12 | 12 Low left flick punch, 32000 iterations, RB + d-pad up. |
+| supermimic_action_13 | 13 Mid left flick punch, 32000 iterations, RB + d-pad down. |
+| supermimic_action_14 | 14 Left front kick, 18000 iterations, RB + d-pad left. |
+| supermimic_action_15 | 15 Lead-leg side stomp, 18000 iterations, RB + d-pad right. |
+| supermimic_action_16 | 16 Low left snap kick, 26000 iterations, RT + d-pad left. |
+| supermimic_action_17 | 17 High left snap kick, 18000 iterations, RT + d-pad right. |
+| supermimic_action_18 | 18 High right snap kick, 18000 iterations, RB + B. |
+| supermimic_action_19 | 19 Low left roundhouse, 18000 iterations, RB + Y. |
+| supermimic_action_20 | 20 Mid left roundhouse, 18000 iterations, RB + X. |
 | stance_to_supine | Lie-down task. The robot transitions from standing posture to a supine (lying on back) posture. |
 
 **State Machine Configuration:** `assets/config/t800/task_motion/default.yaml`
 
 `LB+A` enters `walk_leo`, whose `rl_walking_leolab_example` tag now selects `assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/default.yaml`. This is the final AnkleCombinedV2 `ckpt_140000` export. Its four ankle joints (indices 4, 5, 10, and 11) use Kd 2.0; the remaining joint order, Kp, default pose, action scale, recurrent contract, and terrain-style remote-command settings are unchanged. The previous `rl_walking_leolab_example` configuration and its referenced model remain under `assets/config/t800/old/rl_walking_leolab_example` for rollback. The old top-level compatibility symlink has been removed. `LB+X` still selects `walk_leo_terrain` and its Kd remains 0.3.
 
-The nine formal SuperMimic motions use `rl_supermimic_runner` with the exported 1520-input / 25-output contract and return to `walk_leo` after the reference clip. They set `hold_seconds: 0.0` and retain the gait entry transition. The five newly assigned controls share their policy files with virtual test actions 01–05 and skip the appended 100-frame static tail. The five previous WBT actions are archived under `assets/config/t800/old/上次比赛`.
+The 13 formal SuperMimic motions use `rl_supermimic_runner` with the exported 1520-input / 25-output contract. They can be entered from any of the three PD postures or four walking states and automatically return to `walk_leo` after the reference clip. Their packages are shared with virtual tests 06, 08, 09, 11–20 under `assets/config/t800/numbered_actions/`; these IDs are preserved from the ds computer. The imported settings use `hold_seconds: 0.0` and `skip_terminal_hold_frames: 0`, with no appended 100-frame static tail. The nine replaced motions and former catalog 01–05 are archived under `assets/config/t800/old/11.14/`; the earlier five WBT packages remain under `old/上次比赛/`.
+
+`RT` + d-pad up/down and `RB+A` are unassigned. The current input encoding uses simultaneous d-pad up/down as the RT marker, so RT+up and RT+down cannot select distinct actions. Physical controls use `supermimic_action_NN` states; numbered virtual tests use separate `test_action_NN` states with the same policy assets.
 
 `prone_to_stance` uses `rl_supermimic_prone_j12768_m22000` and plays the complete 143-frame reference over 2.84 seconds, with `hold_seconds: 0.0` adding no terminal hold. The policy returns raw actions, and its history stores the previous raw action. It can be entered from `passive`, `pd_stand`, `pd_stand_x`, or `pd_stand_y`; during execution, manual transitions to `passive`, `pd_stand`, and `walk_leo` remain available. Completion automatically returns to `walk_leo`. The gait takes over directly after get-up, without the gait entry blend used after ordinary fighting motions. The earlier `rl_prone_to_stance_hybrid_9825_m29500` package is archived under `assets/config/t800/old`; START + d-pad up still selects WBT supine get-up, and the HoST get-up tasks are unchanged. The prone package contains only its runtime YAML, MNN policy, and reference NPZ.
 

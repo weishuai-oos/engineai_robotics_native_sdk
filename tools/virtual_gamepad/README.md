@@ -58,17 +58,18 @@ In a duel, this controls robot A; robot B keeps its existing controller.
 
 Enable sending, enter PD standing or walking, then click a numbered action.
 Buttons show the action, batch, and checkpoint iteration in three columns.
-The shared catalog currently contains actions 01–05 and supports numbers
-01–50; unconfigured numbers are hidden. Robot feedback confirms the active action.
+The shared catalog currently contains 13 actions: 06, 08, 09, and 11–20. It
+supports numbers 01–50; unconfigured numbers are hidden. Robot feedback confirms the active action.
 After confirmation the next item is selected, but execution always requires
 another click. Walking, PD standing, and passive recovery buttons remain
 available during testing. F5/Enable is shared with the original gamepad tab.
 
-Numbered policies skip their appended static reference tail and use zero extra
-hold time. They share the regular SuperMimic entry bridge and automatically
-return through the existing gait bridge to `walk_leo` (LB+A). This requires
-rebuilding the updated C++ controller and restarting the simulation session;
-models and exported reference/goal arrays are unchanged.
+The imported policies use zero extra hold time and
+`skip_terminal_hold_frames: 0`; these references have no appended 100-frame
+static tail. They share the regular SuperMimic entry bridge and automatically
+return through the existing gait bridge to `walk_leo` (LB+A). Restart the
+simulation session after changing the catalog or mappings. The import preserves
+the source models, YAML settings, and reference/goal arrays.
 
 Chinese text needs a CJK font in the GUI environment. If it renders as square
 glyphs, follow the Chinese font setup below.
@@ -82,17 +83,38 @@ commands are in [the startup guide](../../操作.txt).
 
 ### Shared test policies and Git
 
-`assets/config/t800/numbered_actions/` is shared through Git. It contains
-`catalog.json` and five selected policy packages, each with its YAML, MNN,
-and reference motion. The catalog maps 01–05 to left hook, pull hammer,
-left straight, left flick mid, and pull hammer; checkpoints and previous
-numbers are listed in the [runner and transition reference](../../docs/t800_runner_classification_and_transitions.md#当前编号测试动作).
-The same five packages also drive the regular gamepad buttons: 01 is RB+Up,
-03 is RB+Down, 04 is RB+Left, 02 is RT+Right, and 05 is RB+Right. The
-numbered test buttons remain available and use those same files.
+`assets/config/t800/numbered_actions/` contains `catalog.json` and 13 selected
+policy packages imported from `ds@192.168.20.249` on 11.14, each with its YAML,
+MNN, and reference motion. The source IDs are preserved: 06, 08, 09, and 11–20.
+The six punch and seven leg actions also drive the regular physical gamepad:
 
-A fresh clone includes these five tests. For a checkout without a catalog,
-initialize an empty one from the SDK root:
+| Physical combination | Numbered action |
+| --- | --- |
+| LB+d-pad up | 06 High left flick punch (32000 iterations) |
+| LB+d-pad down | 08 Left hook (32000 iterations) |
+| LB+d-pad left | 09 Left hook (20000 iterations) |
+| LB+d-pad right | 11 Left pull-down hammer (18000 iterations) |
+| RB+d-pad up | 12 Low left flick punch (32000 iterations) |
+| RB+d-pad down | 13 Mid left flick punch (32000 iterations) |
+| RB+d-pad left | 14 Left front kick (18000 iterations) |
+| RB+d-pad right | 15 Lead-leg side stomp (18000 iterations) |
+| RT+d-pad left | 16 Low left snap kick (26000 iterations) |
+| RT+d-pad right | 17 High left snap kick (18000 iterations) |
+| RB+B | 18 High right snap kick (18000 iterations) |
+| RB+Y | 19 Low left roundhouse (18000 iterations) |
+| RB+X | 20 Mid left roundhouse (18000 iterations) |
+
+RT+Up/Down and RB+A are unassigned. The current RT marker already sets both
+vertical d-pad bits, so RT+Up and RT+Down cannot be distinguished. The formal
+`supermimic_action_NN` states and virtual `test_action_NN` states use the same
+package files but keep separate command names. Checkpoints and package names
+are listed in the [runner and transition reference](../../docs/t800_runner_classification_and_transitions.md#当前编号测试动作).
+The nine replaced physical actions, including the old 01–05 packages and
+catalog, are preserved under `assets/config/t800/old/11.14/`.
+
+To share these tests, include the catalog and all corresponding runtime files
+in Git. For a checkout without a catalog, initialize an empty one from the SDK
+root:
 
 ```bash
 mkdir -p assets/config/t800/numbered_actions
@@ -134,7 +156,9 @@ directly supported. Missing runtime files and malformed catalogs are rejected.
 Keep `hold_seconds: 0.0` to remove extra end holding. If the reference includes
 an appended static tail, set `skip_terminal_hold_frames` to its actual frame
 count; otherwise use 0. Do not assume every model has a 100-frame tail.
-Restart the session to load changes; formal button mappings need no changes.
+Restart the session to load changes. Adding a numbered test alone does not
+change formal button mappings; those are defined separately in `task_motion`
+and registered in both `mode.sim` and `mode.robot`.
 To share additions, commit the catalog together with the corresponding three
 runtime files. This directory is no longer automatically ignored, so review
 the staged files before committing. Keep training checkpoints, ONNX exports,

@@ -150,26 +150,25 @@ class VirtualGamepadWidget(QWidget):
             "leo_taunt: [LT, B]": ("LT", "B"),
             "getup: [LB, START]": ("LB", "START"),
             "getup2: [LB, BACK]": ("LB", "BACK"),
-            "supermimic_come_here: [RB, B]": ("RB", "B"),
             "supine_to_stance: [START, CROSS_X_UP]":
                 ("START", "CROSS_X_UP"),
             "prone_to_stance: [START, CROSS_Y_RIGHT]":
                 ("START", "CROSS_Y_RIGHT"),
             "stance_to_supine: [START, CROSS_X_DOWN]":
                 ("START", "CROSS_X_DOWN"),
-            "supermimic_left_hook: [RB, Y]": ("RB", "Y"),
-            "supermimic_pull_hammer: [RB, X]": ("RB", "X"),
-            "supermimic_right_high_kick: [RB, A]": ("RB", "A"),
-            "supermimic_left_hook_26000: [RB, CROSS_X_UP]":
-                ("RB", "CROSS_X_UP"),
-            "supermimic_left_straight_12000: [RB, CROSS_X_DOWN]":
-                ("RB", "CROSS_X_DOWN"),
-            "supermimic_left_flick_mid_8000: [RB, CROSS_Y_LEFT]":
-                ("RB", "CROSS_Y_LEFT"),
-            "supermimic_pull_hammer_56000: [RT, CROSS_Y_RIGHT]":
-                ("RT", "CROSS_Y_RIGHT"),
-            "supermimic_pull_hammer_22000: [RB, CROSS_Y_RIGHT]":
-                ("RB", "CROSS_Y_RIGHT"),
+            "supermimic_action_06: [LB, CROSS_X_UP]": ("LB", "CROSS_X_UP"),
+            "supermimic_action_08: [LB, CROSS_X_DOWN]": ("LB", "CROSS_X_DOWN"),
+            "supermimic_action_09: [LB, CROSS_Y_LEFT]": ("LB", "CROSS_Y_LEFT"),
+            "supermimic_action_11: [LB, CROSS_Y_RIGHT]": ("LB", "CROSS_Y_RIGHT"),
+            "supermimic_action_12: [RB, CROSS_X_UP]": ("RB", "CROSS_X_UP"),
+            "supermimic_action_13: [RB, CROSS_X_DOWN]": ("RB", "CROSS_X_DOWN"),
+            "supermimic_action_14: [RB, CROSS_Y_LEFT]": ("RB", "CROSS_Y_LEFT"),
+            "supermimic_action_15: [RB, CROSS_Y_RIGHT]": ("RB", "CROSS_Y_RIGHT"),
+            "supermimic_action_16: [RT, CROSS_Y_LEFT]": ("RT", "CROSS_Y_LEFT"),
+            "supermimic_action_17: [RT, CROSS_Y_RIGHT]": ("RT", "CROSS_Y_RIGHT"),
+            "supermimic_action_18: [RB, B]": ("RB", "B"),
+            "supermimic_action_19: [RB, Y]": ("RB", "Y"),
+            "supermimic_action_20: [RB, X]": ("RB", "X"),
         }
 
         self.init_ui()

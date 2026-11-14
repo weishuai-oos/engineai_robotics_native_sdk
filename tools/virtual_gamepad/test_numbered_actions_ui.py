@@ -181,17 +181,26 @@ class NumberedActionsUiTest(unittest.TestCase):
         self.state("walk_impact")
         self.assertTrue(self.page.can_execute())
 
-    def test_competition_macros_use_the_five_physical_combinations(self):
+    def test_deployed_actions_emit_the_thirteen_physical_combinations(self):
         self.ready()
         mappings = {
-            "supermimic_left_hook_26000": (("RB", "CROSS_X_UP"), [1, 8], None),
-            "supermimic_left_straight_12000": (("RB", "CROSS_X_DOWN"), [1, 9], None),
-            "supermimic_left_flick_mid_8000": (("RB", "CROSS_Y_LEFT"), [1, 10], None),
-            "supermimic_pull_hammer_56000": (("RT", "CROSS_Y_RIGHT"), [11], 1),
-            "supermimic_pull_hammer_22000": (("RB", "CROSS_Y_RIGHT"), [1, 11], None),
+            "supermimic_action_06": (("LB", "CROSS_X_UP"), [0, 8], None),
+            "supermimic_action_08": (("LB", "CROSS_X_DOWN"), [0, 9], None),
+            "supermimic_action_09": (("LB", "CROSS_Y_LEFT"), [0, 10], None),
+            "supermimic_action_11": (("LB", "CROSS_Y_RIGHT"), [0, 11], None),
+            "supermimic_action_12": (("RB", "CROSS_X_UP"), [1, 8], None),
+            "supermimic_action_13": (("RB", "CROSS_X_DOWN"), [1, 9], None),
+            "supermimic_action_14": (("RB", "CROSS_Y_LEFT"), [1, 10], None),
+            "supermimic_action_15": (("RB", "CROSS_Y_RIGHT"), [1, 11], None),
+            "supermimic_action_16": (("RT", "CROSS_Y_LEFT"), [10], 1),
+            "supermimic_action_17": (("RT", "CROSS_Y_RIGHT"), [11], 1),
+            "supermimic_action_18": (("RB", "B"), [1, 3], None),
+            "supermimic_action_19": (("RB", "Y"), [1, 5], None),
+            "supermimic_action_20": (("RB", "X"), [1, 4], None),
         }
-        self.assertFalse(any("rl_left_hook_001_improved" in label
-                             for label in self.gamepad.macros))
+        self.assertEqual({label.split(":", 1)[0] for label in self.gamepad.macros
+                          if label.startswith("supermimic_")}, set(mappings))
+        self.assertNotIn(("RB", "A"), self.gamepad.macros.values())
         for motion, (keys, digital, trigger) in mappings.items():
             with self.subTest(motion=motion):
                 label = f"{motion}: [{', '.join(keys)}]"

@@ -60,16 +60,25 @@ EngineAI Native SDK（T800）操作说明
   LB + X                  walk_leo_terrain（地形步态）
   LT + B                  leo_taunt（走路嘲讽，只能从 LB+A 进入）
 
-  RB + B                  SuperMimic 嘲讽，36000 轮
-  RB + Y                  SuperMimic 左勾拳，82000 轮
-  RB + X                  SuperMimic 拉锤，182000 轮
-  RB + A                  SuperMimic 右高踢腿，90000 轮
+  拳法（保留 ds 电脑虚拟遥控器的原动作编号）：
+  LB + 十字键上           06 左抖拳（高），32000 轮
+  LB + 十字键下           08 左勾拳，32000 轮
+  LB + 十字键左           09 左勾拳，20000 轮
+  LB + 十字键右           11 左手下拉捅锤，18000 轮
+  RB + 十字键上           12 左抖拳（低），32000 轮
+  RB + 十字键下           13 左抖拳（中），32000 轮
 
-  RB + 十字键上           01 左勾拳，第二批 26000 轮
-  RB + 十字键下           03 左直拳，第六批 12000 轮
-  RB + 十字键左           04 左抖拳中，第六批 8000 轮
-  RT + 十字键右           02 拉锤，第三批 56000 轮
-  RB + 十字键右           05 拉锤，第六批 22000 轮
+  腿法：
+  RB + 十字键左           14 左正蹬，18000 轮
+  RB + 十字键右           15 前腿侧踩，18000 轮
+  RT + 十字键左           16 左低弹踢，26000 轮
+  RT + 十字键右           17 左高弹踢，18000 轮
+  RB + B                  18 右高弹踢，18000 轮
+  RB + Y                  19 左低鞭，18000 轮
+  RB + X                  20 左中鞭，18000 轮
+
+  RT + 十字键上 / 下      留空
+  RB + A                  留空
 
   START + 十字键上        仰卧起身 supine_to_stance
   START + 十字键右        俯卧起身 prone_to_stance
@@ -77,7 +86,13 @@ EngineAI Native SDK（T800）操作说明
   LB + BACK               getup2（HoST 起身第二版本）
   START + 十字键下        stance_to_supine（主动躺下）
 
-上述 01～05 的实体按键和虚拟手柄测试页共用 assets/config/t800/numbered_actions/ 中的同一份策略。五个旧动作已放入 assets/config/t800/old/上次比赛/；编号清单保留，测试页仍可使用。新增的五个正式动作使用 SuperMimic runner，可从三种 PD 或四种走路进入；完成后自动回 LB+A。其额外 hold_seconds 为 0，并跳过参考轨迹附加的 100 帧静态尾段。
+上述 13 个拳脚动作来自 ds@192.168.20.249 的 /home/ds/robot/engineai_robotics_native_sdk，实体按键和虚拟手柄测试页共用 assets/config/t800/numbered_actions/ 中的同一份策略、配置和参考轨迹；保留远端原编号，本机测试页仅列出 06、08、09、11～20。正式状态名为 supermimic_action_06 等，虚拟编号测试状态名仍为 test_action_06 等。
+
+这 13 个动作使用 SuperMimic runner，可从三种 PD 或四种走路进入，完成后自动回 LB+A。运行参数保持远端原值：hold_seconds 为 0、skip_terminal_hold_frames 为 0，完整播放参考轨迹。LT+B 的走路嘲讽仍保留。
+
+RT 使用“十字键上+下同时按下”作为内部标记，所以当前框架不能区分 RT+上、RT+下和单按 RT；这两个方向组合留空，RT+左/右正常使用。
+
+本次被替换的 9 个旧动作（原 RB+B/Y/X/A、RB+四向及 RT+右）已归档到 assets/config/t800/old/11.14/，保留原配置、MNN、参考轨迹及原 01～05 编号清单。归档动作不再绑定实体按键，也不在当前测试页显示；原按键、tag/scope 和资源校验值见该目录 README.md 与 manifest.json。更早的五个 WBT 动作仍在 old/上次比赛/。
 
 按键仅在当前状态允许目标状态时生效；动作和状态关系以 assets/config/t800/task_motion/default.yaml 为准，策略目录由 mode.yaml 选择。仰卧、俯卧起身可从 passive 或三种 PD 姿态进入：两者都先 PD 过渡到参考首姿态，过渡结束后关节最大误差不超过 0.80 rad 连续 5 个 0.02 秒周期，才启动起身策略；当前不检查姿态、角速度或接触，也不设置等待超时。参考结束后直接交给 LB+A 走路，不另做站稳判定。状态分类与完整衔接见 docs/t800_runner_classification_and_transitions.md。
 

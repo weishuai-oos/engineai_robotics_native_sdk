@@ -53,8 +53,6 @@ mode:
       scope: rl_supermimic_prone_j12768_m22000/default
     - tag: rl_stance_to_supine
       scope: rl_stance_to_supine/default
-    - tag: rl_supermimic_come_here
-      scope: rl_supermimic_zq_come_here_01_j13904_0_m36000/default
     - tag: rl_walking_leolab_impact_v2
       scope: rl_walking_leolab_impact_v2_154500/default
     - tag: rl_walking_leolab_example
@@ -65,24 +63,34 @@ mode:
       scope: rl_walking_leolab_terrain_example/default
     - tag: rl_getup_example
       scope: rl_getup_example/default
-    - tag: rl_supermimic_left_hook
-      scope: rl_supermimic_zq_left_hook_02_j13564_m82000/default
-    - tag: rl_supermimic_pull_hammer
-      scope: rl_supermimic_zq_pull_hammer_20261102_j13551_m182000/default
-    - tag: rl_supermimic_right_high_kick
-      scope: rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
-    - tag: rl_supermimic_left_hook_26000
-      scope: numbered_actions/rl_supermimic_s2bf_zq_left_hook_02_j13961_3_m26000/default
-    - tag: rl_supermimic_left_straight_12000
-      scope: numbered_actions/rl_supermimic_s2air20_zq_left_straight_05_j14393_0_m12000/default
-    - tag: rl_supermimic_left_flick_mid_8000
-      scope: numbered_actions/rl_supermimic_s2air20_zq_left_flick_mid_01_j14282_1_m8000/default
-    - tag: rl_supermimic_pull_hammer_56000
-      scope: numbered_actions/rl_supermimic_s2air25_zq_pull_hammer_20261102_j14016_4_m56000/default
-    - tag: rl_supermimic_pull_hammer_22000
-      scope: numbered_actions/rl_supermimic_s2air20_zq_pull_hammer_20261102_j14282_2_m22000/default
+    - tag: rl_supermimic_action_06
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_10_02_strike_04/default
+    - tag: rl_supermimic_action_08
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_5_01_strike_08/default
+    - tag: rl_supermimic_action_09
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_5_01_strike_10/default
+    - tag: rl_supermimic_action_11
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_7_01_strike_09/default
+    - tag: rl_supermimic_action_12
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_8_01_strike_04/default
+    - tag: rl_supermimic_action_13
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_9_01_strike_05/default
+    - tag: rl_supermimic_action_14
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_10_01_strike_02/default
+    - tag: rl_supermimic_action_15
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_14_01_strike_04/default
+    - tag: rl_supermimic_action_16
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_1_01_strike_07/default
+    - tag: rl_supermimic_action_17
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_2_01_strike_02/default
+    - tag: rl_supermimic_action_18
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_3_02_strike_05/default
+    - tag: rl_supermimic_action_19
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_4_01_strike_01/default
+    - tag: rl_supermimic_action_20
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_5_01_strike_06/default
 
   sim:
     - tag: resident_task
@@ -125,8 +133,6 @@ mode:
       scope: rl_supermimic_prone_j12768_m22000/default
     - tag: rl_stance_to_supine
       scope: rl_stance_to_supine/default
-    - tag: rl_supermimic_come_here
-      scope: rl_supermimic_zq_come_here_01_j13904_0_m36000/default
     - tag: rl_walking_leolab_impact_v2
       scope: rl_walking_leolab_impact_v2_154500/default
     - tag: rl_walking_leolab_example
@@ -137,21 +143,31 @@ mode:
       scope: rl_walking_leolab_terrain_example/default
     - tag: rl_getup_example
       scope: rl_getup_example/default
-    - tag: rl_supermimic_left_hook
-      scope: rl_supermimic_zq_left_hook_02_j13564_m82000/default
-    - tag: rl_supermimic_pull_hammer
-      scope: rl_supermimic_zq_pull_hammer_20261102_j13551_m182000/default
-    - tag: rl_supermimic_right_high_kick
-      scope: rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
-    - tag: rl_supermimic_left_hook_26000
-      scope: numbered_actions/rl_supermimic_s2bf_zq_left_hook_02_j13961_3_m26000/default
-    - tag: rl_supermimic_left_straight_12000
-      scope: numbered_actions/rl_supermimic_s2air20_zq_left_straight_05_j14393_0_m12000/default
-    - tag: rl_supermimic_left_flick_mid_8000
-      scope: numbered_actions/rl_supermimic_s2air20_zq_left_flick_mid_01_j14282_1_m8000/default
-    - tag: rl_supermimic_pull_hammer_56000
-      scope: numbered_actions/rl_supermimic_s2air25_zq_pull_hammer_20261102_j14016_4_m56000/default
-    - tag: rl_supermimic_pull_hammer_22000
-      scope: numbered_actions/rl_supermimic_s2air20_zq_pull_hammer_20261102_j14282_2_m22000/default
+    - tag: rl_supermimic_action_06
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_10_02_strike_04/default
+    - tag: rl_supermimic_action_08
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_5_01_strike_08/default
+    - tag: rl_supermimic_action_09
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_5_01_strike_10/default
+    - tag: rl_supermimic_action_11
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_7_01_strike_09/default
+    - tag: rl_supermimic_action_12
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_8_01_strike_04/default
+    - tag: rl_supermimic_action_13
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_9_01_strike_05/default
+    - tag: rl_supermimic_action_14
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_10_01_strike_02/default
+    - tag: rl_supermimic_action_15
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_14_01_strike_04/default
+    - tag: rl_supermimic_action_16
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_1_01_strike_07/default
+    - tag: rl_supermimic_action_17
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_2_01_strike_02/default
+    - tag: rl_supermimic_action_18
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_3_02_strike_05/default
+    - tag: rl_supermimic_action_19
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_4_01_strike_01/default
+    - tag: rl_supermimic_action_20
+      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_5_01_strike_06/default

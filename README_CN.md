@@ -234,22 +234,28 @@ python3 tools/virtual_gamepad/virtual_gamepad.py
 | walk | 行走任务，机器人执行步态运动。 |
 | supine_to_stance | 仰卧起身任务。使用本地 `rl_dance_example_runner` 和 50 Hz、134 维观测/25 维动作的策略，按键为 START + 十字键上；轨迹结束前也可手动切入 `walk_leo`。|
 | prone_to_stance | 俯卧起身任务。使用 `rl_supermimic_runner`，以 50 Hz 运行，输入 1520 维、输出 25 维，按键为 START + 十字键右。|
-| supermimic_come_here | SuperMimic 嘲讽，RB + B。|
-| supermimic_left_hook | SuperMimic 左勾拳，RB + Y。|
-| supermimic_pull_hammer | SuperMimic 拉锤，RB + X。|
-| supermimic_right_high_kick | SuperMimic 右高踢腿，RB + A。|
-| supermimic_left_hook_26000 | 01 左勾拳，RB + 十字键上。|
-| supermimic_left_straight_12000 | 03 左直拳，RB + 十字键下。|
-| supermimic_left_flick_mid_8000 | 04 左抖拳中，RB + 十字键左。|
-| supermimic_pull_hammer_56000 | 02 拉锤，RT + 十字键右。|
-| supermimic_pull_hammer_22000 | 05 拉锤，RB + 十字键右。|
+| supermimic_action_06 | 06 左抖拳（高），32000 轮，LB + 十字键上。|
+| supermimic_action_08 | 08 左勾拳，32000 轮，LB + 十字键下。|
+| supermimic_action_09 | 09 左勾拳，20000 轮，LB + 十字键左。|
+| supermimic_action_11 | 11 左手下拉捅锤，18000 轮，LB + 十字键右。|
+| supermimic_action_12 | 12 左抖拳（低），32000 轮，RB + 十字键上。|
+| supermimic_action_13 | 13 左抖拳（中），32000 轮，RB + 十字键下。|
+| supermimic_action_14 | 14 左正蹬，18000 轮，RB + 十字键左。|
+| supermimic_action_15 | 15 前腿侧踩，18000 轮，RB + 十字键右。|
+| supermimic_action_16 | 16 左低弹踢，26000 轮，RT + 十字键左。|
+| supermimic_action_17 | 17 左高弹踢，18000 轮，RT + 十字键右。|
+| supermimic_action_18 | 18 右高弹踢，18000 轮，RB + B。|
+| supermimic_action_19 | 19 左低鞭，18000 轮，RB + Y。|
+| supermimic_action_20 | 20 左中鞭，18000 轮，RB + X。|
 | stance_to_supine | 躺倒任务。机器人从站立姿态过渡到仰卧姿态。|
 
 **状态机配置：** `assets/config/t800/task_motion/default.yaml`
 
 `LB+A` 进入 `walk_leo`，其 `rl_walking_leolab_example` tag 当前指向 `assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/default.yaml`。这是 AnkleCombinedV2 最终 `ckpt_140000` 导出；四个踝关节（索引 4、5、10、11）的 Kd 为 2.0，其余关节顺序、Kp、默认姿态、动作缩放、循环策略接口和 terrain 风格遥控参数保持一致。旧的 `rl_walking_leolab_example` 配置和它引用的模型保存在 `assets/config/t800/old/rl_walking_leolab_example`，用于回退；根目录的旧兼容软链接已移除。`LB+X` 仍进入 `walk_leo_terrain`，其踝关节 Kd 保持 0.3。
 
-九个正式 SuperMimic 动作使用独立 `rl_supermimic_runner`，按导出的 1520 维输入/25 维输出合同运行，动作参考播放完成后回到 `walk_leo`。它们的 `hold_seconds` 均为 `0.0`，保留走路侧的进入过渡。新增五个正式按键与虚拟测试页 01～05 共用同一份模型，并跳过附加的 100 帧静态尾段。上次比赛的五个 WBT 拳脚备选保存在 `assets/config/t800/old/上次比赛`。
+13 个正式 SuperMimic 动作使用独立 `rl_supermimic_runner`，按导出的 1520 维输入/25 维输出合同运行；三种 PD 姿态和四种走路均可进入，参考播放完成后自动回到 `walk_leo`。实体按键与虚拟测试页 06、08、09、11～20 共用 `assets/config/t800/numbered_actions/` 中的同一份运行资源，保留 ds 电脑上的编号。导入配置的 `hold_seconds` 和 `skip_terminal_hold_frames` 均为 `0`，没有附加的 100 帧静态尾段。替换前的九个动作及原 01～05 清单已归档到 `assets/config/t800/old/11.14/`；更早的五个 WBT 拳脚仍在 `old/上次比赛/`。
+
+`RT+十字键上/下` 和 `RB+A` 留空。当前输入编码使用“十字键上、下同时按下”作为 RT 标记，因此 RT+上、RT+下无法区分。正式实体映射使用 `supermimic_action_NN` 状态，虚拟编号测试使用独立的 `test_action_NN` 状态，两者共用策略文件。
 
 `prone_to_stance` 使用旧俯卧 `rl_supermimic_prone_j12768_m22000`，完整播放 143 帧参考轨迹，共 2.84 秒；`hold_seconds: 0.0` 表示不增加末尾保持。模型输出和上一动作历史均为 raw action。可从 `passive`、`pd_stand`、`pd_stand_x`、`pd_stand_y` 进入，执行中可手动切换到 `passive`、`pd_stand`、`walk_leo`，完成后自动回到 `walk_leo`。起身回步态目前由 Leo 直接接管，不使用普通格斗动作回步态时的入口混合。更早的 `rl_prone_to_stance_hybrid_9825_m29500` 已移入 `assets/config/t800/old`。START＋十字键上的原 WBT 仰卧、HoST 起身均保持原配置。俯卧包仅保留运行 YAML、MNN 策略和参考 NPZ。
 

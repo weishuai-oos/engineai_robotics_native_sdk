@@ -16,8 +16,8 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_ROOT = REPO_ROOT / "assets/config/t800"
 REPLACED_TAGS = {"rl_dance_example", "rl_victory_example", "rl_ridicule", "rl_celebration"}
-NEW_TAGS = {"rl_supermimic_come_here", "rl_supermimic_left_hook",
-            "rl_supermimic_pull_hammer", "rl_supermimic_right_high_kick"}
+REPLACED_TAGS.update({"rl_supermimic_come_here", "rl_supermimic_left_hook",
+                      "rl_supermimic_pull_hammer", "rl_supermimic_right_high_kick"})
 ARCHIVED_DIRS = {
     "rl_dance_example", "rl_victory_example",
     "rl_ridicule_motion1_baseline_scratch_3090_j9829_m26500",
@@ -41,7 +41,7 @@ RECOVERY_ENTRY_KEYS = {
     "entry_transition_reference_pose_settle_cycles",
     "entry_transition_reference_pose_arm_stiffness_scale",
 }
-SUPER_MOTIONS = {
+ARCHIVED_SUPER_MOTIONS = {
     "supermimic_come_here": (
         "rl_supermimic_come_here", "B", "rl_supermimic_zq_come_here_01_j13904_0_m36000"),
     "supermimic_left_hook": (
@@ -51,19 +51,42 @@ SUPER_MOTIONS = {
     "supermimic_right_high_kick": (
         "rl_supermimic_right_high_kick", "A", "rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000"),
 }
-SUPER_PACKAGES = {directory for _, _, directory in SUPER_MOTIONS.values()} | {PRONE_PACKAGE}
-
-# Shared numbered policies promoted to the five former competition keys.
-PROMOTED_STRIKES = {
+# Five numbered policies previously promoted to the competition keys.
+ARCHIVED_PROMOTED_STRIKES = {
     'supermimic_left_hook_26000': ('rl_left_front_kick_002_complete_heightfall', 1, ['RB', 'CROSS_X_UP'], 'rl_supermimic_s2bf_zq_left_hook_02_j13961_3_m26000'),
     'supermimic_left_straight_12000': ('rl_roundhouse_kick', 3, ['RB', 'CROSS_X_DOWN'], 'rl_supermimic_s2air20_zq_left_straight_05_j14393_0_m12000'),
     'supermimic_left_flick_mid_8000': ('rl_straight_punch_L_improved', 4, ['RB', 'CROSS_Y_LEFT'], 'rl_supermimic_s2air20_zq_left_flick_mid_01_j14282_1_m8000'),
     'supermimic_pull_hammer_56000': ('rl_left_hook_001_improved', 2, ['CROSS_X_UP', 'CROSS_X_DOWN', 'CROSS_Y_RIGHT'], 'rl_supermimic_s2air25_zq_pull_hammer_20261102_j14016_4_m56000'),
     'supermimic_pull_hammer_22000': ('rl_punch_example', 5, ['RB', 'CROSS_Y_RIGHT'], 'rl_supermimic_s2air20_zq_pull_hammer_20261102_j14282_2_m22000'),
 }
-REPLACED_TAGS.update(value[0] for value in PROMOTED_STRIKES.values())
-NEW_TAGS.update("rl_" + motion for motion in PROMOTED_STRIKES)
-SUPER_PACKAGES.update("numbered_actions/" + value[3] for value in PROMOTED_STRIKES.values())
+REPLACED_TAGS.update(value[0] for value in ARCHIVED_PROMOTED_STRIKES.values())
+REPLACED_TAGS.update("rl_" + motion for motion in ARCHIVED_PROMOTED_STRIKES)
+ARCHIVED_SUPER_PACKAGES = {
+    "old/11.14/" + directory for _, _, directory in ARCHIVED_SUPER_MOTIONS.values()
+} | {
+    "old/11.14/numbered_actions/" + value[3]
+    for value in ARCHIVED_PROMOTED_STRIKES.values()
+}
+
+# These action IDs and physical bindings are the requested deployment contract.
+DEPLOYED_ACTIONS = {
+    6: (["LB", "CROSS_X_UP"], "rl_supermimic_local_clip_zq_xjh_3_10_02_strike_04"),
+    8: (["LB", "CROSS_X_DOWN"], "rl_supermimic_local_clip_zq_xjh_3_5_01_strike_08"),
+    9: (["LB", "CROSS_Y_LEFT"], "rl_supermimic_local_clip_zq_xjh_3_5_01_strike_10"),
+    11: (["LB", "CROSS_Y_RIGHT"], "rl_supermimic_local_clip_zq_xjh_3_7_01_strike_09"),
+    12: (["RB", "CROSS_X_UP"], "rl_supermimic_local_clip_zq_xjh_3_8_01_strike_04"),
+    13: (["RB", "CROSS_X_DOWN"], "rl_supermimic_local_clip_zq_xjh_3_9_01_strike_05"),
+    14: (["RB", "CROSS_Y_LEFT"], "rl_supermimic_local_clip_zq_xjh_4_10_01_strike_02"),
+    15: (["RB", "CROSS_Y_RIGHT"], "rl_supermimic_local_clip_zq_xjh_4_14_01_strike_04"),
+    16: (["CROSS_X_UP", "CROSS_X_DOWN", "CROSS_Y_LEFT"], "rl_supermimic_local_clip_zq_xjh_4_1_01_strike_07"),
+    17: (["CROSS_X_UP", "CROSS_X_DOWN", "CROSS_Y_RIGHT"], "rl_supermimic_local_clip_zq_xjh_4_2_01_strike_02"),
+    18: (["RB", "B"], "rl_supermimic_local_clip_zq_xjh_4_3_02_strike_05"),
+    19: (["RB", "Y"], "rl_supermimic_local_clip_zq_xjh_4_4_01_strike_01"),
+    20: (["RB", "X"], "rl_supermimic_local_clip_zq_xjh_4_5_01_strike_06"),
+}
+DEPLOYED_MOTIONS = [f"supermimic_action_{number:02d}" for number in DEPLOYED_ACTIONS]
+NEW_TAGS = {"rl_" + motion for motion in DEPLOYED_MOTIONS}
+SUPER_PACKAGES = {"numbered_actions/" + package for _, package in DEPLOYED_ACTIONS.values()} | {PRONE_PACKAGE}
 
 COMPETITION_ASSET_HASHES = {
     'rl_left_front_kick_002_complete_heightfall': {'default.yaml': 'eef561e1b83f6a90657d26fbc5938d35c448e2842632e0c9faec9cee994b19b7', 'policies/policy.mnn': 'e0f2af34ff0c7290ff8dfd04243de6bfc983d4612d3237f25db7f49d8d1d57cd', 'trajectories/left_front_kick_002_terminal_hold_1s.npz': 'f7dc8d50a9c4e553b6ff4da9b8457461a8a57b1b46d1eefff2bd313c88f8a523'},
@@ -115,17 +138,17 @@ RUNTIME_PACKAGES = {
             "policies/policy.mnn": "29d8e4c4266f0fd22b38845a884a33f934af55a743837ab4d2fa6eb0409dbf7d",
             "trajectories/supermimic_reference.npz": "06de307bf052f33dafe2d1f3429fe769218d9730fcd961ecc91679fc606df9ed",
         }),
-    "rl_supermimic_zq_come_here_01_j13904_0_m36000": (
+    "old/11.14/rl_supermimic_zq_come_here_01_j13904_0_m36000": (
         "e0346e5f37a34e2ff64e69d063709a167a4087e9c37ac1774cc7987a19b4b6a9", {
             "policies/policy.mnn": "d4c79994f2bf9a2f87f5130da88647dc1c3387b2ce2baea5167839a82055c957",
             "trajectories/supermimic_reference.npz": "975b262fc6cc034fd1b039301daedd59db6265a7a360ef34bf336a80ff90ecda",
         }),
-    "rl_supermimic_zq_left_hook_02_j13564_m82000": (
+    "old/11.14/rl_supermimic_zq_left_hook_02_j13564_m82000": (
         "70844d73ee1dc4cfbb76275f5cb9d90517487dab2a0c62f78db553eb10d949ab", {
             "policies/policy.mnn": "869572355b6261064782fd2176cd6107a2a963f702c588bfe3b5159e0d5cb507",
             "trajectories/supermimic_reference.npz": "e03deeaf12837bd3ca30dd27f3b63dd81ed1e04fa390fd0802ab08dd028d5e70",
         }),
-    "rl_supermimic_zq_pull_hammer_20261102_j13551_m182000": (
+    "old/11.14/rl_supermimic_zq_pull_hammer_20261102_j13551_m182000": (
         "02faee851a2c76659fdb6956fb9f3b8d95793f2ecb11cc07e7812e0a4a62e936", {
             "policies/policy.mnn": "ef63eee96609f6080de4fa4d6509d9a1668f4144682c7b8a53ab9b4143672874",
             "trajectories/supermimic_reference.npz": "8ffda8a171e728c04de6adcf454c5afcee9a37d909a9d65cba76fd21f7fcae2d",
@@ -135,7 +158,7 @@ RUNTIME_PACKAGES = {
             "policies/policy.mnn": "98183bed912505954a5664d72b0af4f99d9956ef893ae20bc8b3f50f55cbb182",
             "trajectories/supermimic_reference.npz": "64598ce4d55b4e94a5554ccfda8cf3e2a64c931c80b9c1ef0fc73f6356bb9c28",
         }),
-    "rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000": (
+    "old/11.14/rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000": (
         "3e17ca18d733f232041a0bc122c33ed7ee7fed97b66fd3781b72ed68a387fded", {
             "policies/policy.mnn": "ac6ca413de2c9bb335fda54c38cf0cbe7a04947b66c7c02d1a3f7ea6b9f42d6c",
             "trajectories/supermimic_reference.npz": "64598ce4d55b4e94a5554ccfda8cf3e2a64c931c80b9c1ef0fc73f6356bb9c28",
@@ -151,7 +174,37 @@ RUNTIME_PACKAGES = {
         }),
 }
 
-# These nine motions retain their keys, runners and transitions after migration.
+
+# The previous five numbered packages remain byte-for-byte recoverable.
+RUNTIME_PACKAGES.update({
+    'old/11.14/numbered_actions/rl_supermimic_s2bf_zq_left_hook_02_j13961_3_m26000': (
+        'd711a3b9f79e5aa5e77e6ee4d9e25e826c4f1b78ca4458611a060b798f575e52', {
+            'policies/policy.mnn': 'a0868cd55e9801a4e93cfe85f4aca52f6513cda14c27b32e060a7142ca850603',
+            'trajectories/supermimic_reference.npz': '9daaa6ad20e910b7099fcc882de6655c0bd990c9c92d6e73b02b5136de4c386b',
+        }),
+    'old/11.14/numbered_actions/rl_supermimic_s2air25_zq_pull_hammer_20261102_j14016_4_m56000': (
+        '8a48a5d80a8add5a89322be0c4c77a8533f00024c1b240ad4af242a9e0307008', {
+            'policies/policy.mnn': 'c6f2b712f107ed19745b34439d0d84de09c30641616c16a6fd793158bf20fbd3',
+            'trajectories/supermimic_reference.npz': '7bd0811c2d5fd15b4f0ee897d7bbe8f70ae3c47ae27143a58439772b60940a2a',
+        }),
+    'old/11.14/numbered_actions/rl_supermimic_s2air20_zq_left_straight_05_j14393_0_m12000': (
+        'f2ab39ea1cdd1cbe7096afa8fc61680d3b4756fcd55453e305fea232403a7098', {
+            'policies/policy.mnn': 'a4f03b6ec03e44f7da438f04a40d41b950078d38f6588a33b6979f40557db4bd',
+            'trajectories/supermimic_reference.npz': '7095ddeed737db671dc8eeff63330176cb5e5ce3bdbadd03cac7ad6d863d8794',
+        }),
+    'old/11.14/numbered_actions/rl_supermimic_s2air20_zq_left_flick_mid_01_j14282_1_m8000': (
+        '29f8d9ca71cd96ea279976a6974ba5de0067cebe63415df30f36b3ccb5dc82e7', {
+            'policies/policy.mnn': 'f0ef57bde41e288c87e0efb8e0a5526f3b3be54b3ca6c309366d6613327c4aa8',
+            'trajectories/supermimic_reference.npz': '00a10ee11a23cd7a047920bee1f2bd721092bf7b820f9489a7fbff291b1ba7cf',
+        }),
+    'old/11.14/numbered_actions/rl_supermimic_s2air20_zq_pull_hammer_20261102_j14282_2_m22000': (
+        '7bfddfda9e586f97a867aa816a6c4a11b5751c5815f411a5eda22e6731549995', {
+            'policies/policy.mnn': '25025717c587110326a709f6774f0e95a3694d6c7c9e4f3152f27de653a60d18',
+            'trajectories/supermimic_reference.npz': '7bd0811c2d5fd15b4f0ee897d7bbe8f70ae3c47ae27143a58439772b60940a2a',
+        }),
+})
+
+# These nine motions retain their keys, runners and periods after migration.
 PRESERVED_MOTIONS = {
     "walk": (0.01, ["LB", "B"], "rl_walking_example_runner", "rl_walking_example"),
     "walk_impact": (0.02, ["LB", "Y"], "rl_walking_leolab_example_runner", "rl_walking_leolab_impact_v2"),
@@ -249,14 +302,13 @@ class T800ActionBaselineTest(unittest.TestCase):
         self.assertEqual(len(PRESERVED_MOTIONS), 9)
         walking = ["walk", "walk_impact", "walk_leo", "walk_leo_terrain"]
         returns = ["passive", "pd_stand"] + walking
-        strikes = list(PROMOTED_STRIKES)
         transitions = {
             name: (["passive", "pd_stand"] + [other for other in walking if other != name] +
                    (["leo_taunt"] if name == "walk_leo" else []) +
-                   ["getup", "getup2", "stance_to_supine"] + list(SUPER_MOTIONS) + strikes, None)
+                   ["getup", "getup2", "stance_to_supine"] + DEPLOYED_MOTIONS, None)
             for name in walking
         }
-        transitions.update({name: (returns, "walk_leo") for name in strikes + ["getup", "getup2"]})
+        transitions.update({name: (returns, "walk_leo") for name in ["getup", "getup2"]})
         transitions.update({
             "leo_taunt": (["walk_leo"], "walk_leo"),
             "supine_to_stance": (["passive", "pd_stand", "walk_leo"], "walk_leo"),
@@ -351,7 +403,7 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
 
     def test_old_actions_keep_only_runtime_files_and_remain_inactive(self):
         self.assertEqual({path.name for path in self.old.iterdir()},
-                         ARCHIVED_DIRS | {"嘲讽", "上次比赛", "README.md"})
+                         ARCHIVED_DIRS | {"嘲讽", "上次比赛", "11.14", "README.md"})
         for directory in ARCHIVED_DIRS:
             self.assertFalse((CONFIG_ROOT / directory).exists(), directory)
             self.assertTrue((self.old / directory).is_dir(), directory)
@@ -367,36 +419,20 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                     self.assertNotIn(entry["scope"].split("/", 1)[0], ARCHIVED_DIRS | {"old"})
         self.assertTrue({"dance", "victory", "ridicule", "celebration"}.isdisjoint(self.tasks))
 
-    def test_four_new_keys_are_reachable_from_every_former_entry_state(self):
-        entry_states = {"pd_stand", "pd_stand_x", "pd_stand_y", "walk",
-                        "walk_impact", "walk_leo", "walk_leo_terrain"}
-        for motion, (tag, button, directory) in SUPER_MOTIONS.items():
-            with self.subTest(motion=motion):
-                task = self.tasks[motion]
-                self.assertEqual(task["key"], ["RB", button])
-                self.assertEqual(task["period"], 0.02)
-                self.assertEqual(task["runner"], [
-                    {"name": "rl_supermimic_runner", "enabled": True, "param_tag": tag}])
-                self.assertEqual(task["auto_transition"], "walk_leo")
-                self.assertEqual(task["manual_transition"],
-                                 ["passive", "pd_stand", "walk", "walk_impact", "walk_leo", "walk_leo_terrain"])
-                for source in entry_states:
-                    self.assertIn(motion, self.tasks[source]["manual_transition"], source)
-                for entries in self.mode["mode"].values():
-                    scopes = {entry["tag"]: entry["scope"] for entry in entries}
-                    self.assertEqual(scopes[tag], directory + "/default")
-                collisions = [name for name, other in self.tasks.items() if other["key"] == task["key"]]
-                self.assertEqual(collisions, [motion])
-
-    def test_five_competition_keys_share_the_numbered_policies_in_both_modes(self):
+    def test_thirteen_actions_share_the_numbered_assets_in_both_modes(self):
         catalog = json.loads((CONFIG_ROOT / "numbered_actions/catalog.json").read_text())
+        self.assertEqual(catalog["schema_version"], 1)
+        self.assertEqual(catalog["capacity"], 50)
         numbered = {action["id"]: action for action in catalog["actions"]}
-        self.assertEqual(set(numbered), {1, 2, 3, 4, 5})
+        self.assertEqual(len(numbered), len(catalog["actions"]), "duplicate catalog IDs")
+        self.assertEqual(set(numbered), set(DEPLOYED_ACTIONS))
+        self.assertEqual({task for task in self.tasks if task.startswith("supermimic_")},
+                         set(DEPLOYED_MOTIONS))
         ready = {"pd_stand", "pd_stand_x", "pd_stand_y", "walk",
                  "walk_impact", "walk_leo", "walk_leo_terrain"}
-        for motion, (old, number, key, package) in PROMOTED_STRIKES.items():
+        for number, (key, package) in DEPLOYED_ACTIONS.items():
+            motion = f"supermimic_action_{number:02d}"
             with self.subTest(motion=motion, number=number):
-                self.assertFalse(old in self.tasks, old)
                 task = self.tasks[motion]
                 tag = "rl_" + motion
                 self.assertEqual(task["key"], key)
@@ -410,16 +446,55 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                 for entries in self.mode["mode"].values():
                     scopes = {entry["tag"]: entry["scope"] for entry in entries}
                     self.assertEqual(scopes[tag], "numbered_actions/" + package + "/default")
-                    self.assertNotIn(old, scopes)
-                for source in ready:
-                    self.assertIn(motion, self.tasks[source]["manual_transition"], source)
-                self.assertEqual([name for name, other in self.tasks.items()
-                                  if other["key"] == key], [motion])
+                entries = {source for source, state in self.tasks.items()
+                           if motion in state.get("manual_transition", [])}
+                self.assertEqual(entries, ready)
                 config = load_yaml(CONFIG_ROOT / "numbered_actions" / package / "default.yaml")
                 self.assertEqual(config["hold_seconds"], 0.0)
-                self.assertEqual(config["skip_terminal_hold_frames"], 100)
-                self.assertEqual(config["skip_terminal_hold_frames"], config["terminal_hold_frames"])
+                self.assertEqual(config["skip_terminal_hold_frames"], 0)
                 self.assertFalse(config.get("entry_transition_to_reference_pose", False))
+
+    def test_physical_key_masks_are_unique_and_unused_combinations_stay_empty(self):
+        names = ("LB", "RB", "A", "B", "X", "Y", "BACK", "START",
+                 "CROSS_X_UP", "CROSS_X_DOWN", "CROSS_Y_LEFT", "CROSS_Y_RIGHT")
+        masks = {}
+        for name, task in self.tasks.items():
+            with self.subTest(motion=name):
+                self.assertTrue(task["key"])
+                self.assertEqual(len(task["key"]), len(set(task["key"])))
+                mask = sum(1 << names.index(key) for key in set(task["key"]))
+                self.assertNotIn(mask, masks, f"{name} collides with {masks.get(mask)}")
+                masks[mask] = name
+        # RT is the vertical marker pair, so RT+up/down cannot be distinct.
+        self.assertNotIn((1 << 8) | (1 << 9), masks)
+        self.assertNotIn((1 << 1) | (1 << 2), masks)  # RB+A remains unused.
+
+    def test_november_14_archive_preserves_all_replaced_packages_and_catalog(self):
+        folder = self.old / "11.14"
+        self.assertEqual({path.name for path in folder.iterdir() if path.is_dir()},
+                         {directory for _, _, directory in ARCHIVED_SUPER_MOTIONS.values()}
+                         | {"numbered_actions"})
+        numbered = folder / "numbered_actions"
+        self.assertEqual({path.name for path in numbered.iterdir() if path.is_dir()},
+                         {value[3] for value in ARCHIVED_PROMOTED_STRIKES.values()})
+        self.assertEqual(file_sha256(numbered / "catalog.json"),
+                         "c48894cc34d2ecc7f55effe58a80eb5a13d8549846e7c818e0fe04da95a3dd17")
+        catalog = json.loads((numbered / "catalog.json").read_text())
+        self.assertEqual({action["id"] for action in catalog["actions"]}, {1, 2, 3, 4, 5})
+        for directory in ARCHIVED_SUPER_PACKAGES:
+            package = CONFIG_ROOT / directory
+            with self.subTest(package=directory):
+                self.assertEqual({path.relative_to(package).as_posix()
+                                  for path in package.rglob("*") if path.is_file()},
+                                 {"default.yaml", "policies/policy.mnn",
+                                  "trajectories/supermimic_reference.npz"})
+                original = directory.removeprefix("old/11.14/")
+                self.assertFalse((CONFIG_ROOT / original).exists(), original)
+        self.assertTrue(set(ARCHIVED_SUPER_MOTIONS).isdisjoint(self.tasks))
+        self.assertTrue(set(ARCHIVED_PROMOTED_STRIKES).isdisjoint(self.tasks))
+        for entries in self.mode["mode"].values():
+            self.assertTrue(REPLACED_TAGS.isdisjoint(entry["tag"] for entry in entries))
+            self.assertFalse(any(entry["scope"].startswith("old/") for entry in entries))
 
     def test_previous_competition_packages_are_archived_without_changes(self):
         folder = CONFIG_ROOT / "old/上次比赛"
@@ -455,7 +530,7 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                 for key in ("policy_file", "reference_file", "trajectory_file_npz"):
                     if key in config:
                         self.assertTrue((asset_root / config[key]).is_file(), config[key])
-                if directory in SUPER_PACKAGES:
+                if directory in SUPER_PACKAGES | ARCHIVED_SUPER_PACKAGES:
                     self.assertEqual(config["hold_seconds"], 0.0)
 
     def test_prone_and_supine_share_pd_preparation_and_settle_conditions(self):
@@ -473,7 +548,7 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
         self.assertEqual(prone["hold_seconds"], 0)
 
     def test_formal_strikes_keep_live_policy_entry(self):
-        for directory in SUPER_PACKAGES - {PRONE_PACKAGE}:
+        for directory in (SUPER_PACKAGES | ARCHIVED_SUPER_PACKAGES) - {PRONE_PACKAGE}:
             with self.subTest(package=directory):
                 config = load_yaml(CONFIG_ROOT / directory / "default.yaml")
                 self.assertFalse(config.get("entry_transition_to_reference_pose", False))
@@ -511,7 +586,7 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                 })
 
     def test_reference_shapes_and_policy_history_contract(self):
-        for directory in SUPER_PACKAGES:
+        for directory in SUPER_PACKAGES | ARCHIVED_SUPER_PACKAGES:
             package = CONFIG_ROOT / directory
             config = load_yaml(package / "default.yaml")
             with self.subTest(package=directory):
@@ -529,16 +604,22 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                 raw_action_export = (config["action_target_formula"] ==
                                      "default_joint_pos + action_scale * raw_action")
                 action_name = "raw_action" if raw_action_export else "action_output"
-                previous_action = "previous_raw_action" if raw_action_export else "previous_executed_action"
+                output_contract = config.get("action_output_contract")
+                # The local-clip exports call their target variable raw_action,
+                # but explicitly declare that the MNN wrapper returns executed
+                # (clamped) actions. History follows that exported output.
+                previous_action = ("previous_raw_action" if raw_action_export and not output_contract
+                                   else "previous_executed_action")
                 self.assertEqual(config["action_target_formula"],
                                  "default_joint_pos + action_scale * " + action_name)
                 self.assertEqual(config["observation_layout"], [
                     "q-default_q:25", "joint_velocity:25", "body_angular_velocity:3",
                     "projected_gravity:3", previous_action + ":25", "relative_root_orientation_6d:6"])
-                if not raw_action_export:
-                    self.assertIn(config["action_output_contract"], (
+                if not raw_action_export or output_contract:
+                    self.assertIn(output_contract, (
                         "export wrapper returns executed_action(raw_action)=clamp(raw_action,-20,20)",
-                        "clamp(raw_action,-20,20); previous action is executed action"))
+                        "clamp(raw_action,-20,20); previous action is executed action",
+                        "executed_action(raw_action)=clamp(raw_action,-20,20)"))
                 with np.load(package / config["reference_file"], allow_pickle=False) as reference:
                     frames = reference["joint_pos"].shape[0]
                     self.assertGreaterEqual(frames, 2)
@@ -561,7 +642,7 @@ class T800SuperMimicMigrationTest(unittest.TestCase):
                       for joint in limb["joints"]]
         self.assertEqual(len(sdk_joints), 25)
         self.assertEqual(len(set(sdk_joints)), 25)
-        for directory in SUPER_PACKAGES:
+        for directory in SUPER_PACKAGES | ARCHIVED_SUPER_PACKAGES:
             package = CONFIG_ROOT / directory
             config = load_yaml(package / "default.yaml")
             with self.subTest(package=directory):

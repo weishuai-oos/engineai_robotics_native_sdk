@@ -12,10 +12,11 @@
 | 原 RB+A 右高踢腿（184000 轮） | `rl_supermimic_zq_right_high_kick_20261102_j13551_m184000` |
 | 第二、第三个重训嘲讽 | `嘲讽/`，见该目录的 `README.md` |
 | 上次比赛的五个 WBT 拳脚动作 | `上次比赛/`：左前踢、回旋踢、左直拳、左勾拳和示例拳 |
+| 11.14 更换前的九个 SuperMimic 动作 | `11.14/`，原 RB+B/Y/X/A、RB+四向及 RT+右，见该目录 `README.md` |
 
-当前俯卧起身使用根目录的 `rl_supermimic_prone_j12768_m22000`；RB+B 使用第一个重训嘲讽。空庆祝模板、历史模型副本、整套配置备份和评测数据已清理。
+当前俯卧起身使用根目录的 `rl_supermimic_prone_j12768_m22000`。原 RB+B 的第一个重训嘲讽及其他八个旧正式动作现已移入 `11.14/`；当前实体按键使用 ds 电脑导入的 13 个新拳脚动作，映射见仓库根目录 `操作.txt`。空庆祝模板、历史模型副本、整套配置备份和评测数据已清理。
 
-RB+A 当前使用根目录的 `rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000`（原虚拟测试 21 号、90000 轮）。本目录中的旧右高踢保留原配置、MNN 和参考；恢复时先移回 T800 根目录，再把 `mode.yaml` 两个模式的 `rl_supermimic_right_high_kick` scope 改回旧目录的 `/default`，重启会话即可，runner 与按键不变。
+RB+A 当前留空。此前使用的 `rl_supermimic_lab3_zq_right_high_kick_20261102_j14030_m90000`（原虚拟测试 21 号、90000 轮）现位于 `11.14/`；更早的 184000 轮版本仍在本目录。恢复右高踢时，先将所选包移回 T800 根目录，再恢复其 mode tag/scope、任务及进入边并绑定空余按键，具体见 [11.14 归档](11.14/README.md)。
 
 ## 旧 Leo 走路
 
@@ -25,7 +26,7 @@ RB+A 当前使用根目录的 `rl_supermimic_lab3_zq_right_high_kick_20261102_j1
 
 ## 恢复旧 WBT 动作
 
-先退出 SDK，将所选动作目录移回 T800 根目录，使 YAML 内的资源相对路径有效。再在 `mode.yaml` 的相应模式中选择它的 `目录名/default` scope，并在 `task_motion/default.yaml` 为目标状态选择对应参数 tag 和 `rl_dance_example_runner`，核对进入、退出与完成切换关系后重启。当前四个 RB 动作和俯卧起身使用 SuperMimic runner，恢复 WBT 备选时不能只换 scope。
+先退出 SDK，将所选动作目录移回 T800 根目录，使 YAML 内的资源相对路径有效。再在 `mode.yaml` 的相应模式中选择它的 `目录名/default` scope，并在 `task_motion/default.yaml` 为目标状态选择对应参数 tag 和 `rl_dance_example_runner`，核对进入、退出与完成切换关系后重启。当前 13 个拳脚动作和俯卧起身使用 SuperMimic runner，恢复 WBT 备选时不能只换 scope。
 
 不再提供整套 mode/task 配置覆盖备份，恢复单个备选时保留其他状态和按键配置。第二、第三个嘲讽仍使用 SuperMimic runner，切换方法见 [嘲讽备用动作](嘲讽/README.md)。
 
