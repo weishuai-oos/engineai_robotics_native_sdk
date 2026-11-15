@@ -18,6 +18,10 @@ bool HardwareInterfaceNode::Init() {
   power_info_subscriber_ = variant_store.CreateSubscriber<data::PowerInfo>("hardware/power_info");
   leo_command_diagnostics_subscriber_ =
       variant_store.CreateSubscriber<data::LeoCommandDiagnostics>("motion/leo_command_diagnostics");
+  policy_diagnostics_subscriber_ =
+      variant_store.CreateSubscriber<data::PolicyDiagnostics>("motion/policy_diagnostics");
+  rc02_diagnostics_subscriber_ =
+      variant_store.CreateSubscriber<data::Rc02Diagnostics>("hardware/rc02_diagnostics");
 
   if (!CreatePublisher() || !CreateSubscription()) {
     return false;
@@ -74,6 +78,8 @@ void HardwareInterfaceNode::TimerCallback() {
   PublishJointState();
   PublishJointCommandFeedback();
   PublishLeoCommandDiagnostics();
+  PublishPolicyDiagnostics();
+  PublishRc02Diagnostics();
 }
 
 bool HardwareInterfaceNode::CreateTimer() {  // 检查参数是否存在
@@ -173,6 +179,16 @@ bool HardwareInterfaceNode::CreatePublisher() {
       leo_command_diagnostics_pub_ = this->create_publisher<interface_protocol::msg::LeoCommandDiagnostics>(
           publish_topics.at("leo_command_diagnostics"), qos);
       LOG(INFO) << "Create " << publish_topics.at("leo_command_diagnostics") << " publisher success";
+    }
+    if (publish_topics.contains("policy_diagnostics")) {
+      policy_diagnostics_pub_ = this->create_publisher<interface_protocol::msg::PolicyDiagnostics>(
+          publish_topics.at("policy_diagnostics"), qos);
+      LOG(INFO) << "Create " << publish_topics.at("policy_diagnostics") << " publisher success";
+    }
+    if (publish_topics.contains("rc02_diagnostics")) {
+      rc02_diagnostics_pub_ = this->create_publisher<interface_protocol::msg::Rc02Diagnostics>(
+          publish_topics.at("rc02_diagnostics"), qos);
+      LOG(INFO) << "Create " << publish_topics.at("rc02_diagnostics") << " publisher success";
     }
     return true;
   } catch (const std::exception& e) {
@@ -440,6 +456,73 @@ void HardwareInterfaceNode::PublishLeoCommandDiagnostics() {
       static_cast<double>(now_ns - diagnostics->source_monotonic_ns) / 1'000'000.0;
   leo_command_diagnostics_pub_->publish(leo_command_diagnostics_msg_);
   last_leo_command_source_monotonic_ns_ = diagnostics->source_monotonic_ns;
+}
+
+void HardwareInterfaceNode::PublishPolicyDiagnostics() {
+  if (!policy_diagnostics_pub_ || !policy_diagnostics_subscriber_.IsValid()) {
+    return;
+  }
+  const auto diagnostics = policy_diagnostics_subscriber_.Get();
+  if (!diagnostics || diagnostics->source_monotonic_ns <= last_policy_source_monotonic_ns_) {
+    return;
+  }
+  policy_diagnostics_msg_.header.stamp = this->now();
+  policy_diagnostics_msg_.source_monotonic_ns = diagnostics->source_monotonic_ns;
+  policy_diagnostics_msg_.source_param_tag = diagnostics->source_param_tag;
+  policy_diagnostics_msg_.active = diagnostics->active;
+  policy_diagnostics_msg_.policy_output_valid = diagnostics->policy_output_valid;
+  policy_diagnostics_msg_.policy_recurrent = diagnostics->policy_recurrent;
+  policy_diagnostics_msg_.entry_transition_active = diagnostics->entry_transition_active;
+  policy_diagnostics_msg_.entry_transition_elapsed = diagnostics->entry_transition_elapsed;
+  policy_diagnostics_msg_.entry_transition_duration = diagnostics->entry_transition_duration;
+  policy_diagnostics_msg_.transformed_base_angular_velocity = diagnostics->transformed_base_angular_velocity;
+  policy_diagnostics_msg_.projected_gravity = diagnostics->projected_gravity;
+  policy_diagnostics_msg_.policy_command = diagnostics->policy_command;
+  policy_diagnostics_msg_.observation_single = diagnostics->observation_single;
+  policy_diagnostics_msg_.observation = diagnostics->observation;
+  policy_diagnostics_msg_.raw_action = diagnostics->raw_action;
+  policy_diagnostics_msg_.clipped_action = diagnostics->clipped_action;
+  policy_diagnostics_msg_.controlled_action = diagnostics->controlled_action;
+  policy_diagnostics_msg_.q_des_policy = diagnostics->q_des_policy;
+  policy_diagnostics_msg_.q_des_command = diagnostics->q_des_command;
+  policy_diagnostics_msg_.qd_des_policy = diagnostics->qd_des_policy;
+  policy_diagnostics_msg_.qd_des_command = diagnostics->qd_des_command;
+  policy_diagnostics_msg_.feed_forward_torque = diagnostics->feed_forward_torque;
+  policy_diagnostics_msg_.stiffness = diagnostics->stiffness;
+  policy_diagnostics_msg_.damping = diagnostics->damping;
+  policy_diagnostics_pub_->publish(policy_diagnostics_msg_);
+  last_policy_source_monotonic_ns_ = diagnostics->source_monotonic_ns;
+}
+
+void HardwareInterfaceNode::PublishRc02Diagnostics() {
+  if (!rc02_diagnostics_pub_ || !rc02_diagnostics_subscriber_.IsValid()) {
+    return;
+  }
+  const auto diagnostics = rc02_diagnostics_subscriber_.Get();
+  if (!diagnostics || diagnostics->source_monotonic_ns <= last_rc02_source_monotonic_ns_) {
+    return;
+  }
+  rc02_diagnostics_msg_.header.stamp = this->now();
+  rc02_diagnostics_msg_.raw_frame_size = diagnostics->raw_frame_size;
+  rc02_diagnostics_msg_.raw_frame = diagnostics->raw_frame;
+  rc02_diagnostics_msg_.source_monotonic_ns = diagnostics->source_monotonic_ns;
+  rc02_diagnostics_msg_.connected = diagnostics->connected;
+  rc02_diagnostics_msg_.frame_valid = diagnostics->frame_valid;
+  rc02_diagnostics_msg_.control_id = diagnostics->control_id;
+  rc02_diagnostics_msg_.heartbeat = diagnostics->heartbeat;
+  rc02_diagnostics_msg_.l2_raw = diagnostics->l2_raw;
+  rc02_diagnostics_msg_.r2_raw = diagnostics->r2_raw;
+  rc02_diagnostics_msg_.stick_raw = {
+      diagnostics->left_stick_ud_raw, diagnostics->left_stick_lr_raw,
+      diagnostics->right_stick_ud_raw, diagnostics->right_stick_lr_raw};
+  rc02_diagnostics_msg_.buttons = {
+      diagnostics->buttons_1, diagnostics->buttons_2, diagnostics->buttons_3};
+  rc02_diagnostics_msg_.motion_command = diagnostics->motion_command;
+  rc02_diagnostics_msg_.skill_command = diagnostics->skill_command;
+  rc02_diagnostics_msg_.reserved = diagnostics->reserved;
+  rc02_diagnostics_msg_.normalized_analog = diagnostics->normalized_analog;
+  rc02_diagnostics_pub_->publish(rc02_diagnostics_msg_);
+  last_rc02_source_monotonic_ns_ = diagnostics->source_monotonic_ns;
 }
 
 }  // namespace ros2

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -8,6 +9,7 @@
 #include "basic/motion_runner.h"
 #include "basic/runner_registry.h"
 #include "leo_command_diagnostics/leo_command_diagnostics.h"
+#include "policy_diagnostics/policy_diagnostics.h"
 #include "math/first_order_low_pass_filter.h"
 #include "math/mnn_model.h"
 #include "motion_transition/entry_command_transition.h"
@@ -43,6 +45,8 @@ class RlWalkingLeolabExampleRunner : public MotionRunner {
   void UpdateRemoteCommand();
   void PublishCommandDiagnostics(const Eigen::Vector3d& raw_command,
                                  const Eigen::Vector3d& tactical_command, bool active);
+  void PublishPolicyDiagnostics(bool active);
+  void ConfigurePolicyDiagnosticsRate();
   void CalculateObservation();
   void CalculateMotorCommand();
   void ApplyTauntObservationOverride(Eigen::VectorXd* joint_pos_obs,
@@ -60,20 +64,32 @@ class RlWalkingLeolabExampleRunner : public MotionRunner {
   double time_ = 0.0;
   bool is_first_time_ = true;
   bool policy_output_valid_ = true;
+  // Policy snapshots are sampled independently from the control loop. The
+  // default keeps the diagnostics path off the 500 Hz real-time budget while
+  // ENGINEAI_POLICY_DIAGNOSTICS_HZ=500 restores per-cycle capture.
+  int64_t policy_diagnostics_period_ns_ = 10'000'000;
+  int64_t next_policy_diagnostics_ns_ = 0;
 
   std::unique_ptr<math::MNNModel> mlp_net_;
   std::unique_ptr<math::MNNRecurrentModel> recurrent_net_;
   Eigen::MatrixXd observation_history_;
   Eigen::VectorXd policy_observation_;
+  Eigen::VectorXd observation_single_;
   Eigen::VectorXd mlp_net_action_;
+  Eigen::VectorXd raw_policy_action_;
+  Eigen::VectorXd controlled_action_;
   Eigen::VectorXf recurrent_hidden_;
   Eigen::VectorXf recurrent_cell_;
 
   Eigen::VectorXd q_real_;
   Eigen::VectorXd qd_real_;
   Eigen::VectorXd q_des_;
+  Eigen::VectorXd q_des_policy_;
   Eigen::VectorXd qd_des_;
+  Eigen::VectorXd qd_des_policy_;
   Eigen::VectorXd tau_ff_des_;
+  Eigen::Vector3d transformed_base_ang_vel_ = Eigen::Vector3d::Zero();
+  Eigen::Vector3d projected_gravity_ = Eigen::Vector3d::Zero();
   Eigen::VectorXi policy2deploy_joint_idx_;
   Eigen::VectorXi override_action_idx_;
   Eigen::VectorXi taunt_arm_action_idx_;
@@ -92,6 +108,7 @@ class RlWalkingLeolabExampleRunner : public MotionRunner {
   FixedRemoteCommandShaper remote_command_shaper_;
   data::Subscriber<bool> input_available_subscriber_;
   data::Publisher<data::LeoCommandDiagnostics> command_diagnostics_publisher_;
+  data::Publisher<data::PolicyDiagnostics> policy_diagnostics_publisher_;
   std::unique_ptr<math::FirstOrderLowPassFilter<Eigen::Vector3d>> lpf_command_;
 };
 

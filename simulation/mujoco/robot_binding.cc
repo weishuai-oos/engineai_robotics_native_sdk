@@ -113,13 +113,23 @@ void RobotBinding::ReadState(const mjData* data) const {
       contact.segment<3>(3) = -VectorAt(data, contact_torque_addresses_[i]);
     }
   }
+  state.sim_time = data->time;
   store_->sim_state.Set(std::move(state));
 }
 
-void RobotBinding::ApplyCommand(const mjModel* model, mjData* data) const {
+void RobotBinding::ApplyCommand(const mjModel* model, mjData* data, bool capture_diagnostics) const {
+  SimControlDiagnostics diagnostics;
+  if (capture_diagnostics) {
+    diagnostics.Reset(store_->num_joints);
+    diagnostics.sim_time = data != nullptr ? data->time : 0.0;
+    diagnostics.host_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                   std::chrono::steady_clock::now().time_since_epoch())
+                                   .count();
+  }
   if (model == nullptr || data == nullptr || model != bound_model_ ||
       actuator_ids_.size() != joint_names_.size() || qpos_addresses_.size() != joint_names_.size() ||
       dof_addresses_.size() != joint_names_.size()) {
+    if (capture_diagnostics) store_->sim_control_diagnostics.Set(std::move(diagnostics));
     return;
   }
   const auto command = store_->sim_command.Get();
@@ -133,11 +143,22 @@ void RobotBinding::ApplyCommand(const mjModel* model, mjData* data) const {
   const auto age = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count() -
                    received;
   valid = valid && received > 0 && age >= 0 && age < 200000000;
-  for (int i = 0; i < n; ++i) {
-    data->ctrl[actuator_ids_[i]] = valid ? command->kp[i] * (command->q[i] - data->qpos[qpos_addresses_[i]]) +
-                                            command->kd[i] * (command->qd[i] - data->qvel[dof_addresses_[i]]) +
-                                            command->tau_ff[i] : 0.0;
+  if (capture_diagnostics) {
+    diagnostics.command_age_ms = received > 0 ? age / 1'000'000.0 : -1.0;
+    diagnostics.command_valid = valid;
   }
+  for (int i = 0; i < n; ++i) {
+    const double control = valid ? command->kp[i] * (command->q[i] - data->qpos[qpos_addresses_[i]]) +
+                                      command->kd[i] * (command->qd[i] - data->qvel[dof_addresses_[i]]) +
+                                      command->tau_ff[i]
+                                : 0.0;
+    data->ctrl[actuator_ids_[i]] = control;
+    if (capture_diagnostics) {
+      diagnostics.nominal_ctrl[i] = control;
+      diagnostics.effective_ctrl[i] = control;
+    }
+  }
+  if (capture_diagnostics) store_->sim_control_diagnostics.Set(std::move(diagnostics));
 }
 
 void RobotBinding::ClearCommand() const {

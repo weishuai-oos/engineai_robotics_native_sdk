@@ -1,7 +1,11 @@
 #include "lcm_interface/lcm_publisher.h"
 
+#include <algorithm>
+
 LcmPublisher::LcmPublisher(const data::LcmParam& param, const std::shared_ptr<LcmDataStore>& lcm_data_store)
-    : lcm_interface::PeriodicTask("lcm_publisher", /* period */ 0.002), lcm_data_store_(lcm_data_store) {
+    : lcm_interface::PeriodicTask("lcm_publisher", /* period */ 0.002),
+      lcm_data_store_(lcm_data_store),
+      control_diagnostics_period_ns_(lcm_data_store->control_diagnostics_period_ns()) {
   std::string url;
   int ttl = param.multicast ? param.ttl : 0;
   url = "udpm://" + param.ip_port + "?ttl=" + std::to_string(ttl);
@@ -74,8 +78,36 @@ void LcmPublisher::TaskRun() {
     LOG(ERROR) << "Contact force dimension is 0.";
   }
 
-  msg.timestamp = 0;
+  // Timestamp is MuJoCo simulation time in seconds, not a host clock.
+  msg.timestamp = sim_state_.sim_time;
   if (lcm_->publish(channel_, &msg)) {
     LOG(ERROR) << "Failed to publish LCM message: " << channel_;
+  }
+
+  const auto now = std::chrono::steady_clock::now();
+  if (now >= next_control_diagnostics_time_) {
+    const auto diagnostics = lcm_data_store_->sim_control_diagnostics();
+    const int num_joints = static_cast<int>(diagnostics.nominal_ctrl.size());
+    if (num_joints <= 0 || diagnostics.effective_ctrl.size() != num_joints ||
+        diagnostics.injected_noise.size() != num_joints) {
+      return;
+    }
+    next_control_diagnostics_time_ = now + std::chrono::nanoseconds(control_diagnostics_period_ns_);
+    lcm_control_diagnostics_.timestamp = diagnostics.sim_time;
+    // Layout: nominal[n], effective[n], injected_noise[n], command_age_ms,
+    // command_valid (1.0/0.0).
+    lcm_control_diagnostics_.num_ranges = 3 * num_joints + 2;
+    lcm_control_diagnostics_.data.resize(lcm_control_diagnostics_.num_ranges);
+    std::copy(diagnostics.nominal_ctrl.data(), diagnostics.nominal_ctrl.data() + num_joints,
+              lcm_control_diagnostics_.data.begin());
+    std::copy(diagnostics.effective_ctrl.data(), diagnostics.effective_ctrl.data() + num_joints,
+              lcm_control_diagnostics_.data.begin() + num_joints);
+    std::copy(diagnostics.injected_noise.data(), diagnostics.injected_noise.data() + num_joints,
+              lcm_control_diagnostics_.data.begin() + 2 * num_joints);
+    lcm_control_diagnostics_.data[3 * num_joints] = diagnostics.command_age_ms;
+    lcm_control_diagnostics_.data[3 * num_joints + 1] = diagnostics.command_valid ? 1.0 : 0.0;
+    if (lcm_->publish(control_diagnostics_channel_, &lcm_control_diagnostics_)) {
+      LOG(ERROR) << "Failed to publish LCM message: " << control_diagnostics_channel_;
+    }
   }
 }

@@ -295,6 +295,9 @@ TEST(Rc02ConnectionTest, SendMotionAndAckReadsPhysicalInputAfterConnect) {
   EXPECT_NEAR(input.LeftStick_lr, 20.0 / 127.0, 1e-9);
   EXPECT_NEAR(input.RightStick_ud, 30.0 / 127.0, 1e-9);
   EXPECT_NEAR(input.RightStick_lr, -40.0 / 127.0, 1e-9);
+  const auto raw_frame = ControlInputResponse();
+  EXPECT_EQ(driver.GetOriginData().raw_frame_size, raw_frame.size());
+  EXPECT_EQ(driver.GetOriginData().raw_frame, raw_frame);
   driver.Close();
 }
 

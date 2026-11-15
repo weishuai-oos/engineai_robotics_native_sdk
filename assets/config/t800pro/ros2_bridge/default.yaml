@@ -22,5 +22,7 @@ hardware_interface_node:
     motor_command: /hardware/motor_command
     joint_state: /hardware/joint_state
     joint_command_feedback: /hardware/joint_command_feedback
+    policy_diagnostics: /motion/policy_diagnostics
+    rc02_diagnostics: /hardware/rc02_diagnostics
   subscribe_topics:
     led_control: /hardware/led_control

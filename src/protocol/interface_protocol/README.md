@@ -12,4 +12,6 @@ Description of the interface protocol.
 | /hardware/joint_command | Topic Subscription | 0~500hz | JointCommand.msg | Joint Command Subscription |
 | /motion/motion_state | Topic Publish | >=5hz | MotionState.msg | Motion Status Feedback of Robot |
 | /hardware/motor_debug | Topic Publish | >=50hz | MotorDebug.msg | Feedback of Temperature, Tau, etc. |
+| /hardware/rc02_diagnostics | Topic Publish | up to 100hz; disconnected transition + 10hz | Rc02Diagnostics.msg | Raw RC02 frame and normalized input diagnostics |
+| /motion/policy_diagnostics | Topic Publish | policy rate | PolicyDiagnostics.msg | Policy observation/action, transformed state, and pre/post-transition commands |
 

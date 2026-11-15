@@ -42,6 +42,9 @@ _build
 build
 .vscode
 safety_logs/
+records/safety_monitor/
+arr1.npy
+out.npz
 docs/
 
 # Share the current runner reference while keeping other local documents ignored.

@@ -5,7 +5,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <iterator>
+#include <limits>
 #include <unordered_set>
 #include <utility>
 
@@ -25,6 +27,30 @@ constexpr std::array<std::string_view, kTauntArmJointCount> kTauntArmHostJointNa
 
 bool IsTauntShoulderIndex(int arm_index) { return arm_index == 0 || arm_index == 5; }
 
+int64_t PolicyDiagnosticsPeriodNsFromEnvironment() {
+  constexpr int64_t kDefaultPeriodNs = 10'000'000;  // 100 Hz
+  const char* value = std::getenv("ENGINEAI_POLICY_DIAGNOSTICS_HZ");
+  if (value == nullptr || *value == '\0') return kDefaultPeriodNs;
+
+  char* end = nullptr;
+  const double hz = std::strtod(value, &end);
+  if (end == value || *end != '\0' || !std::isfinite(hz) || hz <= 0.0) {
+    LOG(WARNING) << "Ignoring invalid ENGINEAI_POLICY_DIAGNOSTICS_HZ='" << value << "'";
+    return kDefaultPeriodNs;
+  }
+  const double period_ns = 1'000'000'000.0 / hz;
+  if (period_ns < 1.0) return 1;
+  if (period_ns > static_cast<double>(std::numeric_limits<int64_t>::max())) {
+    return kDefaultPeriodNs;
+  }
+  return static_cast<int64_t>(period_ns);
+}
+
+template <typename Derived>
+std::vector<double> ToStdVector(const Eigen::MatrixBase<Derived>& values) {
+  return std::vector<double>(values.derived().data(), values.derived().data() + values.size());
+}
+
 Eigen::VectorXd SelectByIndex(const Eigen::VectorXd& values, const Eigen::VectorXi& indices) {
   Eigen::VectorXd selected(indices.size());
   for (int i = 0; i < indices.size(); ++i) {
@@ -43,6 +69,8 @@ RlWalkingLeolabExampleRunner::RlWalkingLeolabExampleRunner(
       data::VariantStore::GetInstance().CreateSubscriber<bool>("control/input_available");
   command_diagnostics_publisher_ = data::VariantStore::GetInstance().CreatePublisher<data::LeoCommandDiagnostics>(
       "motion/leo_command_diagnostics");
+  policy_diagnostics_publisher_ = data::VariantStore::GetInstance().CreatePublisher<data::PolicyDiagnostics>(
+      "motion/policy_diagnostics");
 }
 
 void RlWalkingLeolabExampleRunner::SetupContext() { data_store_->parallel_by_classic_parser.store(false); }
@@ -57,6 +85,7 @@ bool RlWalkingLeolabExampleRunner::Enter() {
   if (!param_ || !ValidateParam()) {
     return false;
   }
+  ConfigurePolicyDiagnosticsRate();
 
   const std::string policy_path =
       common::PathJoin(common::GlobalPathManager::GetInstance().GetConfigPath(), param_->policy_file);
@@ -84,7 +113,10 @@ bool RlWalkingLeolabExampleRunner::Enter() {
 
   observation_history_.setZero(param_->num_one_step_observations, param_->num_include_obs_steps);
   policy_observation_.setZero(param_->num_observations);
+  observation_single_.setZero(param_->num_one_step_observations);
   mlp_net_action_.setZero(param_->num_actions);
+  raw_policy_action_.setZero(param_->num_actions);
+  controlled_action_.setZero(param_->num_actions);
   recurrent_hidden_.resize(0);
   recurrent_cell_.resize(0);
   if (param_->policy_recurrent) {
@@ -96,7 +128,9 @@ bool RlWalkingLeolabExampleRunner::Enter() {
   joint_kp_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   joint_kd_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   q_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  q_des_policy_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  qd_des_policy_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
 
   default_joint_q_(policy2deploy_joint_idx_) = param_->default_joint_pos;
@@ -434,6 +468,7 @@ void RlWalkingLeolabExampleRunner::Run() {
   CalculateMotorCommand();
   ApplyEntryTransition();
   SendMotorCommand();
+  PublishPolicyDiagnostics(true);
 
   time_ += param_->control_dt;
   UpdateTauntCompletion();
@@ -449,12 +484,15 @@ TransitionState RlWalkingLeolabExampleRunner::TryExit() {
 }
 
 bool RlWalkingLeolabExampleRunner::Exit() {
+  PublishPolicyDiagnostics(false);
   remote_command_shaper_.Reset();
   command_.setZero();
   PublishCommandDiagnostics(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), false);
   recurrent_hidden_.setZero();
   recurrent_cell_.setZero();
   mlp_net_action_.setZero();
+  raw_policy_action_.setZero();
+  controlled_action_.setZero();
   return true;
 }
 
@@ -501,14 +539,64 @@ void RlWalkingLeolabExampleRunner::PublishCommandDiagnostics(
   command_diagnostics_publisher_.Publish(std::move(snapshot));
 }
 
+void RlWalkingLeolabExampleRunner::PublishPolicyDiagnostics(bool active) {
+  const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                             std::chrono::steady_clock::now().time_since_epoch())
+                             .count();
+  if (active && policy_diagnostics_period_ns_ > 0 && now_ns < next_policy_diagnostics_ns_) {
+    return;
+  }
+  if (active && policy_diagnostics_period_ns_ > 0) {
+    next_policy_diagnostics_ns_ = now_ns + policy_diagnostics_period_ns_;
+  }
+  data::PolicyDiagnostics snapshot;
+  snapshot.source_monotonic_ns = now_ns;
+  snapshot.source_param_tag = param_tag_.empty() ? "rl_walking_leolab_example" : param_tag_;
+  snapshot.active = active;
+  const bool action_snapshot_valid = param_ && raw_policy_action_.size() == param_->num_actions &&
+                                     raw_policy_action_.allFinite();
+  snapshot.policy_output_valid = policy_output_valid_ && action_snapshot_valid;
+  snapshot.policy_recurrent = param_ && param_->policy_recurrent;
+  snapshot.entry_transition_active = entry_transition_.IsActive();
+  snapshot.entry_transition_elapsed = entry_transition_.elapsed();
+  snapshot.entry_transition_duration = entry_transition_.duration();
+  snapshot.transformed_base_angular_velocity = ToStdVector(transformed_base_ang_vel_);
+  snapshot.projected_gravity = ToStdVector(projected_gravity_);
+  snapshot.policy_command = ToStdVector(command_);
+  snapshot.observation_single = ToStdVector(observation_single_);
+  snapshot.observation = ToStdVector(policy_observation_);
+  snapshot.raw_action = ToStdVector(raw_policy_action_);
+  snapshot.clipped_action = ToStdVector(mlp_net_action_);
+  snapshot.controlled_action = ToStdVector(controlled_action_);
+  snapshot.q_des_policy = ToStdVector(q_des_policy_);
+  snapshot.q_des_command = ToStdVector(q_des_);
+  snapshot.qd_des_policy = ToStdVector(qd_des_policy_);
+  snapshot.qd_des_command = ToStdVector(qd_des_);
+  snapshot.feed_forward_torque = ToStdVector(tau_ff_des_);
+  snapshot.stiffness = ToStdVector(joint_kp_cmd_);
+  snapshot.damping = ToStdVector(joint_kd_cmd_);
+  policy_diagnostics_publisher_.Publish(std::move(snapshot));
+}
+
+void RlWalkingLeolabExampleRunner::ConfigurePolicyDiagnosticsRate() {
+  policy_diagnostics_period_ns_ = PolicyDiagnosticsPeriodNsFromEnvironment();
+  next_policy_diagnostics_ns_ = 0;
+}
+
 void RlWalkingLeolabExampleRunner::CalculateObservation() {
   Eigen::Vector3d base_ang_vel = Eigen::Vector3d::Zero();
   Eigen::Vector3d projected_gravity = Eigen::Vector3d::Zero();
   if (!ComputeBaseState(&base_ang_vel, &projected_gravity)) {
     LOG(ERROR) << "[RlWalkingLeolabExampleRunner] Invalid base state; holding current pose";
+    transformed_base_ang_vel_.setZero();
+    projected_gravity_.setZero();
+    observation_single_.setZero();
+    policy_observation_.setZero();
     policy_output_valid_ = false;
     return;
   }
+  transformed_base_ang_vel_ = base_ang_vel;
+  projected_gravity_ = projected_gravity;
 
   Eigen::VectorXd joint_pos_obs = SelectByIndex(q_real_, policy2deploy_joint_idx_);
   Eigen::VectorXd joint_vel_obs = SelectByIndex(qd_real_, policy2deploy_joint_idx_);
@@ -518,6 +606,7 @@ void RlWalkingLeolabExampleRunner::CalculateObservation() {
   Eigen::VectorXd observation_single(param_->num_one_step_observations);
   observation_single << base_ang_vel, projected_gravity, command_, joint_pos_obs, joint_vel_obs, previous_action_obs;
   observation_single = observation_single.cwiseMax(-param_->observation_clip).cwiseMin(param_->observation_clip);
+  observation_single_ = observation_single;
 
   if (is_first_time_) {
     is_first_time_ = false;
@@ -550,6 +639,7 @@ void RlWalkingLeolabExampleRunner::CalculateMotorCommand() {
         !recurrent_net_->Inference(policy_observation_.cast<float>(), recurrent_hidden_, recurrent_cell_, &action,
                                    &hidden_out, &cell_out)) {
       LOG(ERROR) << "[RlWalkingLeolabExampleRunner] Recurrent policy inference failed; holding current pose";
+      policy_output_valid_ = false;
       HoldCurrentPose();
       return;
     }
@@ -558,6 +648,7 @@ void RlWalkingLeolabExampleRunner::CalculateMotorCommand() {
     policy_action = action.cast<double>();
   } else {
     if (!mlp_net_) {
+      policy_output_valid_ = false;
       HoldCurrentPose();
       return;
     }
@@ -565,21 +656,27 @@ void RlWalkingLeolabExampleRunner::CalculateMotorCommand() {
   }
   if (policy_action.size() != param_->num_actions || !policy_action.allFinite()) {
     LOG(ERROR) << "[RlWalkingLeolabExampleRunner] Invalid policy action; holding current pose";
+    policy_output_valid_ = false;
     HoldCurrentPose();
     return;
   }
 
+  raw_policy_action_ = policy_action;
   mlp_net_action_ = policy_action.cwiseMax(-param_->action_clip).cwiseMin(param_->action_clip);
-  Eigen::VectorXd controlled_action = mlp_net_action_;
+  controlled_action_ = mlp_net_action_;
   for (int i = 0; i < override_action_idx_.size(); ++i) {
-    controlled_action(override_action_idx_(i)) = param_->override_action_value;
+    controlled_action_(override_action_idx_(i)) = param_->override_action_value;
   }
 
   q_des_ = default_joint_q_;
-  q_des_(policy2deploy_joint_idx_) += controlled_action.cwiseProduct(action_scale_);
+  q_des_(policy2deploy_joint_idx_) += controlled_action_.cwiseProduct(action_scale_);
   qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   ApplyTauntArmOverlay();
+  // Capture the fully controlled policy target before entry-transition
+  // blending. q_des_/qd_des_ are replaced by the transition output below.
+  q_des_policy_ = q_des_;
+  qd_des_policy_ = qd_des_;
 }
 
 void RlWalkingLeolabExampleRunner::ApplyTauntObservationOverride(
@@ -701,8 +798,12 @@ void RlWalkingLeolabExampleRunner::ApplyEntryTransition() {
 }
 
 void RlWalkingLeolabExampleRunner::HoldCurrentPose() {
+  raw_policy_action_.setZero();
+  controlled_action_.setZero();
   q_des_ = q_real_;
+  q_des_policy_ = q_des_;
   qd_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
+  qd_des_policy_ = qd_des_;
   tau_ff_des_ = Eigen::VectorXd::Zero(model_param_->num_total_joints);
   mlp_net_action_.setZero();
 }

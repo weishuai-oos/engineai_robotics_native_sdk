@@ -1,6 +1,7 @@
 #include "input_command_arbiter/rc02_input_adapter.h"
 
 #include <glog/logging.h>
+#include <utility>
 
 #include "input_command_arbiter/gamepad_key_encoding.h"
 #include "parameter/parameter_loader.h"
@@ -11,6 +12,8 @@ namespace {
 
 constexpr double kRc02InputRetainDuration = 0.3;
 constexpr auto kRc02ReconnectTimeout = std::chrono::seconds(1);
+constexpr auto kRc02DiagnosticsPeriod = std::chrono::milliseconds(10);
+constexpr auto kRc02DisconnectedDiagnosticsPeriod = std::chrono::milliseconds(100);
 
 }  // namespace
 
@@ -33,10 +36,15 @@ bool Rc02InputAdapter::Init() {
   rc02_.Close();
   hardware_rc02_publisher_ =
       data::VariantStore::GetInstance().CreatePublisher<data::GamepadInfo>("hardware/rc02_info");
+  rc02_diagnostics_publisher_ =
+      data::VariantStore::GetInstance().CreatePublisher<data::Rc02Diagnostics>("hardware/rc02_diagnostics");
   failed_count_ = 0;
   driver_initialized_ = false;
   rc02_data_available_ = false;
   prev_rc02_data_available_ = false;
+  last_diagnostics_connected_ = false;
+  last_diagnostics_publish_time_ = {};
+  last_disconnected_diagnostics_time_ = {};
   StopRetaining();
   rc02_input_.Reset();
   config_loaded_ = LoadRc02Config();
@@ -60,6 +68,10 @@ InputAdapterStatus Rc02InputAdapter::Run() {
       prev_rc02_data_available_ = false;
       rc02_input_.Reset();
       hardware_rc02_publisher_.Publish(rc02_input_);
+      // Do not read the driver while an asynchronous handshake may still be
+      // touching it. An invalid/disconnected sample is explicitly zeroed and
+      // identified by its status flags.
+      PublishDisconnectedDiagnostics();
       return InputAdapterStatus::LOST;
     }
   }
@@ -71,6 +83,7 @@ InputAdapterStatus Rc02InputAdapter::Run() {
     const hardware::Rc02InputData raw_input = rc02_.GetInputData();
     rc02_input_.Reset();
     GetKeyInputFromRc02Raw(raw_input);
+    PublishRawDiagnostics(rc02_.GetOriginData(), raw_input, true, true);
     RetainInputCommand(kRc02InputRetainDuration);
     rc02_data_available_ = true;
   } else if (IsRetaining()) {
@@ -82,6 +95,7 @@ InputAdapterStatus Rc02InputAdapter::Run() {
     }
     StopRetaining();
     rc02_input_.Reset();
+    PublishDisconnectedDiagnostics();
 
     // An open UART does not prove that the radio/remote is still connected.
     // Re-run the full handshake after a receiver/remote restart or silent link.
@@ -224,6 +238,60 @@ void Rc02InputAdapter::GetKeyInputFromRc02Raw(const hardware::Rc02InputData& raw
   AddLtTaskModifier(raw.L2, &key_value);
   AddRtTaskModifier(raw.R2, &key_value);
   rc02_input_.combined_key_value = key_value;
+}
+
+void Rc02InputAdapter::PublishRawDiagnostics(const hardware::Rc02OriginData& origin,
+                                              const hardware::Rc02InputData& normalized,
+                                              bool connected, bool frame_valid) {
+  const auto now = std::chrono::steady_clock::now();
+  if (connected && last_diagnostics_publish_time_.time_since_epoch().count() != 0 &&
+      now - last_diagnostics_publish_time_ < kRc02DiagnosticsPeriod) {
+    return;
+  }
+  data::Rc02Diagnostics diagnostics;
+  diagnostics.raw_frame = origin.raw_frame;
+  diagnostics.raw_frame_size = origin.raw_frame_size;
+  diagnostics.source_monotonic_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                        now.time_since_epoch())
+                                        .count();
+  diagnostics.connected = connected;
+  diagnostics.frame_valid = frame_valid;
+  diagnostics.control_id = origin.control_id;
+  diagnostics.heartbeat = origin.heartbeat;
+  diagnostics.l2_raw = origin.l2;
+  diagnostics.r2_raw = origin.r2;
+  diagnostics.left_stick_ud_raw = origin.left_stick_ud;
+  diagnostics.left_stick_lr_raw = origin.left_stick_lr;
+  diagnostics.right_stick_ud_raw = origin.right_stick_ud;
+  diagnostics.right_stick_lr_raw = origin.right_stick_lr;
+  diagnostics.buttons_1 = origin.buttons_1;
+  diagnostics.buttons_2 = origin.buttons_2;
+  diagnostics.buttons_3 = origin.buttons_3;
+  diagnostics.motion_command = origin.motion_command;
+  diagnostics.skill_command = origin.skill_command;
+  diagnostics.reserved = {origin.reserved[0], origin.reserved[1], origin.reserved[2], origin.reserved[3],
+                          origin.reserved[4], origin.reserved[5], origin.reserved[6], origin.reserved[7]};
+  // Preserve the stable digital L2/R2 control mapping while recording the
+  // analog trigger bytes independently for diagnostics.
+  diagnostics.normalized_analog = {
+      static_cast<double>(origin.l2) / 255.0,
+      static_cast<double>(origin.r2) / 255.0,
+      normalized.LeftStick_ud,
+      normalized.LeftStick_lr,
+      normalized.RightStick_ud,
+      normalized.RightStick_lr};
+  rc02_diagnostics_publisher_.Publish(std::move(diagnostics));
+  last_diagnostics_connected_ = connected;
+  last_diagnostics_publish_time_ = now;
+  if (!connected) last_disconnected_diagnostics_time_ = now;
+}
+
+void Rc02InputAdapter::PublishDisconnectedDiagnostics() {
+  const auto now = std::chrono::steady_clock::now();
+  if (last_diagnostics_connected_ ||
+      now - last_disconnected_diagnostics_time_ >= kRc02DisconnectedDiagnosticsPeriod) {
+    PublishRawDiagnostics(hardware::Rc02OriginData{}, hardware::Rc02InputData{}, false, false);
+  }
 }
 
 }  // namespace runner

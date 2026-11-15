@@ -35,6 +35,8 @@ git switch feature/motion_transition
 
 当前 Nezha 上已有 `robotics.service` 运行 Native/运控程序。启动本仓库版本前，先停止该服务，避免两个程序同时访问电机：
 
+**终端 A（Nezha 控制终端）：**
+
 ```bash
 ssh user@192.168.0.163
 sudo systemctl stop robotics.service
@@ -44,6 +46,10 @@ systemctl is-active robotics.service
 cd ~/projects/engineai_robotics
 sudo ./run_robot.sh t800
 ```
+
+如需每个控制周期的策略诊断快照，在终端 A 启动前改为：
+`sudo env ENGINEAI_POLICY_DIAGNOSTICS_HZ=500 ./run_robot.sh t800`。
+默认 100 Hz 已足够进行常规采集。
 
 稳定后c掉前台后台运行
 nohup sudo ./run_robot.sh t800 > nohup.out 2>&1 &
@@ -69,6 +75,22 @@ sudo kill -9 <剩余PID>
 恢复
 sudo systemctl start robotics.service
 ```
+
+## 5. 真机数据采集
+
+等终端 A 中真机程序正常启动后，另开 **终端 B**。推荐在能收到机器人
+ROS2/LCM 数据的开发机完整 SDK 仓库中执行；不要在终端 A 的前台控制进程中输入采集命令：
+
+```bash
+cd /path/to/engineai_robotics_native_sdk
+ROS_DOMAIN_ID=69 ./tools/safety_monitor/start_recording.sh real_run_01 --config assets/config/t800/mode.yaml --duration 300
+```
+
+采集器只订阅状态，不发布控制指令。终端 B 按 Ctrl+C 只停止采集，终端 A 中的真机程序继续运行；
+数据写入终端 B 当前仓库的
+`records/safety_monitor/real_run_01/`。如果 ROS2 overlay 不在默认的
+`build/x86_64/ros2_env/install/setup.bash`，设置
+`ENGINEAI_ROS2_OVERLAY=/path/to/setup.bash` 后再执行同一命令。
 
 官方参考：
 

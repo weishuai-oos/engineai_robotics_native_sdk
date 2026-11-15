@@ -30,12 +30,15 @@ import yaml
 # lcm-gen encodes the fingerprint returned by TaskState::getHash(), which is
 # the one-bit left rotation of the seed in TaskState::_computeHash().
 LCM_TASK_STATE_HASH = 0x104561AA026A2B0E
+LCM_SIM_STATE_HASH = 0xADB53C89E035F05C
+LCM_DYNAMIC_VECTOR_DOUBLE_HASH = 0xD22DAF2A4F45DA70
 DEFAULT_LCM_URL = "udpm://239.255.76.67:7667?ttl=0"
 IMU_GRAVITY_MPS2 = 9.80665
 WALK_MOTIONS = frozenset({"walk", "walk_impact", "walk_leo", "walk_leo_terrain"})
 LEO_MOTION_PARAM_TAGS = {
     "walk_impact": "rl_walking_leolab_impact_v2",
     "walk_leo": "rl_walking_leolab_example",
+    "leo_taunt": "rl_walking_leolab_taunt",
     "walk_leo_terrain": "rl_walking_leolab_terrain_example",
 }
 POSTURE_EVENT_TYPES = frozenset(
@@ -135,6 +138,62 @@ def leo_command_diagnostics_freshness(
         "age_ms": age_ms,
         "receive_age_ms": receive_age_ms,
         "source_age_ms": source_age_ms,
+    }
+
+
+def policy_diagnostics_freshness(
+    record: Optional[dict[str, Any]], sample_monotonic_ns: int,
+    max_age_ms: Optional[float] = 100.0, motion: Optional[str] = None,
+) -> dict[str, Any]:
+    """Validate that a cached policy snapshot belongs to this event sample."""
+    if record is None:
+        return {
+            "available": False, "fresh": False, "age_ms": None,
+            "active": False, "policy_output_valid": False,
+            "motion_matches": False, "reason": "policy_diagnostics_unavailable",
+        }
+
+    receive_ns = record.get("receive_monotonic_ns")
+    age_ms = (
+        (sample_monotonic_ns - int(receive_ns)) / 1_000_000.0
+        if isinstance(receive_ns, int) else None
+    )
+    expected_tag = LEO_MOTION_PARAM_TAGS.get(motion)
+    source_tag = record.get("source_param_tag")
+    motion_matches = expected_tag is not None and source_tag == expected_tag
+    active = record.get("active") is True
+    output_valid = record.get("policy_output_valid") is True
+    raw_action = record.get("raw_action")
+    action_available = (
+        isinstance(raw_action, list) and len(raw_action) > 0
+        and all(value is not None for value in raw_action)
+    )
+    age_valid = age_ms is not None and age_ms >= 0.0 and (
+        max_age_ms is None or age_ms <= max_age_ms
+    )
+    fresh = active and output_valid and motion_matches and action_available and age_valid
+    if fresh:
+        reason = "fresh"
+    elif not age_valid:
+        reason = "stale_or_missing_receive_time"
+    elif not active:
+        reason = "policy_inactive"
+    elif not output_valid:
+        reason = "policy_output_invalid"
+    elif not motion_matches:
+        reason = "policy_param_tag_mismatch"
+    else:
+        reason = "policy_action_unavailable"
+    return {
+        "available": True,
+        "fresh": fresh,
+        "age_ms": age_ms,
+        "active": active,
+        "policy_output_valid": output_valid,
+        "motion_matches": motion_matches,
+        "source_param_tag": source_tag,
+        "expected_param_tag": expected_tag,
+        "reason": reason,
     }
 
 
@@ -306,12 +365,109 @@ def decode_lcm_task_state(payload: bytes) -> Optional[str]:
         return payload[12 : end - 1].decode("utf-8", errors="replace")
 
 
+def decode_lcm_sim_state(payload: bytes) -> Optional[dict[str, Any]]:
+    """Decode the generated SimState message without requiring lcm-gen Python bindings."""
+    if len(payload) < 8 or struct.unpack(">Q", payload[:8])[0] != LCM_SIM_STATE_HASH:
+        return None
+    offset = 8
+
+    def read_double() -> float:
+        nonlocal offset
+        value = struct.unpack_from(">d", payload, offset)[0]
+        offset += 8
+        return value
+
+    def read_int() -> int:
+        nonlocal offset
+        value = struct.unpack_from(">i", payload, offset)[0]
+        offset += 4
+        return value
+
+    def read_doubles(count: int) -> list[float]:
+        nonlocal offset
+        if count < 0 or count > 10000:
+            raise ValueError("invalid SimState vector length")
+        values = list(struct.unpack_from(f">{count}d", payload, offset)) if count else []
+        offset += count * 8
+        return values
+
+    try:
+        timestamp = read_double()
+        joint_count = read_int()
+        joint_position = read_doubles(joint_count)
+        joint_velocity = read_doubles(joint_count)
+        joint_torque = read_doubles(joint_count)
+        base_position = read_doubles(3)
+        base_linear_velocity = read_doubles(3)
+        base_quaternion = read_doubles(4)
+        base_angular_velocity = read_doubles(3)
+        imu_link_position = read_doubles(3)
+        imu_link_linear_velocity = read_doubles(3)
+        imu_link_quaternion = read_doubles(4)
+        imu_link_angular_velocity = read_doubles(3)
+        imu_sensor_quaternion = read_doubles(4)
+        imu_sensor_linear_acceleration = read_doubles(3)
+        imu_sensor_angular_velocity = read_doubles(3)
+        contact_count = read_int()
+        contact_force = read_doubles(contact_count)
+    except (IndexError, struct.error, ValueError):
+        return None
+    return {
+        "receive_monotonic_ns": time.monotonic_ns(),
+        "receive_ros_time_ns": None,
+        "sim_time_s": timestamp,
+        "joint_position": finite_float_list(joint_position),
+        "joint_velocity": finite_float_list(joint_velocity),
+        "joint_torque": finite_float_list(joint_torque),
+        "base_position": finite_float_list(base_position),
+        "base_linear_velocity": finite_float_list(base_linear_velocity),
+        "base_quaternion_wxyz": finite_float_list(base_quaternion),
+        "base_angular_velocity": finite_float_list(base_angular_velocity),
+        "imu_link_position": finite_float_list(imu_link_position),
+        "imu_link_linear_velocity": finite_float_list(imu_link_linear_velocity),
+        "imu_link_quaternion_wxyz": finite_float_list(imu_link_quaternion),
+        "imu_link_angular_velocity": finite_float_list(imu_link_angular_velocity),
+        "imu_sensor_quaternion_wxyz": finite_float_list(imu_sensor_quaternion),
+        "imu_sensor_linear_acceleration": finite_float_list(imu_sensor_linear_acceleration),
+        "imu_sensor_angular_velocity": finite_float_list(imu_sensor_angular_velocity),
+        "contact_force": finite_float_list(contact_force),
+        "source": "lcm_sim_state",
+    }
+
+
+def decode_lcm_dynamic_vector(payload: bytes) -> Optional[dict[str, Any]]:
+    if len(payload) < 20 or struct.unpack(">Q", payload[:8])[0] != LCM_DYNAMIC_VECTOR_DOUBLE_HASH:
+        return None
+    try:
+        timestamp = struct.unpack_from(">d", payload, 8)[0]
+        count = struct.unpack_from(">i", payload, 16)[0]
+        if count < 0 or count > 10000 or len(payload) < 20 + count * 8:
+            return None
+        values = struct.unpack_from(f">{count}d", payload, 20) if count else ()
+    except struct.error:
+        return None
+    if count < 2 or (count - 2) % 3 != 0:
+        return None
+    num_joints = (count - 2) // 3
+    return {
+        "receive_monotonic_ns": time.monotonic_ns(),
+        "receive_ros_time_ns": None,
+        "sim_time_s": timestamp,
+        "nominal_ctrl": finite_float_list(values[:num_joints]),
+        "effective_ctrl": finite_float_list(values[num_joints:2 * num_joints]),
+        "injected_noise": finite_float_list(values[2 * num_joints:3 * num_joints]),
+        "command_age_ms": finite_float(values[3 * num_joints]),
+        "command_valid": bool(values[3 * num_joints + 1]),
+        "source": "lcm_sim_control_diagnostics",
+    }
+
+
 class SafetyRecorder:
     def __init__(
         self,
         node: Any,
         args: argparse.Namespace,
-        message_types: tuple[Any, Any, Any, Any, Any, Any, Any],
+        message_types: tuple[Any, Any, Any, Any, Any, Any, Any, Any, Any, Any],
         joint_names: list[str],
         limits: dict[str, dict[str, Optional[float]]],
         qos_profile: Any,
@@ -346,7 +502,7 @@ class SafetyRecorder:
         if args.lcm_config:
             config_paths.append(Path(args.lcm_config))
         self.metadata: dict[str, Any] = {
-            "schema_version": "t800_safety_log_v1",
+            "schema_version": "t800_safety_log_v3",
             "read_only_recorder": True,
             "started_at_utc": utc_now(),
             "hostname": socket.gethostname(),
@@ -372,12 +528,30 @@ class SafetyRecorder:
                 "power_info": args.power_info_topic,
                 "motion_state": args.motion_topic,
                 "imu_info": args.imu_topic,
+                "gamepad_keys": args.gamepad_keys_topic,
+                "rc02_diagnostics": args.rc02_diagnostics_topic,
+                "policy_diagnostics": args.policy_diagnostics_topic,
                 "leo_command_diagnostics": args.leo_command_diagnostics_topic,
+            },
+            "input_sources": {
+                "mujoco": "hardware/gamepad_keys (virtual controller or Xbox)",
+                "real_robot": "hardware/rc02_diagnostics (paired RC02, when enabled)",
             },
             "lcm": {
                 "enabled": not args.no_lcm,
                 "url": args.lcm_url,
                 "channel": args.lcm_channel,
+                "sim_state_channel": args.lcm_sim_state_channel,
+                "sim_state_enabled": not args.no_lcm and not args.no_sim_state,
+                "control_diagnostics_channel": args.lcm_control_diagnostics_channel,
+                "control_diagnostics_enabled": not args.no_lcm and not args.no_control_diagnostics,
+            },
+            "timestamp_semantics": {
+                "receive_monotonic_ns": "recorder_host_steady_clock",
+                "receive_ros_time_ns": "recorder_node_clock",
+                "ros_stamp_ns": "message_header_stamp",
+                "sim_time_s": "mujoco_simulation_clock",
+                "source_monotonic_ns": "publisher_host_steady_clock",
             },
             "thresholds": {
                 "position_margin_rad": args.position_margin,
@@ -406,6 +580,9 @@ class SafetyRecorder:
             motion_state_type,
             imu_info_type,
             leo_command_diagnostics_type,
+            gamepad_keys_type,
+            rc02_diagnostics_type,
+            policy_diagnostics_type,
         ) = message_types
         self.subscriptions = [
             node.create_subscription(joint_state_type, args.joint_state_topic, self.on_joint_state, qos_profile),
@@ -415,7 +592,18 @@ class SafetyRecorder:
             node.create_subscription(motor_debug_type, args.motor_debug_topic, self.on_motor_debug, qos_profile),
             node.create_subscription(power_info_type, args.power_info_topic, self.on_power_info, qos_profile),
             node.create_subscription(imu_info_type, args.imu_topic, self.on_imu_info, qos_profile),
+            node.create_subscription(gamepad_keys_type, args.gamepad_keys_topic, self.on_gamepad_keys, qos_profile),
         ]
+        if rc02_diagnostics_type is not None:
+            self.subscriptions.append(
+                node.create_subscription(rc02_diagnostics_type, args.rc02_diagnostics_topic,
+                                         self.on_rc02_diagnostics, qos_profile)
+            )
+        if policy_diagnostics_type is not None:
+            self.subscriptions.append(
+                node.create_subscription(policy_diagnostics_type, args.policy_diagnostics_topic,
+                                         self.on_policy_diagnostics, qos_profile)
+            )
         if motion_state_type is not None:
             self.subscriptions.append(
                 node.create_subscription(motion_state_type, args.motion_topic, self.on_motion_state, qos_profile)
@@ -506,7 +694,7 @@ class SafetyRecorder:
                     leo_diagnostics, monotonic_ns, self.args.leo_command_max_age_ms, self.motion
                 )
             sample = {
-                "schema_version": 1,
+                "schema_version": 3,
                 "sample_index": self.sample_count,
                 "receive_monotonic_ns": monotonic_ns,
                 "receive_ros_time_ns": ros_time_ns,
@@ -523,6 +711,11 @@ class SafetyRecorder:
                 "motor_debug": self.copy_latest("motor_debug"),
                 "power_info": self.copy_latest("power_info"),
                 "imu_info": self.copy_latest("imu_info"),
+                "gamepad_keys": self.copy_latest("gamepad_keys"),
+                "rc02_diagnostics": self.copy_latest("rc02_diagnostics"),
+                "policy_diagnostics": self.copy_latest("policy_diagnostics"),
+                "sim_state": self.copy_latest("sim_state"),
+                "sim_control_diagnostics": self.copy_latest("sim_control_diagnostics"),
                 "leo_command_diagnostics": leo_diagnostics,
             }
             self.last_sample = sample
@@ -593,6 +786,88 @@ class SafetyRecorder:
         with self.lock:
             if not self.closed:
                 self.latest["imu_info"] = imu_record(message, monotonic_ns, ros_time_ns)
+
+    def on_gamepad_keys(self, message: Any) -> None:
+        monotonic_ns, ros_time_ns = self.receipt_times()
+        record = {
+            "receive_monotonic_ns": monotonic_ns,
+            "receive_ros_time_ns": ros_time_ns,
+            "ros_stamp_ns": message_stamp_ns(message),
+            "hardware_connected": bool(getattr(message, "hardware_connected", False)),
+            "digital_states": int_list(getattr(message, "digital_states", [])),
+            "analog_states": finite_float_list(getattr(message, "analog_states", [])),
+            "source": "ros2_gamepad_keys",
+        }
+        with self.lock:
+            if not self.closed:
+                self.latest["gamepad_keys"] = record
+
+    def on_rc02_diagnostics(self, message: Any) -> None:
+        monotonic_ns, ros_time_ns = self.receipt_times()
+        record = {
+            "receive_monotonic_ns": monotonic_ns,
+            "receive_ros_time_ns": ros_time_ns,
+            "ros_stamp_ns": message_stamp_ns(message),
+            "raw_frame_size": int(getattr(message, "raw_frame_size", 0)),
+            "raw_frame": int_list(getattr(message, "raw_frame", [])),
+            "source_monotonic_ns": int(getattr(message, "source_monotonic_ns", 0)),
+            "connected": bool(getattr(message, "connected", False)),
+            "frame_valid": bool(getattr(message, "frame_valid", False)),
+            "control_id": int(getattr(message, "control_id", 0)),
+            "heartbeat": int(getattr(message, "heartbeat", 0)),
+            "l2_raw": int(getattr(message, "l2_raw", 0)),
+            "r2_raw": int(getattr(message, "r2_raw", 0)),
+            "stick_raw": int_list(getattr(message, "stick_raw", [])),
+            "buttons": int_list(getattr(message, "buttons", [])),
+            "motion_command": int(getattr(message, "motion_command", 0)),
+            "skill_command": int(getattr(message, "skill_command", 0)),
+            "reserved": int_list(getattr(message, "reserved", [])),
+            "normalized_analog": finite_float_list(getattr(message, "normalized_analog", [])),
+            "source": "ros2_rc02_diagnostics",
+        }
+        with self.lock:
+            if not self.closed:
+                self.latest["rc02_diagnostics"] = record
+
+    def on_policy_diagnostics(self, message: Any) -> None:
+        monotonic_ns, ros_time_ns = self.receipt_times()
+        record = {
+            "receive_monotonic_ns": monotonic_ns,
+            "receive_ros_time_ns": ros_time_ns,
+            "ros_stamp_ns": message_stamp_ns(message),
+            "source_monotonic_ns": int(getattr(message, "source_monotonic_ns", 0)),
+            "source_param_tag": str(getattr(message, "source_param_tag", "")),
+            "active": bool(getattr(message, "active", False)),
+            "policy_output_valid": bool(getattr(message, "policy_output_valid", False)),
+            "policy_recurrent": bool(getattr(message, "policy_recurrent", False)),
+            "entry_transition_active": bool(getattr(message, "entry_transition_active", False)),
+            "entry_transition_elapsed": finite_float(getattr(message, "entry_transition_elapsed", None)),
+            "entry_transition_duration": finite_float(getattr(message, "entry_transition_duration", None)),
+            "transformed_base_angular_velocity": finite_float_list(
+                getattr(message, "transformed_base_angular_velocity", [])),
+            "projected_gravity": finite_float_list(getattr(message, "projected_gravity", [])),
+            "policy_command": finite_float_list(getattr(message, "policy_command", [])),
+            "observation_single": finite_float_list(getattr(message, "observation_single", [])),
+            "observation": finite_float_list(getattr(message, "observation", [])),
+            "raw_action": finite_float_list(getattr(message, "raw_action", [])),
+            "clipped_action": finite_float_list(getattr(message, "clipped_action", [])),
+            "controlled_action": finite_float_list(getattr(message, "controlled_action", [])),
+            "q_des_policy": finite_float_list(getattr(message, "q_des_policy", [])),
+            "q_des_command": finite_float_list(getattr(message, "q_des_command", [])),
+            "qd_des_policy": finite_float_list(getattr(message, "qd_des_policy", [])),
+            "qd_des_command": finite_float_list(getattr(message, "qd_des_command", [])),
+            "feed_forward_torque": finite_float_list(getattr(message, "feed_forward_torque", [])),
+            "stiffness": finite_float_list(getattr(message, "stiffness", [])),
+            "damping": finite_float_list(getattr(message, "damping", [])),
+            "source": "ros2_policy_diagnostics",
+        }
+        with self.lock:
+            if self.closed:
+                return
+            previous = self.latest.get("policy_diagnostics")
+            previous_source_ns = previous.get("source_monotonic_ns") if previous else None
+            if previous_source_ns is None or record["source_monotonic_ns"] > previous_source_ns:
+                self.latest["policy_diagnostics"] = record
 
     def on_leo_command_diagnostics(self, message: Any) -> None:
         monotonic_ns, ros_time_ns = self.receipt_times()
@@ -729,6 +1004,13 @@ class SafetyRecorder:
 
     def add_leo_command_evidence(self, details: dict[str, Any], sample: dict[str, Any]) -> None:
         diagnostics = sample.get("leo_command_diagnostics")
+        policy = sample.get("policy_diagnostics")
+        policy_freshness = policy_diagnostics_freshness(
+            policy,
+            int(sample["receive_monotonic_ns"]),
+            self.args.leo_command_max_age_ms,
+            sample.get("motion"),
+        )
         details["leo_command_diagnostics"] = {
             **(diagnostics or {}),
             "freshness": leo_command_diagnostics_freshness(
@@ -740,6 +1022,24 @@ class SafetyRecorder:
             "command_provenance": "runner_speed_chain_diagnostics",
             "raw_actor_action": "not_recorded",
         }
+        details["policy_diagnostics"] = {
+            "source_monotonic_ns": policy.get("source_monotonic_ns") if policy else None,
+            "source_param_tag": policy.get("source_param_tag") if policy else None,
+            "freshness": policy_freshness,
+            "policy_output_valid": policy.get("policy_output_valid") if policy else False,
+            "raw_action": policy.get("raw_action") if policy_freshness["fresh"] else None,
+            "clipped_action": policy.get("clipped_action") if policy_freshness["fresh"] else None,
+            "controlled_action": policy.get("controlled_action") if policy_freshness["fresh"] else None,
+            "q_des_policy": policy.get("q_des_policy") if policy_freshness["fresh"] else None,
+            "q_des_command": policy.get("q_des_command") if policy_freshness["fresh"] else None,
+        }
+        if policy_freshness["fresh"]:
+            details["raw_actor_action"] = policy["raw_action"]
+            details["leo_command_diagnostics"]["raw_actor_action"] = policy["raw_action"]
+            details["action_provenance"] = "policy_diagnostics.raw_action"
+        else:
+            details["raw_actor_action"] = "unavailable"
+            details["action_provenance"] = f"policy_diagnostics_unavailable:{policy_freshness['reason']}"
 
     def update_motion(self, name: str, source: str, available: list[str], ros_time_ns: int) -> None:
         if not name:
@@ -1063,6 +1363,10 @@ class SafetyRecorder:
 
             self.lcm = lcm.LCM(self.args.lcm_url)
             self.lcm.subscribe(self.args.lcm_channel, self.on_lcm_task_state)
+            if not self.args.no_sim_state:
+                self.lcm.subscribe(self.args.lcm_sim_state_channel, self.on_lcm_sim_state)
+            if not self.args.no_control_diagnostics:
+                self.lcm.subscribe(self.args.lcm_control_diagnostics_channel, self.on_lcm_control_diagnostics)
             self.lcm_thread = threading.Thread(target=self.lcm_loop, name="safety-lcm", daemon=True)
             self.lcm_thread.start()
         except Exception as error:
@@ -1083,6 +1387,24 @@ class SafetyRecorder:
         name = decode_lcm_task_state(payload)
         if name is not None:
             self.update_motion(name, "lcm", [], int(self.node.get_clock().now().nanoseconds))
+
+    def on_lcm_sim_state(self, channel: str, payload: bytes) -> None:
+        del channel
+        record = decode_lcm_sim_state(payload)
+        if record is not None:
+            with self.lock:
+                if not self.closed:
+                    record["receive_ros_time_ns"] = int(self.node.get_clock().now().nanoseconds)
+                    self.latest["sim_state"] = record
+
+    def on_lcm_control_diagnostics(self, channel: str, payload: bytes) -> None:
+        del channel
+        record = decode_lcm_dynamic_vector(payload)
+        if record is not None:
+            with self.lock:
+                if not self.closed:
+                    record["receive_ros_time_ns"] = int(self.node.get_clock().now().nanoseconds)
+                    self.latest["sim_control_diagnostics"] = record
 
     def close(self) -> None:
         if self.closed:
@@ -1131,7 +1453,10 @@ def build_parser(repo_root: Path) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Record read-only T800 safety telemetry from existing ROS2/LCM interfaces."
     )
-    parser.add_argument("--output", help="new output directory; default is safety_logs/t800_<timestamp>")
+    parser.add_argument(
+        "--output",
+        help="run directory under <repo>/records/safety_monitor; default is t800_<timestamp>",
+    )
     parser.add_argument(
         "--model-yaml",
         default=str(repo_root / "assets/config/t800/model/default.yaml"),
@@ -1149,6 +1474,10 @@ def build_parser(repo_root: Path) -> argparse.ArgumentParser:
     )
     parser.add_argument("--lcm-url", default=None)
     parser.add_argument("--lcm-channel", default="task_state")
+    parser.add_argument("--lcm-sim-state-channel", default="sim_state")
+    parser.add_argument("--no-sim-state", action="store_true")
+    parser.add_argument("--lcm-control-diagnostics-channel", default="sim_control_diagnostics")
+    parser.add_argument("--no-control-diagnostics", action="store_true")
     parser.add_argument("--no-lcm", action="store_true")
     parser.add_argument("--joint-state-topic", default="/hardware/joint_state")
     parser.add_argument("--motor-state-topic", default="/hardware/motor_state")
@@ -1157,6 +1486,9 @@ def build_parser(repo_root: Path) -> argparse.ArgumentParser:
     parser.add_argument("--motor-debug-topic", default="/hardware/motor_debug")
     parser.add_argument("--power-info-topic", default="/hardware/power_info")
     parser.add_argument("--imu-topic", default="/hardware/imu_info")
+    parser.add_argument("--gamepad-keys-topic", default="/hardware/gamepad_keys")
+    parser.add_argument("--rc02-diagnostics-topic", default="/hardware/rc02_diagnostics")
+    parser.add_argument("--policy-diagnostics-topic", default="/motion/policy_diagnostics")
     parser.add_argument("--motion-topic", default="/motion/motion_state")
     parser.add_argument(
         "--leo-command-diagnostics-topic", default="/motion/leo_command_diagnostics"
@@ -1223,12 +1555,23 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+    records_root = (repo_root / "records" / "safety_monitor").resolve()
     if args.output:
         output_path = Path(args.output).expanduser()
-        args.output = str((Path.cwd() / output_path if not output_path.is_absolute() else output_path).resolve())
+        args.output = str((records_root / output_path if not output_path.is_absolute() else output_path).resolve())
     else:
         stamp = datetime_lib.datetime.now().strftime("%Y%m%d_%H%M%S")
-        args.output = str((repo_root / "safety_logs" / f"t800_{stamp}").resolve())
+        args.output = str((records_root / f"t800_{stamp}").resolve())
+    output_path = Path(args.output)
+    try:
+        output_path.relative_to(records_root)
+    except ValueError:
+        print(
+            "configuration error: output must stay inside repository records/safety_monitor: "
+            f"{output_path}",
+            file=sys.stderr,
+        )
+        return 2
     if Path(args.output).exists():
         print(f"output directory already exists: {args.output}", file=sys.stderr)
         return 2
@@ -1272,7 +1615,7 @@ def main() -> int:
 
     try:
         import rclpy
-        from interface_protocol.msg import ImuInfo, JointCommand, JointState, MotorDebug, PowerInfo
+        from interface_protocol.msg import GamepadKeys, ImuInfo, JointCommand, JointState, MotorDebug, PowerInfo
         try:
             from interface_protocol.msg import MotionState
         except ImportError:
@@ -1281,6 +1624,14 @@ def main() -> int:
             from interface_protocol.msg import LeoCommandDiagnostics
         except ImportError:
             LeoCommandDiagnostics = None
+        try:
+            from interface_protocol.msg import PolicyDiagnostics
+        except ImportError:
+            PolicyDiagnostics = None
+        try:
+            from interface_protocol.msg import Rc02Diagnostics
+        except ImportError:
+            Rc02Diagnostics = None
         from rclpy.node import Node
         from rclpy.qos import QoSDurabilityPolicy, QoSProfile, QoSReliabilityPolicy
     except ImportError as error:
@@ -1309,6 +1660,9 @@ def main() -> int:
                 MotionState,
                 ImuInfo,
                 LeoCommandDiagnostics,
+                GamepadKeys,
+                Rc02Diagnostics,
+                PolicyDiagnostics,
             ),
             joint_names,
             limits,

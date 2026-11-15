@@ -23,5 +23,7 @@ hardware_interface_node:
     joint_state: /hardware/joint_state
     joint_command_feedback: /hardware/joint_command_feedback
     leo_command_diagnostics: /motion/leo_command_diagnostics
+    policy_diagnostics: /motion/policy_diagnostics
+    rc02_diagnostics: /hardware/rc02_diagnostics
   subscribe_topics:
     led_control: /hardware/led_control

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <future>
 #include <memory>
@@ -7,6 +8,7 @@
 
 #include "gamepad_info/gamepad_info.h"
 #include "input_command_arbiter/base_input_adapter.h"
+#include "rc02_diagnostics/rc02_diagnostics.h"
 #include "rc02/rc02_driver.h"
 #include "variant_store/variant_store.h"
 
@@ -42,6 +44,10 @@ class Rc02InputAdapter : public BaseInputAdapter {
   // -------------------------------------------------------------------------
   // Parses normal gamepad fields such as buttons, triggers, sticks and d-pad.
   void GetKeyInputFromRc02Raw(const hardware::Rc02InputData& raw);
+  void PublishRawDiagnostics(const hardware::Rc02OriginData& origin,
+                             const hardware::Rc02InputData& normalized,
+                             bool connected, bool frame_valid);
+  void PublishDisconnectedDiagnostics();
 
   // -------------------------------------------------------------------------
   // 成员变量
@@ -58,6 +64,9 @@ class Rc02InputAdapter : public BaseInputAdapter {
   bool config_loaded_ = false;
   bool rc02_data_available_ = false;
   bool prev_rc02_data_available_ = false;  // 上一帧是否有有效输入，用于跨帧检测数据中断
+  bool last_diagnostics_connected_ = false;
+  std::chrono::steady_clock::time_point last_diagnostics_publish_time_{};
+  std::chrono::steady_clock::time_point last_disconnected_diagnostics_time_{};
   uint32_t failed_count_ = 0;
   bool driver_initialized_ = false;
   std::chrono::steady_clock::time_point last_rc02_input_time_{};
@@ -66,6 +75,7 @@ class Rc02InputAdapter : public BaseInputAdapter {
   data::GamepadInfo rc02_input_;
   data::GamepadTool gamepad_tool_;
   data::Publisher<data::GamepadInfo> hardware_rc02_publisher_;
+  data::Publisher<data::Rc02Diagnostics> rc02_diagnostics_publisher_;
 };
 
 }  // namespace runner

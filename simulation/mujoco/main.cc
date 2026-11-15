@@ -365,12 +365,18 @@ void UpdateSimState(const mjModel* m, mjData* d) {
     }
     index += lcm_data_store->num_single_contact_dimensions;
   }
+  sim_state.sim_time = d->time;
   lcm_data_store->sim_state.Set(sim_state);
 }
 
 void TorqueController(const mjModel* m, mjData* d) {
   if (duel_mode) {
-    for (const auto& robot : duel_robots) robot.ApplyCommand(m, d);
+    const int64_t diagnostics_now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                           std::chrono::steady_clock::now().time_since_epoch())
+                                           .count();
+    for (const auto& robot : duel_robots) {
+      robot.ApplyCommand(m, d, robot.ShouldCaptureControlDiagnostics(diagnostics_now_ns));
+    }
     return;
   }
   bool is_floating_base = (m->nv != m->nu);
@@ -391,6 +397,33 @@ void TorqueController(const mjModel* m, mjData* d) {
             sim_command.tau_ff;
 
   Eigen::Map<Eigen::VectorXd>(d->ctrl, m->nu) = tau_cmd;
+
+  // Capture the stable control result after the callback has written d->ctrl.
+  // The validation below is diagnostic metadata only and does not gate or
+  // alter the control path.
+  const int64_t received_command_ns = lcm_data_store->last_command_time_ns.load(std::memory_order_acquire);
+  const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                             std::chrono::steady_clock::now().time_since_epoch())
+                             .count();
+  if (lcm_data_store->ShouldCaptureControlDiagnostics(now_ns)) {
+    SimControlDiagnostics diagnostics(m->nu);
+    diagnostics.nominal_ctrl = tau_cmd;
+    diagnostics.effective_ctrl = tau_cmd;
+    diagnostics.sim_time = d->time;
+    diagnostics.host_time_ns = now_ns;
+    const int64_t command_age_ns = now_ns - received_command_ns;
+    diagnostics.command_age_ms = received_command_ns > 0 ? command_age_ns / 1'000'000.0 : -1.0;
+    // This flag describes command freshness for telemetry only. The stable
+    // controller has already applied tau_cmd above and is intentionally left
+    // unchanged by this diagnostic check.
+    diagnostics.command_valid = received_command_ns > 0 && command_age_ns >= 0 && command_age_ns < 200'000'000 &&
+                               sim_command.q.size() == m->nu && sim_command.qd.size() == m->nu &&
+                               sim_command.kp.size() == m->nu && sim_command.kd.size() == m->nu &&
+                               sim_command.tau_ff.size() == m->nu && sim_command.q.allFinite() &&
+                               sim_command.qd.allFinite() && sim_command.kp.allFinite() &&
+                               sim_command.kd.allFinite() && sim_command.tau_ff.allFinite();
+    lcm_data_store->sim_control_diagnostics.Set(std::move(diagnostics));
+  }
 }
 
 namespace {

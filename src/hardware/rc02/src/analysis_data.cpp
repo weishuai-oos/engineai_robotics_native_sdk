@@ -95,6 +95,8 @@ Rc02ParseStatus ParseRc02Frame(const uint8_t* data, size_t size, Rc02OriginData*
   }
 
   out->control_id = control[CONTROL_OFF_ID];
+  std::copy_n(data, frame_size, out->raw_frame.begin());
+  out->raw_frame_size = static_cast<uint8_t>(frame_size);
   out->heartbeat = control[CONTROL_OFF_HEARTBEAT];
   out->l2 = control[CONTROL_OFF_L2];
   out->r2 = control[CONTROL_OFF_R2];

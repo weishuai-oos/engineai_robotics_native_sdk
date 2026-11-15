@@ -66,6 +66,7 @@ constexpr uint8_t INIT_CONTROL_OFF_ROBOT_RC02_HW = 11;
 // RX control block: ID(1, 0x0B) + DATA(20). Length byte = 0x15 (21).
 constexpr uint8_t RC02_CONTROL_ID = 0x0B;
 constexpr size_t RC02_EXPECTED_CONTROL_SIZE = 21;
+constexpr size_t RC02_INPUT_FRAME_SIZE = RC02_FRAME_FIXED_SIZE + RC02_EXPECTED_CONTROL_SIZE;
 
 // Byte offsets within the control block (data[MODE_DATA] ..), i.e. after header + length.
 constexpr uint8_t CONTROL_OFF_ID = 0;
@@ -84,6 +85,10 @@ constexpr uint8_t CONTROL_OFF_SKILL_COMMAND = 12;
 constexpr uint8_t CONTROL_OFF_RESERVED = 13;  // 8 bytes res[8]
 
 struct Rc02OriginData {
+  // Exact wire bytes for the validated input frame, including AA/length/CRC.
+  // raw_frame_size is zero until a frame has been accepted by the CRC parser.
+  std::array<uint8_t, RC02_INPUT_FRAME_SIZE> raw_frame{};
+  uint8_t raw_frame_size = 0;
   uint8_t control_id = 0;
   uint8_t heartbeat = 0;
 

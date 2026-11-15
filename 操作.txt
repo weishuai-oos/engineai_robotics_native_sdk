@@ -113,13 +113,36 @@ RT 使用“十字键上+下同时按下”作为内部标记，所以当前框�
 
 真机为一台 T800 使用实体遥控器；交叉编译、部署到 Nezha 和机器人端启动过程见仓库根目录的《真机部署.txt》。部署脚本会将远端 active_mode 设置为 robot。实机的新步态和新动作与旧版已跑通的策略不同，稳定性需分别验证。
 
-需要只读记录 ROS2/LCM 状态时，可在开发容器中先加载 ROS 环境，再执行：
+数据采集不和控制程序共用同一个前台终端，按下面顺序操作：
 
-  source /opt/ros/humble/setup.bash
-  source build/x86_64/ros2_env/install/setup.bash
-  python3 tools/safety_monitor/record_safety.py --config assets/config/t800/mode.yaml
+1. **终端 A：先正常启动程序。**
 
-详细数据字段与参数可通过 python3 tools/safety_monitor/record_safety.py --help 查看。
+   仿真仍按本文件第二节启动；真机按《真机部署.txt》第三节启动。
+   等窗口、控制器和机器人状态都正常后，不要在终端 A 输入采集命令。
+
+2. **终端 B：另开一个终端，在同一个 SDK 仓库中启动采集器。**
+
+   ```bash
+   cd /path/to/engineai_robotics_native_sdk
+   ./tools/safety_monitor/start_recording.sh sim_run_01 --config assets/config/t800/mode.yaml
+   ```
+
+   真机把 `sim_run_01` 换成 `real_run_01`。终端 B 按 Ctrl+C 只会停止采集，
+   不会停止终端 A 中的仿真或真机程序。
+
+3. **结束采集后再结束控制程序。**
+
+   数据写入仓库内的 `records/safety_monitor/<run_name>/`，每次采集一行命令即可。
+
+输入源由正常程序启动时决定：仿真启动器会自动使用虚拟手柄或 Xbox/F710；真机启动时使用 RC02。
+不要在终端 B 重新启动控制程序。
+
+策略诊断默认按 100 Hz 采样以减少实时开销；如果本次实验需要每个 500 Hz 控制周期的策略快照，
+必须在终端 A 启动正常程序前设置 `ENGINEAI_POLICY_DIAGNOSTICS_HZ=500`。终端 B 不需要设置该变量。
+MuJoCo 的 `sim_control_diagnostics` 也默认按 100 Hz 发布；如果需要每个控制周期的 nominal/effective 力矩和命令有效性，
+在终端 A 启动仿真前同时设置 `ENGINEAI_SIM_CONTROL_DIAGNOSTICS_HZ=500`。采集器终端 B 不需要设置这些变量。
+
+详细数据字段与参数可通过 `./tools/safety_monitor/start_recording.sh --help` 查看。
 
 ## 模型导出与替换（AnkleCombinedV2）
 

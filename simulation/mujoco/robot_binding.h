@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <mujoco/mujoco.h>
 #include <memory>
 #include <string>
@@ -17,7 +18,11 @@ class RobotBinding {
   // Rebuild after every model load; never retain addresses from an old model.
   void Resolve(const mjModel* model);
   void ReadState(const mjData* data) const;
-  void ApplyCommand(const mjModel* model, mjData* data) const;
+  bool ShouldCaptureControlDiagnostics(int64_t now_ns) const {
+    return store_->ShouldCaptureControlDiagnostics(now_ns);
+  }
+  void ApplyCommand(const mjModel* model, mjData* data,
+                    bool capture_diagnostics = false) const;
   void ClearCommand() const;
 
  private:
