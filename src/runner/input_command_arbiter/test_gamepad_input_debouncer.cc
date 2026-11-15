@@ -39,5 +39,24 @@ TEST(GamepadInputDebouncerTest, DebouncesLtActionModifierWithoutChangingAnalogVa
   EXPECT_EQ(stable.combined_key_value, expected);
 }
 
+TEST(GamepadInputDebouncerTest, RtUpRemainsDistinctAfterDebouncing) {
+  GamepadInputDebouncer debouncer(std::chrono::milliseconds(30));
+  data::GamepadInfo input;
+  input.RT = 1.0;
+  input.CROSS_X = 1;
+  const auto t0 = GamepadInputDebouncer::Clock::time_point{};
+
+  EXPECT_EQ(debouncer.UpdateAt(input, t0).combined_key_value, 0);
+  EXPECT_EQ(debouncer.UpdateAt(input, t0 + std::chrono::milliseconds(29)).combined_key_value, 0);
+  const auto stable = debouncer.UpdateAt(input, t0 + std::chrono::milliseconds(30));
+  EXPECT_EQ(stable.combined_key_value, 0xfc0);
+  EXPECT_EQ(stable.CROSS_X, 1);
+  EXPECT_DOUBLE_EQ(stable.RT, 1.0);
+
+  // Releasing RT restores the genuine physical D-pad-up input immediately.
+  input.RT = 0.0;
+  EXPECT_EQ(debouncer.UpdateAt(input, t0 + std::chrono::milliseconds(31)).combined_key_value, 0x100);
+}
+
 }  // namespace
 }  // namespace runner

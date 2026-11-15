@@ -96,8 +96,7 @@ class NumberedActionsTest(unittest.TestCase):
                 tail = re.search(r"(?m)^terminal_hold_frames:[ \t]*(\d+)[ \t]*$", text)
                 self.assertIsNotNone(hold)
                 self.assertEqual(float(hold[1]), 0)
-                self.assertIsNotNone(skip)
-                self.assertEqual(int(skip[1]), int(tail[1]) if tail else 0)
+                self.assertEqual(int(skip[1]) if skip else 0, int(tail[1]) if tail else 0)
 
     def test_registration_preserves_every_original_task_and_hardware_mode(self):
         before = self.snapshot()

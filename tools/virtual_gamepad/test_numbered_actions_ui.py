@@ -181,26 +181,28 @@ class NumberedActionsUiTest(unittest.TestCase):
         self.state("walk_impact")
         self.assertTrue(self.page.can_execute())
 
-    def test_deployed_actions_emit_the_thirteen_physical_combinations(self):
+    def test_deployed_actions_emit_the_fifteen_physical_combinations(self):
         self.ready()
         mappings = {
-            "supermimic_action_06": (("LB", "CROSS_X_UP"), [0, 8], None),
-            "supermimic_action_08": (("LB", "CROSS_X_DOWN"), [0, 9], None),
-            "supermimic_action_09": (("LB", "CROSS_Y_LEFT"), [0, 10], None),
-            "supermimic_action_11": (("LB", "CROSS_Y_RIGHT"), [0, 11], None),
-            "supermimic_action_12": (("RB", "CROSS_X_UP"), [1, 8], None),
-            "supermimic_action_13": (("RB", "CROSS_X_DOWN"), [1, 9], None),
-            "supermimic_action_14": (("RB", "CROSS_Y_LEFT"), [1, 10], None),
-            "supermimic_action_15": (("RB", "CROSS_Y_RIGHT"), [1, 11], None),
-            "supermimic_action_16": (("RT", "CROSS_Y_LEFT"), [10], 1),
-            "supermimic_action_17": (("RT", "CROSS_Y_RIGHT"), [11], 1),
-            "supermimic_action_18": (("RB", "B"), [1, 3], None),
-            "supermimic_action_19": (("RB", "Y"), [1, 5], None),
-            "supermimic_action_20": (("RB", "X"), [1, 4], None),
+            "supermimic_action_01": (("LB", "CROSS_X_UP"), [0, 8], None),
+            "supermimic_action_02": (("LB", "CROSS_X_DOWN"), [0, 9], None),
+            "supermimic_action_03": (("LB", "CROSS_Y_LEFT"), [0, 10], None),
+            "supermimic_action_04": (("LB", "CROSS_Y_RIGHT"), [0, 11], None),
+            "supermimic_action_05": (("RB", "CROSS_X_UP"), [1, 8], None),
+            "supermimic_action_06": (("RB", "CROSS_X_DOWN"), [1, 9], None),
+            "supermimic_action_07": (("RB", "CROSS_Y_LEFT"), [1, 10], None),
+            "supermimic_action_08": (("RB", "CROSS_Y_RIGHT"), [1, 11], None),
+            "supermimic_action_09": (("RB", "A"), [1, 2], None),
+            "supermimic_action_10": (("RB", "B"), [1, 3], None),
+            "supermimic_action_11": (("RB", "X"), [1, 4], None),
+            "supermimic_action_12": (("RB", "Y"), [1, 5], None),
+            "supermimic_action_14": (("RT", "CROSS_X_UP"), [8], 1),
+            "supermimic_action_15": (("RT", "CROSS_Y_LEFT"), [10], 1),
+            "supermimic_action_16": (("RT", "CROSS_Y_RIGHT"), [11], 1),
         }
         self.assertEqual({label.split(":", 1)[0] for label in self.gamepad.macros
                           if label.startswith("supermimic_")}, set(mappings))
-        self.assertNotIn(("RB", "A"), self.gamepad.macros.values())
+        self.assertFalse(any("supermimic_action_13" in label for label in self.gamepad.macros))
         for motion, (keys, digital, trigger) in mappings.items():
             with self.subTest(motion=motion):
                 label = f"{motion}: [{', '.join(keys)}]"

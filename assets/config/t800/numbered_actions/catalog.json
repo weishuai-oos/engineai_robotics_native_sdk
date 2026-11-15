@@ -3,95 +3,200 @@
   "capacity": 50,
   "actions": [
     {
-      "id": 6,
-      "label": "左抖拳（高）",
+      "id": 1,
+      "label": "1｜09 左勾拳｜二阶段·12000轮",
       "batch": 1,
-      "iteration": 32000,
-      "package": "rl_supermimic_local_clip_zq_xjh_3_10_02_strike_04"
+      "iteration": 12000,
+      "package": "rl_supermimic_stage2_guard_09_zq_xjh_3_5_01_strike_10_i012000",
+      "previous_id": 3,
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 3；末尾静态保留已取消",
+      "selected": true
+    },
+    {
+      "id": 2,
+      "label": "2｜08 左勾拳｜一阶段·踝PD40/2·10000轮",
+      "batch": 1,
+      "iteration": 10000,
+      "package": "rl_supermimic_stage1_ankle_pd40_2_08_zq_xjh_3_5_01_strike_08_i010000",
+      "previous_id": 17,
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 17；末尾静态保留已取消",
+      "selected": true
+    },
+    {
+      "id": 3,
+      "label": "3｜08 左勾拳｜不稳定·plateau·6000轮",
+      "batch": 1,
+      "iteration": 6000,
+      "package": "rl_supermimic_unstable_original5_plateau_08_i006000",
+      "status": "UNSTABLE_ALT_ROUND",
+      "role": "plateau",
+      "source_commit": "7b515479dac6790fc7be2125085ca09553858966",
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 22；末尾静态保留已取消",
+      "previous_id": 22,
+      "selected": true
+    },
+    {
+      "id": 4,
+      "label": "4｜08 左勾拳｜新增·二阶段·踝PD40/2·8000轮",
+      "batch": 1,
+      "iteration": 8000,
+      "package": "rl_supermimic_stage2_ankle_pd40_2_08_i008000",
+      "status": "NEW_STAGE2_ANKLE_PD40_2",
+      "source_commit": "c5c11b0987e974f90e00c41c069825fe4a171593",
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 31；末尾静态保留已取消",
+      "previous_id": 31,
+      "selected": true
+    },
+    {
+      "id": 5,
+      "label": "5｜12 左抖拳（低）｜一阶段·踝PD40/2·10000轮",
+      "batch": 1,
+      "iteration": 10000,
+      "package": "rl_supermimic_stage1_ankle_pd40_2_12_zq_xjh_3_8_01_strike_04_i010000",
+      "previous_id": 18,
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 18；末尾静态保留已取消",
+      "selected": true
+    },
+    {
+      "id": 6,
+      "action_id": "12",
+      "label": "6｜12 左抖拳（低）｜新增·二阶段·6000轮",
+      "iteration": 6000,
+      "package": "rl_supermimic_stage2_selected6000_12_i006000",
+      "batch": 1,
+      "status": "NEW_STAGE2_6000",
+      "source_commit": "4a28fad0bdb6fec2fb17eeddd963820bf2798a63",
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 30；末尾静态保留已取消",
+      "previous_id": 30,
+      "selected": true
+    },
+    {
+      "id": 7,
+      "label": "7｜12 左抖拳（低）｜新增·二阶段·踝PD40/2·8000轮",
+      "batch": 1,
+      "iteration": 8000,
+      "package": "rl_supermimic_stage2_ankle_pd40_2_12_i008000",
+      "status": "NEW_STAGE2_ANKLE_PD40_2",
+      "source_commit": "c5c11b0987e974f90e00c41c069825fe4a171593",
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 32；末尾静态保留已取消",
+      "previous_id": 32,
+      "selected": true
     },
     {
       "id": 8,
-      "label": "左勾拳",
+      "action_id": "06",
+      "label": "8｜06 左抖拳（高）｜新增·二阶段·6000轮",
+      "iteration": 6000,
+      "package": "rl_supermimic_stage2_selected6000_06_i006000",
       "batch": 1,
-      "iteration": 32000,
-      "package": "rl_supermimic_local_clip_zq_xjh_3_5_01_strike_08"
+      "status": "NEW_STAGE2_6000",
+      "source_commit": "4a28fad0bdb6fec2fb17eeddd963820bf2798a63",
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 29；末尾静态保留已取消",
+      "previous_id": 29,
+      "selected": true
     },
     {
       "id": 9,
-      "label": "左勾拳",
+      "label": "9｜11 左手下拉捅锤｜二阶段·12000轮",
       "batch": 1,
-      "iteration": 20000,
-      "package": "rl_supermimic_local_clip_zq_xjh_3_5_01_strike_10"
+      "iteration": 12000,
+      "package": "rl_supermimic_stage2_guard_11_zq_xjh_3_7_01_strike_09_i012000",
+      "previous_id": 4,
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 4；末尾静态保留已取消",
+      "selected": true
+    },
+    {
+      "id": 10,
+      "label": "10｜19 左低鞭｜二阶段·16000轮",
+      "batch": 1,
+      "iteration": 16000,
+      "package": "rl_supermimic_stage2_guard_19_zq_xjh_4_4_01_strike_01_i016000",
+      "previous_id": 12,
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 12；末尾静态保留已取消",
+      "selected": true
     },
     {
       "id": 11,
-      "label": "左手下拉捅锤",
+      "label": "11｜20 左中鞭｜二阶段·16000轮",
       "batch": 1,
-      "iteration": 18000,
-      "package": "rl_supermimic_local_clip_zq_xjh_3_7_01_strike_09"
+      "iteration": 16000,
+      "package": "rl_supermimic_stage2_guard_20_zq_xjh_4_5_01_strike_06_i016000",
+      "previous_id": 13,
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 13；末尾静态保留已取消",
+      "selected": true
     },
     {
       "id": 12,
-      "label": "左抖拳（低）",
+      "label": "12｜14 左正蹬｜不稳定·latest·26000轮",
       "batch": 1,
-      "iteration": 32000,
-      "package": "rl_supermimic_local_clip_zq_xjh_3_8_01_strike_04"
-    },
-    {
-      "id": 13,
-      "label": "左抖拳（中）",
-      "batch": 1,
-      "iteration": 32000,
-      "package": "rl_supermimic_local_clip_zq_xjh_3_9_01_strike_05"
+      "iteration": 26000,
+      "package": "rl_supermimic_unstable_original5_latest_14_i026000",
+      "status": "UNSTABLE_ALT_ROUND",
+      "role": "latest",
+      "source_commit": "7b515479dac6790fc7be2125085ca09553858966",
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 25；末尾静态保留已取消",
+      "previous_id": 25,
+      "selected": true
     },
     {
       "id": 14,
-      "label": "左正蹬",
+      "label": "14｜24 嘲讽01 你过来呀（含摇头）｜嘲讽·36000轮",
       "batch": 1,
-      "iteration": 18000,
-      "package": "rl_supermimic_local_clip_zq_xjh_4_10_01_strike_02"
+      "iteration": 36000,
+      "package": "rl_supermimic_taunt_01_zq_xjh_5_1_01_strike_01_i036000",
+      "previous_id": 14,
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 14；末尾静态保留已取消",
+      "selected": true
     },
     {
       "id": 15,
-      "label": "前腿侧踩",
+      "label": "15｜25 嘲讽02 你过来呀（含摇头）｜嘲讽·36000轮",
       "batch": 1,
-      "iteration": 18000,
-      "package": "rl_supermimic_local_clip_zq_xjh_4_14_01_strike_04"
+      "iteration": 36000,
+      "package": "rl_supermimic_taunt_02_zq_xjh_5_1_01_strike_02_i036000",
+      "previous_id": 15,
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 15；末尾静态保留已取消",
+      "selected": true
     },
     {
       "id": 16,
-      "label": "左低弹踢",
+      "label": "16｜26 嘲讽03 你过来呀（含摇头）｜嘲讽·36000轮",
       "batch": 1,
-      "iteration": 26000,
-      "package": "rl_supermimic_local_clip_zq_xjh_4_1_01_strike_07"
-    },
-    {
-      "id": 17,
-      "label": "左高弹踢",
-      "batch": 1,
-      "iteration": 18000,
-      "package": "rl_supermimic_local_clip_zq_xjh_4_2_01_strike_02"
-    },
-    {
-      "id": 18,
-      "label": "右高弹踢",
-      "batch": 1,
-      "iteration": 18000,
-      "package": "rl_supermimic_local_clip_zq_xjh_4_3_02_strike_05"
-    },
-    {
-      "id": 19,
-      "label": "左低鞭",
-      "batch": 1,
-      "iteration": 18000,
-      "package": "rl_supermimic_local_clip_zq_xjh_4_4_01_strike_01"
-    },
-    {
-      "id": 20,
-      "label": "左中鞭",
-      "batch": 1,
-      "iteration": 18000,
-      "package": "rl_supermimic_local_clip_zq_xjh_4_5_01_strike_06"
+      "iteration": 36000,
+      "package": "rl_supermimic_taunt_03_zq_xjh_5_1_01_strike_03_i036000",
+      "previous_id": 16,
+      "note": "已选动作；按动作分组连续编号；原虚拟编号 16；末尾静态保留已取消",
+      "selected": true
     }
-  ]
+  ],
+  "selection": "user_selected_16_grouped",
+  "source_previous_ids": [
+    3,
+    17,
+    22,
+    31,
+    18,
+    30,
+    32,
+    29,
+    4,
+    12,
+    13,
+    25,
+    27,
+    14,
+    15,
+    16
+  ],
+  "group_order": [
+    "左勾拳",
+    "左抖拳（低）",
+    "左抖拳（高）",
+    "左手下拉捅锤",
+    "鞭腿",
+    "左正蹬",
+    "前腿侧踩",
+    "嘲讽"
+  ],
+  "terminal_hold_policy": "hold_seconds=0; skip_terminal_hold_frames=terminal_hold_frames when declared"
 }

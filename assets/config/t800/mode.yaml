@@ -65,32 +65,36 @@ mode:
       scope: rl_getup_example/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
+    - tag: rl_supermimic_action_01
+      scope: numbered_actions/rl_supermimic_stage2_guard_09_zq_xjh_3_5_01_strike_10_i012000/default
+    - tag: rl_supermimic_action_02
+      scope: numbered_actions/rl_supermimic_stage1_ankle_pd40_2_08_zq_xjh_3_5_01_strike_08_i010000/default
+    - tag: rl_supermimic_action_03
+      scope: numbered_actions/rl_supermimic_unstable_original5_plateau_08_i006000/default
+    - tag: rl_supermimic_action_04
+      scope: numbered_actions/rl_supermimic_stage2_ankle_pd40_2_08_i008000/default
+    - tag: rl_supermimic_action_05
+      scope: numbered_actions/rl_supermimic_stage1_ankle_pd40_2_12_zq_xjh_3_8_01_strike_04_i010000/default
     - tag: rl_supermimic_action_06
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_10_02_strike_04/default
+      scope: numbered_actions/rl_supermimic_stage2_selected6000_12_i006000/default
+    - tag: rl_supermimic_action_07
+      scope: numbered_actions/rl_supermimic_stage2_ankle_pd40_2_12_i008000/default
     - tag: rl_supermimic_action_08
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_5_01_strike_08/default
+      scope: numbered_actions/rl_supermimic_stage2_selected6000_06_i006000/default
     - tag: rl_supermimic_action_09
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_5_01_strike_10/default
+      scope: numbered_actions/rl_supermimic_stage2_guard_11_zq_xjh_3_7_01_strike_09_i012000/default
+    - tag: rl_supermimic_action_10
+      scope: numbered_actions/rl_supermimic_stage2_guard_19_zq_xjh_4_4_01_strike_01_i016000/default
     - tag: rl_supermimic_action_11
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_7_01_strike_09/default
+      scope: numbered_actions/rl_supermimic_stage2_guard_20_zq_xjh_4_5_01_strike_06_i016000/default
     - tag: rl_supermimic_action_12
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_8_01_strike_04/default
-    - tag: rl_supermimic_action_13
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_9_01_strike_05/default
+      scope: numbered_actions/rl_supermimic_unstable_original5_latest_14_i026000/default
     - tag: rl_supermimic_action_14
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_10_01_strike_02/default
+      scope: numbered_actions/rl_supermimic_taunt_01_zq_xjh_5_1_01_strike_01_i036000/default
     - tag: rl_supermimic_action_15
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_14_01_strike_04/default
+      scope: numbered_actions/rl_supermimic_taunt_02_zq_xjh_5_1_01_strike_02_i036000/default
     - tag: rl_supermimic_action_16
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_1_01_strike_07/default
-    - tag: rl_supermimic_action_17
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_2_01_strike_02/default
-    - tag: rl_supermimic_action_18
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_3_02_strike_05/default
-    - tag: rl_supermimic_action_19
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_4_01_strike_01/default
-    - tag: rl_supermimic_action_20
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_5_01_strike_06/default
+      scope: numbered_actions/rl_supermimic_taunt_03_zq_xjh_5_1_01_strike_03_i036000/default
 
   sim:
     - tag: resident_task
@@ -145,29 +149,33 @@ mode:
       scope: rl_getup_example/default
     - tag: rl_getup2_example
       scope: rl_getup2_example/default
+    - tag: rl_supermimic_action_01
+      scope: numbered_actions/rl_supermimic_stage2_guard_09_zq_xjh_3_5_01_strike_10_i012000/default
+    - tag: rl_supermimic_action_02
+      scope: numbered_actions/rl_supermimic_stage1_ankle_pd40_2_08_zq_xjh_3_5_01_strike_08_i010000/default
+    - tag: rl_supermimic_action_03
+      scope: numbered_actions/rl_supermimic_unstable_original5_plateau_08_i006000/default
+    - tag: rl_supermimic_action_04
+      scope: numbered_actions/rl_supermimic_stage2_ankle_pd40_2_08_i008000/default
+    - tag: rl_supermimic_action_05
+      scope: numbered_actions/rl_supermimic_stage1_ankle_pd40_2_12_zq_xjh_3_8_01_strike_04_i010000/default
     - tag: rl_supermimic_action_06
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_10_02_strike_04/default
+      scope: numbered_actions/rl_supermimic_stage2_selected6000_12_i006000/default
+    - tag: rl_supermimic_action_07
+      scope: numbered_actions/rl_supermimic_stage2_ankle_pd40_2_12_i008000/default
     - tag: rl_supermimic_action_08
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_5_01_strike_08/default
+      scope: numbered_actions/rl_supermimic_stage2_selected6000_06_i006000/default
     - tag: rl_supermimic_action_09
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_5_01_strike_10/default
+      scope: numbered_actions/rl_supermimic_stage2_guard_11_zq_xjh_3_7_01_strike_09_i012000/default
+    - tag: rl_supermimic_action_10
+      scope: numbered_actions/rl_supermimic_stage2_guard_19_zq_xjh_4_4_01_strike_01_i016000/default
     - tag: rl_supermimic_action_11
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_7_01_strike_09/default
+      scope: numbered_actions/rl_supermimic_stage2_guard_20_zq_xjh_4_5_01_strike_06_i016000/default
     - tag: rl_supermimic_action_12
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_8_01_strike_04/default
-    - tag: rl_supermimic_action_13
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_3_9_01_strike_05/default
+      scope: numbered_actions/rl_supermimic_unstable_original5_latest_14_i026000/default
     - tag: rl_supermimic_action_14
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_10_01_strike_02/default
+      scope: numbered_actions/rl_supermimic_taunt_01_zq_xjh_5_1_01_strike_01_i036000/default
     - tag: rl_supermimic_action_15
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_14_01_strike_04/default
+      scope: numbered_actions/rl_supermimic_taunt_02_zq_xjh_5_1_01_strike_02_i036000/default
     - tag: rl_supermimic_action_16
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_1_01_strike_07/default
-    - tag: rl_supermimic_action_17
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_2_01_strike_02/default
-    - tag: rl_supermimic_action_18
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_3_02_strike_05/default
-    - tag: rl_supermimic_action_19
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_4_01_strike_01/default
-    - tag: rl_supermimic_action_20
-      scope: numbered_actions/rl_supermimic_local_clip_zq_xjh_4_5_01_strike_06/default
+      scope: numbered_actions/rl_supermimic_taunt_03_zq_xjh_5_1_01_strike_03_i036000/default

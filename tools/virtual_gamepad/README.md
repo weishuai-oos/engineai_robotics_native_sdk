@@ -58,15 +58,16 @@ In a duel, this controls robot A; robot B keeps its existing controller.
 
 Enable sending, enter PD standing or walking, then click a numbered action.
 Buttons show the action, batch, and checkpoint iteration in three columns.
-The shared catalog currently contains 13 actions: 06, 08, 09, and 11–20. It
-supports numbers 01–50; unconfigured numbers are hidden. Robot feedback confirms the active action.
+The shared catalog currently contains 15 actions: 01–12 and 14–16; number 13
+is not included. It supports numbers 01–50; unconfigured numbers are hidden.
+Robot feedback confirms the active action.
 After confirmation the next item is selected, but execution always requires
 another click. Walking, PD standing, and passive recovery buttons remain
 available during testing. F5/Enable is shared with the original gamepad tab.
 
-The imported policies use zero extra hold time and
-`skip_terminal_hold_frames: 0`; these references have no appended 100-frame
-static tail. They share the regular SuperMimic entry bridge and automatically
+The imported policies use zero extra hold time. Actions 01, 03, 04, and 06–12
+skip their appended 100-frame static tail; 02, 05, and 14–16 have no appended
+tail and skip zero frames. They share the regular SuperMimic entry bridge and automatically
 return through the existing gait bridge to `walk_leo` (LB+A). Restart the
 simulation session after changing the catalog or mappings. The import preserves
 the source models, YAML settings, and reference/goal arrays.
@@ -83,34 +84,34 @@ commands are in [the startup guide](../../操作.txt).
 
 ### Shared test policies and Git
 
-`assets/config/t800/numbered_actions/` contains `catalog.json` and 13 selected
-policy packages imported from `ds@192.168.20.249` on 11.14, each with its YAML,
-MNN, and reference motion. The source IDs are preserved: 06, 08, 09, and 11–20.
-The six punch and seven leg actions also drive the regular physical gamepad:
+`assets/config/t800/numbered_actions/` contains the shared `catalog.json` and
+15 policy packages imported from `kyx@10.12.120.125`, each with its YAML, MNN,
+and reference motion. Source IDs 01–12 and 14–16 are preserved; 13 is excluded.
+These policies also drive the regular physical gamepad:
 
 | Physical combination | Numbered action |
 | --- | --- |
-| LB+d-pad up | 06 High left flick punch (32000 iterations) |
-| LB+d-pad down | 08 Left hook (32000 iterations) |
-| LB+d-pad left | 09 Left hook (20000 iterations) |
-| LB+d-pad right | 11 Left pull-down hammer (18000 iterations) |
-| RB+d-pad up | 12 Low left flick punch (32000 iterations) |
-| RB+d-pad down | 13 Mid left flick punch (32000 iterations) |
-| RB+d-pad left | 14 Left front kick (18000 iterations) |
-| RB+d-pad right | 15 Lead-leg side stomp (18000 iterations) |
-| RT+d-pad left | 16 Low left snap kick (26000 iterations) |
-| RT+d-pad right | 17 High left snap kick (18000 iterations) |
-| RB+B | 18 High right snap kick (18000 iterations) |
-| RB+Y | 19 Low left roundhouse (18000 iterations) |
-| RB+X | 20 Mid left roundhouse (18000 iterations) |
+| LB+d-pad up | 01 Left hook, stage 2 (12000 iterations) |
+| LB+d-pad down | 02 Left hook, stage 1, ankle PD 40/2 (10000 iterations) |
+| LB+d-pad left | 03 Left hook, unstable plateau (6000 iterations) |
+| LB+d-pad right | 04 Left hook, stage 2, ankle PD 40/2 (8000 iterations) |
+| RB+d-pad up | 05 Low left flick, stage 1, ankle PD 40/2 (10000 iterations) |
+| RB+d-pad down | 06 Low left flick, stage 2 (6000 iterations) |
+| RB+d-pad left | 07 Low left flick, stage 2, ankle PD 40/2 (8000 iterations) |
+| RB+d-pad right | 08 High left flick, stage 2 (6000 iterations) |
+| RB+A | 09 Left pull-down hammer, stage 2 (12000 iterations) |
+| RB+B | 10 Low left roundhouse, stage 2 (16000 iterations) |
+| RB+X | 11 Mid left roundhouse, stage 2 (16000 iterations) |
+| RB+Y | 12 Left front push kick, unstable latest (26000 iterations) |
+| RT+d-pad up | 14 Taunt 01 with head shake (36000 iterations) |
+| RT+d-pad left | 15 Taunt 02 with head shake (36000 iterations) |
+| RT+d-pad right | 16 Taunt 03 with head shake (36000 iterations) |
 
-RT+Up/Down and RB+A are unassigned. The current RT marker already sets both
-vertical d-pad bits, so RT+Up and RT+Down cannot be distinguished. The formal
+RT+d-pad up is supported by the updated input encoding. Rebuild the controller
+and restart the session after this input change. The formal
 `supermimic_action_NN` states and virtual `test_action_NN` states use the same
-package files but keep separate command names. Checkpoints and package names
-are listed in the [runner and transition reference](../../docs/t800_runner_classification_and_transitions.md#当前编号测试动作).
-The nine replaced physical actions, including the old 01–05 packages and
-catalog, are preserved under `assets/config/t800/old/11.14/`.
+package files but keep separate command names. Details are listed in the
+[runner and transition reference](../../docs/t800_runner_classification_and_transitions.md#当前编号测试动作).
 
 To share these tests, include the catalog and all corresponding runtime files
 in Git. For a checkout without a catalog, initialize an empty one from the SDK
