@@ -10,8 +10,11 @@ if [[ ! -f "${ros_setup}" ]]; then
   echo "ROS 2 setup not found: ${ros_setup}" >&2
   exit 2
 fi
-source "${ros_setup}"
 
+# ROS 2 setup scripts use several optional variables without defaults. Load
+# them outside nounset, then restore the recorder's strict-shell mode.
+set +u
+source "${ros_setup}"
 if [[ -f "${overlay_setup}" ]]; then
   source "${overlay_setup}"
 else
@@ -19,6 +22,7 @@ else
   echo "Build the interface overlay or set ENGINEAI_ROS2_OVERLAY to its setup.bash." >&2
   exit 2
 fi
+set -u
 
 output_args=()
 if [[ $# -gt 0 && "$1" != -* ]]; then

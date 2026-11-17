@@ -8,6 +8,29 @@ publishes commands or changes the controller. All records are stored in the
 dedicated repository folder `records/safety_monitor/`, which is ignored by
 Git so runtime data does not appear as source changes.
 
+For a real T800 run, use the host-side wrapper after the robot controller is
+already running:
+
+```bash
+./tools/safety_monitor/start_real_recording.sh --duration 300
+```
+
+The wrapper starts or reuses `engineai_robotics_env`, sets the real-robot ROS 2
+domain and Fast DDS implementation, disables the container's localhost-only
+setting, checks `/hardware/joint_state` and `/hardware/rc02_diagnostics`, and
+starts the recorder with `assets/config/t800/lcm/robot.yaml`. The default run
+name is `real_t800_<timestamp>`. A custom name can be supplied as the first
+argument:
+
+```bash
+./tools/safety_monitor/start_real_recording.sh real_t800_walk_01
+```
+
+Press Ctrl-C in the recording terminal to flush and close the files. Use
+`--skip-preflight` only when the ROS 2 graph check is unavailable. The wrapper
+accepts `--ros-domain` and `--rmw` when a robot uses values different from the
+T800 defaults.
+
 After the simulator or robot controller is already running, open a second
 terminal in the repository and start the recorder with one command:
 

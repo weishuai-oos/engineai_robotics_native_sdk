@@ -79,18 +79,23 @@ sudo systemctl start robotics.service
 ## 5. 真机数据采集
 
 等终端 A 中真机程序正常启动后，另开 **终端 B**。推荐在能收到机器人
-ROS2/LCM 数据的开发机完整 SDK 仓库中执行；不要在终端 A 的前台控制进程中输入采集命令：
+ROS2/LCM 数据的开发机完整 SDK 仓库中执行。当前 Docker 路线使用一条命令完成
+容器、网络参数和话题检查：
 
 ```bash
 cd /path/to/engineai_robotics_native_sdk
-ROS_DOMAIN_ID=69 ./tools/safety_monitor/start_recording.sh real_run_01 --config assets/config/t800/mode.yaml --duration 300
+./tools/safety_monitor/start_real_recording.sh real_run_01 --duration 3000
 ```
 
-采集器只订阅状态，不发布控制指令。终端 B 按 Ctrl+C 只停止采集，终端 A 中的真机程序继续运行；
-数据写入终端 B 当前仓库的
-`records/safety_monitor/real_run_01/`。如果 ROS2 overlay 不在默认的
+不传运行名时会自动生成 `real_t800_<timestamp>`。采集器只订阅状态，不发布控制指令。
+终端 B 按 Ctrl+C 只停止采集，终端 A 中的真机程序继续运行。数据写入终端 B 当前仓库的
+`records/safety_monitor/<run_name>/`。如果 ROS2 overlay 不在默认的
 `build/x86_64/ros2_env/install/setup.bash`，设置
 `ENGINEAI_ROS2_OVERLAY=/path/to/setup.bash` 后再执行同一命令。
+
+脚本默认使用 `ROS_DOMAIN_ID=69`、`ROS_LOCALHOST_ONLY=0`、
+`RMW_IMPLEMENTATION=rmw_fastrtps_cpp` 和 `assets/config/t800/lcm/robot.yaml`。
+如果 Docker 权限尚未在当前登录会话生效，先执行一次 `newgrp docker`。
 
 官方参考：
 

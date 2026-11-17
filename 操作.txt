@@ -117,12 +117,21 @@ RT+十字上已支持；更改输入组合识别后，需在相应环境重新�
 
 2. **终端 B：另开一个终端，在同一个 SDK 仓库中启动采集器。**
 
+   仿真使用原有采集命令：
+
    ```bash
-   cd /path/to/engineai_robotics_native_sdk
    ./tools/safety_monitor/start_recording.sh sim_run_01 --config assets/config/t800/mode.yaml
    ```
 
-   真机把 `sim_run_01` 换成 `real_run_01`。终端 B 按 Ctrl+C 只会停止采集，
+   真机使用自动配置命令：
+
+   ```bash
+   cd /path/to/engineai_robotics_native_sdk
+   ./tools/safety_monitor/start_real_recording.sh real_run_01 --duration 300
+   ```
+
+   真机使用 `start_real_recording.sh`，它会自动设置真机 ROS2 网络参数并检查话题。
+   终端 B 按 Ctrl+C 只会停止采集，
    不会停止终端 A 中的仿真或真机程序。
 
 3. **结束采集后再结束控制程序。**
