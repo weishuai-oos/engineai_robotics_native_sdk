@@ -52,8 +52,8 @@ class ActionCatalogTest(unittest.TestCase):
             for relative in ignored:
                 self.assertNotIn(relative, result.stdout)
 
-    def test_impact_gait_is_ready_for_numbered_actions(self):
-        self.assertIn("walk_impact", READY_MOTIONS)
+    def test_main_gait_is_ready_for_numbered_actions(self):
+        self.assertIn("walk_leo", READY_MOTIONS)
         self.assertNotIn("walk_custom", READY_MOTIONS)
 
     def test_fifty_unique_commands_use_both_trigger_markers(self):

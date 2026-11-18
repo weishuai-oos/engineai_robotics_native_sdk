@@ -1,6 +1,6 @@
 # T800 Native SDK 真机部署
 
-适用分支：`feature/motion_transition`
+适用目录：`/home/ds/robot/11.16/engineai_robotics_native_sdk`
 
 ## 1. 目标板与部署结论
 
@@ -19,61 +19,33 @@ Native SDK 的 `src_executor` 真机流程部署到 Nezha，不部署到 Orin。
 在开发电脑仓库根目录执行：
 
 ```bash
-cd /home/xjh/workspace/zq/engineai_robotics_native_sdk
-git switch feature/motion_transition
+cd /home/ds/robot/11.16/engineai_robotics_native_sdk
 
-# 在宿主机执行；build.sh 会自动启动 aarch64 交叉编译环境
 ./build.sh -a aarch64 -r humble -t release
-
-# 默认下发到 Nezha 的 ~/projects/engineai_robotics
 ./install.sh t800 robot aarch64
 ```
 
-如更换网线地址，只修改 `install.sh` 顶部的 `remote_user`、`remote_host`、`remote_dir`。不要把 `remote_dir` 设置为源码目录或用户主目录。安装脚本会把远端 `mode.yaml` 的 `active_mode` 改为 `robot`，并记录本次提交信息。
-
 ## 3. 真机启动
 
-当前 Nezha 上已有 `robotics.service` 运行 Native/运控程序。启动本仓库版本前，先停止该服务，避免两个程序同时访问电机：
-
-**终端 A（Nezha 控制终端）：**
+安装完成后，机器人重启会自动启动 Native SDK。当前开机周期需要立即启动时：
 
 ```bash
 ssh user@192.168.0.163
-sudo systemctl stop robotics.service
-# 确认服务已停止
-systemctl is-active robotics.service
-# 应输出：inactive
-cd ~/projects/engineai_robotics
-sudo ./run_robot.sh t800
+sudo systemctl start engineai-native-sdk.service
 ```
 
-如需每个控制周期的策略诊断快照，在终端 A 启动前改为：
-`sudo env ENGINEAI_POLICY_DIAGNOSTICS_HZ=500 ./run_robot.sh t800`。
-默认 100 Hz 已足够进行常规采集。
+查看当前启动周期的实时日志：
 
-稳定后c掉前台后台运行
-nohup sudo ./run_robot.sh t800 > nohup.out 2>&1 &
-tail -f nohup.out
+```bash
+sudo journalctl -u engineai-native-sdk.service -b -f
+```
 
 ## 4. 结束运行并恢复
 
-# 查找进程
-pgrep -af "run_robot|src_executor"
-
-#确认进程（看输出路径是否正确）
-ps -p <PID> -o pid,ppid,cmd
-
-sudo kill <run_robot的PID>
-
-# 确认已退出
-pgrep -af "run_robot|src_executor"
-# 无输出 = 已停止
-
-# 如果还在，强制结束
-sudo kill -9 <剩余PID>
-
-恢复
-sudo systemctl start robotics.service
+```bash
+sudo systemctl stop engineai-native-sdk.service
+sudo systemctl disable engineai-native-sdk.service
+sudo systemctl enable robotics.service
 ```
 
 ## 5. 真机数据采集
@@ -101,3 +73,10 @@ cd /path/to/engineai_robotics_native_sdk
 
 - [T800 机载计算机与网络架构图](https://www.engineai.com.cn/open/docs/t800-developer/03?product=t800)
 - [Native SDK 开发环境与快速开始](https://www.engineai.com.cn/open/docs/native-sdk/02?product=t800)
+
+## 6. 说明
+
+- SDK 默认下发到 `/home/user/projects/engineai_robotics`。
+- `install.sh` 会设置 `active_mode: robot`，禁用 `robotics.service`，启用 `engineai-native-sdk.service`，并提示输入机器人 sudo 密码。
+- 机器人重启后自动启动 Native SDK。下载完成后不会自动启动当前服务。
+- 启动后默认进入 `idle`，随后转入 `passive`。没有遥控器输入时不会进入站立、行走或起身任务。

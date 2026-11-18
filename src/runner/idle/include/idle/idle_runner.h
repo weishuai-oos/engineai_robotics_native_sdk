@@ -1,8 +1,12 @@
 #pragma once
 
+#include <string>
+
 #include "basic/motion_runner.h"
 #include "basic/runner_registry.h"
 #include "idle_param/idle_param.h"
+#include "motor_debug/motor_debug.h"
+#include "variant_store/variant_store.h"
 
 namespace runner {
 
@@ -23,10 +27,29 @@ class IdleRunner : public MotionRunner {
   void Log();
 
  private:
+  enum class MotorEnablePhase {
+    kSynchronizingDisabled,
+    kWaitingForEnabled,
+  };
+
+  enum class MotorFeedbackState {
+    kUnavailable,
+    kDisabled,
+    kEnabled,
+    kFault,
+  };
+
+  // Idle runs at 500 Hz in the T800 task graph, so this is a two-second
+  // feedback timeout before the task enters the fault path.
   static constexpr int kNumTryExit = 1000;
 
+  MotorFeedbackState ReadMotorFeedback(std::string* reason) const;
+  bool RetryOrFault(const char* phase, const std::string& reason);
+
   int iter_ = 0;
-  int num_try_exit_ = kNumTryExit;
+  int num_try_exit_ = 0;
+  MotorEnablePhase motor_enable_phase_ = MotorEnablePhase::kSynchronizingDisabled;
+  data::Subscriber<data::MotorDebug> motor_debug_subscriber_;
 
   std::shared_ptr<data::IdleParam> param_;
 };

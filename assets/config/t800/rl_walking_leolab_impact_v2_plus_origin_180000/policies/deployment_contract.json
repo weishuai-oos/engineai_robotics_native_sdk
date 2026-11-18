@@ -1,0 +1,320 @@
+{
+  "version": 1,
+  "task": "T800_base-ImpactV2Plus-Play",
+  "checkpoint": "/home/xjh/workspace/zq/zq_leo_final/logs/play_candidates/impact_v2_plus_origin/ckpt/ckpt_180000.pt",
+  "actor_observation_dim": 84,
+  "critic_observation_dim": 87,
+  "action_dim": 25,
+  "amp_observation_dim": 96,
+  "control_period_s": 0.02,
+  "joint_order": [
+    "J00_HIP_PITCH_L",
+    "J01_HIP_ROLL_L",
+    "J02_HIP_YAW_L",
+    "J03_KNEE_PITCH_L",
+    "J04_ANKLE_PITCH_L",
+    "J05_ANKLE_ROLL_L",
+    "J06_HIP_PITCH_R",
+    "J07_HIP_ROLL_R",
+    "J08_HIP_YAW_R",
+    "J09_KNEE_PITCH_R",
+    "J10_ANKLE_PITCH_R",
+    "J11_ANKLE_ROLL_R",
+    "J12_TORSO_YAW",
+    "J13_SHOULDER_PITCH_L",
+    "J14_SHOULDER_ROLL_L",
+    "J15_SHOULDER_YAW_L",
+    "J16_ELBOW_PITCH_L",
+    "J17_ELBOW_YAW_L",
+    "J20_SHOULDER_PITCH_R",
+    "J21_SHOULDER_ROLL_R",
+    "J22_SHOULDER_YAW_R",
+    "J23_ELBOW_PITCH_R",
+    "J24_ELBOW_YAW_R",
+    "J27_HEAD_PITCH",
+    "J28_HEAD_YAW"
+  ],
+  "observation_order": [
+    {
+      "name": "base_ang_vel",
+      "width": 3
+    },
+    {
+      "name": "projected_gravity",
+      "width": 3
+    },
+    {
+      "name": "velocity_commands",
+      "width": 3
+    },
+    {
+      "name": "joint_pos",
+      "width": 25
+    },
+    {
+      "name": "joint_vel",
+      "width": 25
+    },
+    {
+      "name": "previous_actions",
+      "width": 25
+    }
+  ],
+  "head_mask_built_into_model": true,
+  "head_position_columns": [
+    32,
+    33
+  ],
+  "head_position_values_rad": [
+    0.05233699828386307,
+    0.6212509870529175
+  ],
+  "head_zero_observation_columns": [
+    57,
+    58,
+    82,
+    83
+  ],
+  "head_zero_action_columns": [
+    23,
+    24
+  ],
+  "head_output_semantics": "Normalized zero; apply default joint position offset for fixed target.",
+  "action_scale": {
+    "J00_HIP_PITCH_L": 0.5,
+    "J01_HIP_ROLL_L": 0.2,
+    "J02_HIP_YAW_L": 0.2,
+    "J03_KNEE_PITCH_L": 0.5,
+    "J04_ANKLE_PITCH_L": 0.5,
+    "J05_ANKLE_ROLL_L": 0.2,
+    "J06_HIP_PITCH_R": 0.5,
+    "J07_HIP_ROLL_R": 0.2,
+    "J08_HIP_YAW_R": 0.2,
+    "J09_KNEE_PITCH_R": 0.5,
+    "J10_ANKLE_PITCH_R": 0.5,
+    "J11_ANKLE_ROLL_R": 0.2,
+    "J12_TORSO_YAW": 0.2,
+    "J13_SHOULDER_PITCH_L": 0.4,
+    "J14_SHOULDER_ROLL_L": 0.3,
+    "J15_SHOULDER_YAW_L": 0.3,
+    "J16_ELBOW_PITCH_L": 0.4,
+    "J17_ELBOW_YAW_L": 0.3,
+    "J20_SHOULDER_PITCH_R": 0.4,
+    "J21_SHOULDER_ROLL_R": 0.3,
+    "J22_SHOULDER_YAW_R": 0.3,
+    "J23_ELBOW_PITCH_R": 0.4,
+    "J24_ELBOW_YAW_R": 0.4,
+    "J27_HEAD_PITCH": 0.2,
+    "J28_HEAD_YAW": 0.3
+  },
+  "use_default_joint_position_offset": true,
+  "default_joint_position_offsets_rad": [
+    -0.5489420294761658,
+    0.22054199874401093,
+    -0.1193389967083931,
+    0.2791599929332733,
+    -0.14000000059604645,
+    0.0,
+    -0.23554100096225739,
+    -0.22329199314117432,
+    -0.10287199914455414,
+    0.2576639950275421,
+    -0.14000000059604645,
+    0.0,
+    0.006372999865561724,
+    -1.0064669847488403,
+    0.5407670140266418,
+    0.3132820129394531,
+    -1.3318190574645996,
+    0.12410199642181396,
+    -1.138288974761963,
+    -0.13642500340938568,
+    0.197952002286911,
+    -1.815755009651184,
+    -0.6238390207290649,
+    0.05233699828386307,
+    0.6212509870529175
+  ],
+  "head_mode_for_export_validation": "full",
+  "recurrent_memory": {
+    "type": "LSTM",
+    "layers": 2,
+    "hidden_size": 256,
+    "reset": "Reset all recurrent memories on episode/controller reset.",
+    "torch_inference": "Use torch.inference_mode() for JIT inference and reset."
+  },
+  "deployment_package": {
+    "sdk_reference": "engineai_robotics_native_sdk@976621c065fd278db210413130a86b455c520f4e",
+    "profile": "rl_walking_leolab_impact_v2_plus_origin_180000",
+    "motion_example": "walk_plus_origin_180000",
+    "checkpoint_iteration": 180000,
+    "checkpoint_sha256": "2ddfccdaa20835e8531ba6f494f9c2b8bc4805eff0625897b3f6219e96c66b65",
+    "input_tensors": {
+      "observation": [
+        1,
+        1,
+        84
+      ],
+      "memory_in.0": [
+        2,
+        1,
+        256
+      ],
+      "memory_in.1": [
+        2,
+        1,
+        256
+      ]
+    },
+    "output_tensors": {
+      "action": [
+        1,
+        1,
+        25
+      ],
+      "memory_out.0": [
+        2,
+        1,
+        256
+      ],
+      "memory_out.1": [
+        2,
+        1,
+        256
+      ]
+    },
+    "normalization": {
+      "embedded_in_model": true,
+      "source": "checkpoint agent.hook.observation_normalization.observation_rms",
+      "normalized_clamp": 10.0,
+      "runtime_raw_observation_clip": 100.0
+    },
+    "sdk_joint_names": [
+      "J00_HIP_PITCH_L",
+      "J01_HIP_ROLL_L",
+      "J02_HIP_YAW_L",
+      "J03_KNEE_PITCH_L",
+      "J04_ANKLE_PITCH_L",
+      "J05_ANKLE_ROLL_L",
+      "J06_HIP_PITCH_R",
+      "J07_HIP_ROLL_R",
+      "J08_HIP_YAW_R",
+      "J09_KNEE_PITCH_R",
+      "J10_ANKLE_PITCH_R",
+      "J11_ANKLE_ROLL_R",
+      "J12_TORSO_YAW",
+      "J13_SHOULDER_PITCH_L",
+      "J14_SHOULDER_ROLL_L",
+      "J15_SHOULDER_YAW_L",
+      "J16_ELBOW_PITCH_L",
+      "J17_ELBOW_YAW_L",
+      "J18_SHOULDER_PITCH_R",
+      "J19_SHOULDER_ROLL_R",
+      "J20_SHOULDER_YAW_R",
+      "J21_ELBOW_PITCH_R",
+      "J22_ELBOW_YAW_R",
+      "J23_HEAD_PITCH",
+      "J24_HEAD_YAW"
+    ],
+    "joint_stiffness": [
+      180,
+      100,
+      100,
+      180,
+      40,
+      40,
+      180,
+      100,
+      100,
+      180,
+      40,
+      40,
+      100,
+      40,
+      40,
+      40,
+      40,
+      50,
+      40,
+      40,
+      40,
+      40,
+      50,
+      50,
+      50
+    ],
+    "joint_damping": [
+      5.0,
+      3.0,
+      3.0,
+      5.0,
+      2.0,
+      2.0,
+      5.0,
+      3.0,
+      3.0,
+      5.0,
+      2.0,
+      2.0,
+      3.0,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3
+    ],
+    "ordered_action_scale": [
+      0.5,
+      0.2,
+      0.2,
+      0.5,
+      0.5,
+      0.2,
+      0.5,
+      0.2,
+      0.2,
+      0.5,
+      0.5,
+      0.2,
+      0.2,
+      0.4,
+      0.3,
+      0.3,
+      0.4,
+      0.3,
+      0.4,
+      0.3,
+      0.3,
+      0.4,
+      0.4,
+      0.2,
+      0.3
+    ],
+    "action_clip": 100.0,
+    "action_formula": "q_target = default_joint_pos + action_scale * clip(action, -100, 100)",
+    "previous_action_semantics": "previous SDK clipped normalized action; before scale/offset/entry blend",
+    "randomization_at_deployment": false,
+    "validation": {
+      "label": "plus_origin_180000",
+      "frames": 96,
+      "reset_interval": 32,
+      "onnx_checker": "passed",
+      "native_sdk_mnn": "passed",
+      "errors": {
+        "action_max_abs_error": 5.245208740234375e-06,
+        "hidden_max_abs_error": 2.995133399963379e-06,
+        "cell_max_abs_error": 4.0531158447265625e-06
+      },
+      "head_output_max_abs": 0.0,
+      "head_input_invariance_max_abs": 0.0,
+      "max_abs_normalized_action": 5.7227373123168945
+    }
+  }
+}

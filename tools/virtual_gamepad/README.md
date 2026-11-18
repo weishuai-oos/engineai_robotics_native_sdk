@@ -52,25 +52,27 @@ still starts one virtual controller for A and a physical controller for B.
 ## Numbered policy tests
 
 Start the SDK with `./scripts/run_single.sh --virtual-gamepad` or
-`./scripts/run_duel.sh --virtual-gamepad`. The launcher registers the policy
-catalog in a private simulation configuration and opens the **策略测试** tab.
-In a duel, this controls robot A; robot B keeps its existing controller.
+`./scripts/run_duel.sh --virtual-gamepad`. This checkout does not ship a local
+numbered-action catalog, so the **策略测试** tab has no configured actions and
+the launcher does not register `test_action_NN` states. A custom catalog can be
+added when a separate numbered-policy test session is needed.
 
 Enable sending, enter PD standing or walking, then click a numbered action.
 Buttons show the action, batch, and checkpoint iteration in three columns.
-The shared catalog currently contains 15 actions: 01–12 and 14–16; number 13
-is not included. It supports numbers 01–50; unconfigured numbers are hidden.
-Robot feedback confirms the active action.
+When a custom catalog is present, it supports numbers 01–50 and hides
+unconfigured numbers. Robot feedback confirms the active action.
 After confirmation the next item is selected, but execution always requires
 another click. Walking, PD standing, and passive recovery buttons remain
 available during testing. F5/Enable is shared with the original gamepad tab.
 
-The imported policies use zero extra hold time. Actions 01, 03, 04, and 06–12
-skip their appended 100-frame static tail; 02, 05, and 14–16 have no appended
-tail and skip zero frames. They share the regular SuperMimic entry bridge and automatically
-return through the existing gait bridge to `walk_leo` (LB+A). Restart the
-simulation session after changing the catalog or mappings. The import preserves
-the source models, YAML settings, and reference/goal arrays.
+The imported policies use zero extra hold time. Punch references 06/09/11/13
+use a 0.12-second nominal live-policy entry bridge and skip 12/8/8/13
+low-speed tail frames, while leg references 14/15/16/17/19/20 remain
+untrimmed. They share the regular SuperMimic
+entry bridge and automatically return through the existing gait bridge to
+`walk_leo` (LB+A). Restart the simulation session after changing the catalog or
+mappings. The import preserves the source models, YAML settings, and
+reference/goal arrays.
 
 Chinese text needs a CJK font in the GUI environment. If it renders as square
 glyphs, follow the Chinese font setup below.
@@ -82,36 +84,38 @@ the launcher, so a standalone window without that option cannot execute
 numbered actions. See the shared catalog setup below; simulation startup
 commands are in [the startup guide](../../操作.txt).
 
+The four additional T800 walking states use the ordinary gamepad tab. Their
+macros are `LB + d-pad up` → `walk_v2_dr_194500`, `LB + d-pad right` →
+`walk_v2_dr_191500`, `LB + d-pad down` → `walk_plus_origin_180000`, and
+`LB + d-pad left` → `walk_plus_dr_189000`. `LB + Y` launches `leo_taunt` from
+`walk_leo`.
+
 ### Shared test policies and Git
 
-`assets/config/t800/numbered_actions/` contains the shared `catalog.json` and
-15 policy packages imported from `kyx@10.12.120.125`, each with its YAML, MNN,
-and reference motion. Source IDs 01–12 and 14–16 are preserved; 13 is excluded.
-These policies also drive the regular physical gamepad:
+`assets/config/t800/numbered_actions/` retains the policy packages used by the
+formal action states. The default `catalog.json` for virtual strategy testing
+has been removed. These packages also back the regular physical gamepad:
 
 | Physical combination | Numbered action |
 | --- | --- |
-| LB+d-pad up | 01 Left hook, stage 2 (12000 iterations) |
-| LB+d-pad down | 02 Left hook, stage 1, ankle PD 40/2 (10000 iterations) |
-| LB+d-pad left | 03 Left hook, unstable plateau (6000 iterations) |
-| LB+d-pad right | 04 Left hook, stage 2, ankle PD 40/2 (8000 iterations) |
-| RB+d-pad up | 05 Low left flick, stage 1, ankle PD 40/2 (10000 iterations) |
-| RB+d-pad down | 06 Low left flick, stage 2 (6000 iterations) |
-| RB+d-pad left | 07 Low left flick, stage 2, ankle PD 40/2 (8000 iterations) |
-| RB+d-pad right | 08 High left flick, stage 2 (6000 iterations) |
-| RB+A | 09 Left pull-down hammer, stage 2 (12000 iterations) |
-| RB+B | 10 Low left roundhouse, stage 2 (16000 iterations) |
-| RB+X | 11 Mid left roundhouse, stage 2 (16000 iterations) |
-| RB+Y | 12 Left front push kick, unstable latest (26000 iterations) |
-| RT+d-pad up | 14 Taunt 01 with head shake (36000 iterations) |
-| RT+d-pad left | 15 Taunt 02 with head shake (36000 iterations) |
-| RT+d-pad right | 16 Taunt 03 with head shake (36000 iterations) |
+| RB+d-pad up | 06 High left flick punch (32000 iterations) |
+| RB+d-pad down | 09 Left hook (20000 iterations) |
+| RB+d-pad left | 11 Left pull-down hammer (18000 iterations) |
+| RB+d-pad right | 13 Mid left flick punch (32000 iterations) |
+| RB+B | 14 Left front kick (18000 iterations) |
+| RB+A | 15 Lead-leg side stomp (18000 iterations) |
+| RT+d-pad left | 16 Low left snap kick (26000 iterations) |
+| RT+d-pad right | 17 High left snap kick (18000 iterations) |
+| RB+Y | 19 Low left roundhouse (18000 iterations) |
+| RB+X | 20 Mid left roundhouse (18000 iterations) |
 
-RT+d-pad up is supported by the updated input encoding. Rebuild the controller
-and restart the session after this input change. The formal
-`supermimic_action_NN` states and virtual `test_action_NN` states use the same
-package files but keep separate command names. Details are listed in the
-[runner and transition reference](../../docs/t800_runner_classification_and_transitions.md#当前编号测试动作).
+RT+Up/Down are unassigned. The current RT marker already sets both vertical
+d-pad bits, so RT+Up and RT+Down cannot be distinguished. Formal
+`supermimic_action_NN` states keep using the runtime packages. Virtual
+`test_action_NN` states are generated only when a custom catalog is supplied.
+Runtime package details are listed in the [runner and transition reference](../../docs/t800_runner_classification_and_transitions.md).
+The removed 08, 12, and 18 packages are no longer active. Historical packages,
+including the old 01–05 catalog, are omitted from this slim checkout.
 
 To share these tests, include the catalog and all corresponding runtime files
 in Git. For a checkout without a catalog, initialize an empty one from the SDK

@@ -5,7 +5,7 @@
 # and pressed RT as CROSS_X_UP+CROSS_X_DOWN. The marker pairs below therefore
 # represent physical trigger + key combinations.
 # RT + d-pad up/down share the RT marker and are intentionally unassigned.
-# LB + BACK remains the real getup2 combination.
+# LB + BACK is intentionally left unassigned after the HoST key remap.
 
 cpu:
   number: 3
@@ -47,30 +47,27 @@ tasks:
     manual_transition:
       - passive
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
-      - supermimic_action_01
-      - supermimic_action_02
-      - supermimic_action_03
-      - supermimic_action_04
-      - supermimic_action_05
       - supermimic_action_06
-      - supermimic_action_07
-      - supermimic_action_08
       - supermimic_action_09
-      - supermimic_action_10
       - supermimic_action_11
-      - supermimic_action_12
+      - supermimic_action_13
       - supermimic_action_14
       - supermimic_action_15
       - supermimic_action_16
+      - supermimic_action_17
+      - supermimic_action_19
+      - supermimic_action_20
       - supine_to_stance
       - prone_to_stance
       - getup
       - getup2
       - pd_stand_x
       - pd_stand_y
+      - walk_v2_dr_194500
+      - walk_v2_dr_191500
+      - walk_plus_origin_180000
+      - walk_plus_dr_189000
     key: [CROSS_Y_LEFT, CROSS_Y_RIGHT, A]  # physical LT + A
 
   - motion: pd_stand_x
@@ -84,28 +81,25 @@ tasks:
       - pd_stand
       - pd_stand_y
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
-      - supermimic_action_01
-      - supermimic_action_02
-      - supermimic_action_03
-      - supermimic_action_04
-      - supermimic_action_05
       - supermimic_action_06
-      - supermimic_action_07
-      - supermimic_action_08
       - supermimic_action_09
-      - supermimic_action_10
       - supermimic_action_11
-      - supermimic_action_12
+      - supermimic_action_13
       - supermimic_action_14
       - supermimic_action_15
       - supermimic_action_16
+      - supermimic_action_17
+      - supermimic_action_19
+      - supermimic_action_20
       - supine_to_stance
       - prone_to_stance
       - getup
       - getup2
+      - walk_v2_dr_194500
+      - walk_v2_dr_191500
+      - walk_plus_origin_180000
+      - walk_plus_dr_189000
     key: [CROSS_Y_LEFT, CROSS_Y_RIGHT, X]  # physical LT + X
 
   - motion: pd_stand_y
@@ -119,28 +113,25 @@ tasks:
       - pd_stand
       - pd_stand_x
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
-      - supermimic_action_01
-      - supermimic_action_02
-      - supermimic_action_03
-      - supermimic_action_04
-      - supermimic_action_05
       - supermimic_action_06
-      - supermimic_action_07
-      - supermimic_action_08
       - supermimic_action_09
-      - supermimic_action_10
       - supermimic_action_11
-      - supermimic_action_12
+      - supermimic_action_13
       - supermimic_action_14
       - supermimic_action_15
       - supermimic_action_16
+      - supermimic_action_17
+      - supermimic_action_19
+      - supermimic_action_20
       - supine_to_stance
       - prone_to_stance
       - getup
       - getup2
+      - walk_v2_dr_194500
+      - walk_v2_dr_191500
+      - walk_plus_origin_180000
+      - walk_plus_dr_189000
     key: [CROSS_Y_LEFT, CROSS_Y_RIGHT, Y]  # physical LT + Y
 
   - motion: walk
@@ -152,60 +143,25 @@ tasks:
     manual_transition:
       - passive
       - pd_stand
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
       - getup
       - getup2
       - stance_to_supine
-      - supermimic_action_01
-      - supermimic_action_02
-      - supermimic_action_03
-      - supermimic_action_04
-      - supermimic_action_05
       - supermimic_action_06
-      - supermimic_action_07
-      - supermimic_action_08
       - supermimic_action_09
-      - supermimic_action_10
       - supermimic_action_11
-      - supermimic_action_12
+      - supermimic_action_13
       - supermimic_action_14
       - supermimic_action_15
       - supermimic_action_16
+      - supermimic_action_17
+      - supermimic_action_19
+      - supermimic_action_20
+      - walk_v2_dr_194500
+      - walk_v2_dr_191500
+      - walk_plus_origin_180000
+      - walk_plus_dr_189000
     key: [LB, B]
-
-  - motion: walk_impact
-    period: 0.02
-    runner:
-      - name: rl_walking_leolab_example_runner
-        enabled: true
-        param_tag: rl_walking_leolab_impact_v2
-    manual_transition:
-      - passive
-      - pd_stand
-      - walk
-      - walk_leo
-      - walk_leo_terrain
-      - getup
-      - getup2
-      - stance_to_supine
-      - supermimic_action_01
-      - supermimic_action_02
-      - supermimic_action_03
-      - supermimic_action_04
-      - supermimic_action_05
-      - supermimic_action_06
-      - supermimic_action_07
-      - supermimic_action_08
-      - supermimic_action_09
-      - supermimic_action_10
-      - supermimic_action_11
-      - supermimic_action_12
-      - supermimic_action_14
-      - supermimic_action_15
-      - supermimic_action_16
-    key: [LB, Y]
 
   - motion: walk_leo
     period: 0.02
@@ -217,27 +173,24 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_impact
-      - walk_leo_terrain
       - leo_taunt
       - getup
       - getup2
       - stance_to_supine
-      - supermimic_action_01
-      - supermimic_action_02
-      - supermimic_action_03
-      - supermimic_action_04
-      - supermimic_action_05
       - supermimic_action_06
-      - supermimic_action_07
-      - supermimic_action_08
       - supermimic_action_09
-      - supermimic_action_10
       - supermimic_action_11
-      - supermimic_action_12
+      - supermimic_action_13
       - supermimic_action_14
       - supermimic_action_15
       - supermimic_action_16
+      - supermimic_action_17
+      - supermimic_action_19
+      - supermimic_action_20
+      - walk_v2_dr_194500
+      - walk_v2_dr_191500
+      - walk_plus_origin_180000
+      - walk_plus_dr_189000
     key: [LB, A]
 
   - motion: leo_taunt
@@ -250,127 +203,129 @@ tasks:
     manual_transition:
       - walk_leo
     auto_transition: walk_leo
-    # Physical LT+B; the paired d-pad entries are the virtual-remote LT marker.
-    key: [CROSS_Y_LEFT, CROSS_Y_RIGHT, B]
+    # Physical LB + Y. The old ImpactV2 gait no longer owns this key.
+    key: [LB, Y]
 
-  - motion: walk_leo_terrain
+  - motion: walk_v2_dr_194500
     period: 0.02
     runner:
       - name: rl_walking_leolab_example_runner
         enabled: true
-        param_tag: rl_walking_leolab_terrain_example
+        param_tag: rl_walking_leolab_impact_v2_dr_194500
     manual_transition:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
+      - walk_v2_dr_191500
+      - walk_plus_origin_180000
+      - walk_plus_dr_189000
       - getup
       - getup2
       - stance_to_supine
-      - supermimic_action_01
-      - supermimic_action_02
-      - supermimic_action_03
-      - supermimic_action_04
-      - supermimic_action_05
       - supermimic_action_06
-      - supermimic_action_07
-      - supermimic_action_08
       - supermimic_action_09
-      - supermimic_action_10
       - supermimic_action_11
-      - supermimic_action_12
+      - supermimic_action_13
       - supermimic_action_14
       - supermimic_action_15
       - supermimic_action_16
-    key: [LB, X]
-
-  # 125 virtual action 01: 1｜09 左勾拳｜二阶段·12000轮
-  - motion: supermimic_action_01
-    period: 0.02
-    runner:
-      - name: rl_supermimic_runner
-        enabled: true
-        param_tag: rl_supermimic_action_01
-    manual_transition:
-      - passive
-      - pd_stand
-      - walk
-      - walk_impact
-      - walk_leo
-      - walk_leo_terrain
-    auto_transition: walk_leo
+      - supermimic_action_17
+      - supermimic_action_19
+      - supermimic_action_20
+    # ImpactV2 DR 194500, physical LB + d-pad up.
     key: [LB, CROSS_X_UP]
 
-  # 125 virtual action 02: 2｜08 左勾拳｜一阶段·踝PD40/2·10000轮
-  - motion: supermimic_action_02
+  - motion: walk_v2_dr_191500
     period: 0.02
     runner:
-      - name: rl_supermimic_runner
+      - name: rl_walking_leolab_example_runner
         enabled: true
-        param_tag: rl_supermimic_action_02
+        param_tag: rl_walking_leolab_impact_v2_dr_191500
     manual_transition:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
-    auto_transition: walk_leo
-    key: [LB, CROSS_X_DOWN]
-
-  # 125 virtual action 03: 3｜08 左勾拳｜不稳定·plateau·6000轮
-  - motion: supermimic_action_03
-    period: 0.02
-    runner:
-      - name: rl_supermimic_runner
-        enabled: true
-        param_tag: rl_supermimic_action_03
-    manual_transition:
-      - passive
-      - pd_stand
-      - walk
-      - walk_impact
-      - walk_leo
-      - walk_leo_terrain
-    auto_transition: walk_leo
-    key: [LB, CROSS_Y_LEFT]
-
-  # 125 virtual action 04: 4｜08 左勾拳｜新增·二阶段·踝PD40/2·8000轮
-  - motion: supermimic_action_04
-    period: 0.02
-    runner:
-      - name: rl_supermimic_runner
-        enabled: true
-        param_tag: rl_supermimic_action_04
-    manual_transition:
-      - passive
-      - pd_stand
-      - walk
-      - walk_impact
-      - walk_leo
-      - walk_leo_terrain
-    auto_transition: walk_leo
+      - walk_v2_dr_194500
+      - walk_plus_origin_180000
+      - walk_plus_dr_189000
+      - getup
+      - getup2
+      - stance_to_supine
+      - supermimic_action_06
+      - supermimic_action_09
+      - supermimic_action_11
+      - supermimic_action_13
+      - supermimic_action_14
+      - supermimic_action_15
+      - supermimic_action_16
+      - supermimic_action_17
+      - supermimic_action_19
+      - supermimic_action_20
+    # ImpactV2 DR 191500, physical LB + d-pad right.
     key: [LB, CROSS_Y_RIGHT]
 
-  # 125 virtual action 05: 5｜12 左抖拳（低）｜一阶段·踝PD40/2·10000轮
-  - motion: supermimic_action_05
+  - motion: walk_plus_origin_180000
     period: 0.02
     runner:
-      - name: rl_supermimic_runner
+      - name: rl_walking_leolab_example_runner
         enabled: true
-        param_tag: rl_supermimic_action_05
+        param_tag: rl_walking_leolab_impact_v2_plus_origin_180000
     manual_transition:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
-    auto_transition: walk_leo
-    key: [RB, CROSS_X_UP]
+      - walk_v2_dr_194500
+      - walk_v2_dr_191500
+      - walk_plus_dr_189000
+      - getup
+      - getup2
+      - stance_to_supine
+      - supermimic_action_06
+      - supermimic_action_09
+      - supermimic_action_11
+      - supermimic_action_13
+      - supermimic_action_14
+      - supermimic_action_15
+      - supermimic_action_16
+      - supermimic_action_17
+      - supermimic_action_19
+      - supermimic_action_20
+    # Dedicated four-way walking strategy; physical LB + d-pad down.
+    key: [LB, CROSS_X_DOWN]
 
-  # 125 virtual action 06: 6｜12 左抖拳（低）｜新增·二阶段·6000轮
+  - motion: walk_plus_dr_189000
+    period: 0.02
+    runner:
+      - name: rl_walking_leolab_example_runner
+        enabled: true
+        param_tag: rl_walking_leolab_impact_v2_plus_dr_189000
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_leo
+      - walk_v2_dr_194500
+      - walk_v2_dr_191500
+      - walk_plus_origin_180000
+      - getup
+      - getup2
+      - stance_to_supine
+      - supermimic_action_06
+      - supermimic_action_09
+      - supermimic_action_11
+      - supermimic_action_13
+      - supermimic_action_14
+      - supermimic_action_15
+      - supermimic_action_16
+      - supermimic_action_17
+      - supermimic_action_19
+      - supermimic_action_20
+    # Dedicated four-way walking strategy; physical LB + d-pad left.
+    key: [LB, CROSS_Y_LEFT]
+
   - motion: supermimic_action_06
     period: 0.02
     runner:
@@ -381,47 +336,11 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
     auto_transition: walk_leo
-    key: [RB, CROSS_X_DOWN]
+    key: [RB, CROSS_X_UP]
 
-  # 125 virtual action 07: 7｜12 左抖拳（低）｜新增·二阶段·踝PD40/2·8000轮
-  - motion: supermimic_action_07
-    period: 0.02
-    runner:
-      - name: rl_supermimic_runner
-        enabled: true
-        param_tag: rl_supermimic_action_07
-    manual_transition:
-      - passive
-      - pd_stand
-      - walk
-      - walk_impact
-      - walk_leo
-      - walk_leo_terrain
-    auto_transition: walk_leo
-    key: [RB, CROSS_Y_LEFT]
-
-  # 125 virtual action 08: 8｜06 左抖拳（高）｜新增·二阶段·6000轮
-  - motion: supermimic_action_08
-    period: 0.02
-    runner:
-      - name: rl_supermimic_runner
-        enabled: true
-        param_tag: rl_supermimic_action_08
-    manual_transition:
-      - passive
-      - pd_stand
-      - walk
-      - walk_impact
-      - walk_leo
-      - walk_leo_terrain
-    auto_transition: walk_leo
-    key: [RB, CROSS_Y_RIGHT]
-
-  # 125 virtual action 09: 9｜11 左手下拉捅锤｜二阶段·12000轮
+  # Source virtual action 09: 左勾拳, 20000 iterations; RB+下
   - motion: supermimic_action_09
     period: 0.02
     runner:
@@ -432,30 +351,11 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
     auto_transition: walk_leo
-    key: [RB, A]
+    key: [RB, CROSS_X_DOWN]
 
-  # 125 virtual action 10: 10｜19 左低鞭｜二阶段·16000轮
-  - motion: supermimic_action_10
-    period: 0.02
-    runner:
-      - name: rl_supermimic_runner
-        enabled: true
-        param_tag: rl_supermimic_action_10
-    manual_transition:
-      - passive
-      - pd_stand
-      - walk
-      - walk_impact
-      - walk_leo
-      - walk_leo_terrain
-    auto_transition: walk_leo
-    key: [RB, B]
-
-  # 125 virtual action 11: 11｜20 左中鞭｜二阶段·16000轮
+  # Source virtual action 11: 左手下拉捅锤, 18000 iterations; RB+左
   - motion: supermimic_action_11
     period: 0.02
     runner:
@@ -466,30 +366,26 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
     auto_transition: walk_leo
-    key: [RB, X]
+    key: [RB, CROSS_Y_LEFT]
 
-  # 125 virtual action 12: 12｜14 左正蹬｜不稳定·latest·26000轮
-  - motion: supermimic_action_12
+  # Source virtual action 13: 左抖拳（中）, 32000 iterations; RB+右
+  - motion: supermimic_action_13
     period: 0.02
     runner:
       - name: rl_supermimic_runner
         enabled: true
-        param_tag: rl_supermimic_action_12
+        param_tag: rl_supermimic_action_13
     manual_transition:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
     auto_transition: walk_leo
-    key: [RB, Y]
+    key: [RB, CROSS_Y_RIGHT]
 
-  # 125 virtual action 14: 14｜24 嘲讽01 你过来呀（含摇头）｜嘲讽·36000轮
+  # Source virtual action 14: 左正蹬, 18000 iterations; RB+B
   - motion: supermimic_action_14
     period: 0.02
     runner:
@@ -500,13 +396,11 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
     auto_transition: walk_leo
-    key: [BACK, START, CROSS_X_UP, CROSS_X_DOWN, CROSS_Y_LEFT, CROSS_Y_RIGHT]
+    key: [RB, B]
 
-  # 125 virtual action 15: 15｜25 嘲讽02 你过来呀（含摇头）｜嘲讽·36000轮
+  # Source virtual action 15: 前腿侧踩, 18000 iterations; RB+A
   - motion: supermimic_action_15
     period: 0.02
     runner:
@@ -517,13 +411,11 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
     auto_transition: walk_leo
-    key: [CROSS_X_UP, CROSS_X_DOWN, CROSS_Y_LEFT]
+    key: [RB, A]
 
-  # 125 virtual action 16: 16｜26 嘲讽03 你过来呀（含摇头）｜嘲讽·36000轮
+  # Source virtual action 16: 左低弹踢, 26000 iterations; RT+左
   - motion: supermimic_action_16
     period: 0.02
     runner:
@@ -534,11 +426,54 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
+    auto_transition: walk_leo
+    key: [CROSS_X_UP, CROSS_X_DOWN, CROSS_Y_LEFT]
+
+  # Source virtual action 17: 左高弹踢, 18000 iterations; RT+右
+  - motion: supermimic_action_17
+    period: 0.02
+    runner:
+      - name: rl_supermimic_runner
+        enabled: true
+        param_tag: rl_supermimic_action_17
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_leo
     auto_transition: walk_leo
     key: [CROSS_X_UP, CROSS_X_DOWN, CROSS_Y_RIGHT]
+
+  # Source virtual action 19: 左低鞭, 18000 iterations; RB+Y
+  - motion: supermimic_action_19
+    period: 0.02
+    runner:
+      - name: rl_supermimic_runner
+        enabled: true
+        param_tag: rl_supermimic_action_19
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_leo
+    auto_transition: walk_leo
+    key: [RB, Y]
+
+  # Source virtual action 20: 左中鞭, 18000 iterations; RB+X
+  - motion: supermimic_action_20
+    period: 0.02
+    runner:
+      - name: rl_supermimic_runner
+        enabled: true
+        param_tag: rl_supermimic_action_20
+    manual_transition:
+      - passive
+      - pd_stand
+      - walk
+      - walk_leo
+    auto_transition: walk_leo
+    key: [RB, X]
 
   - motion: supine_to_stance
     period: 0.02
@@ -576,11 +511,13 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
+      - walk_v2_dr_194500
+      - walk_v2_dr_191500
+      - walk_plus_origin_180000
+      - walk_plus_dr_189000
     auto_transition: walk_leo
-    key: [LB, START]
+    key: [START, CROSS_Y_LEFT]
 
   - motion: getup2
     period: 0.02
@@ -592,11 +529,13 @@ tasks:
       - passive
       - pd_stand
       - walk
-      - walk_impact
       - walk_leo
-      - walk_leo_terrain
+      - walk_v2_dr_194500
+      - walk_v2_dr_191500
+      - walk_plus_origin_180000
+      - walk_plus_dr_189000
     auto_transition: walk_leo
-    key: [LB, BACK]
+    key: [LB, START]
 
   - motion: stance_to_supine
     period: 0.01

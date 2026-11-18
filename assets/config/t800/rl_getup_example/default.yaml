@@ -189,6 +189,8 @@ imu_install_bias: [0.0, 0.0, 0.0]
 entry_max_upright_projected_gravity_z: -0.8
 entry_max_angular_velocity_norm: 6.0
 success_upright_projected_gravity_z: -0.9
+# The runner hands off once this upright threshold is reached. The next gait
+# cycle absorbs residual angular/linear motion.
 success_max_angular_velocity_norm: 2.0
 success_hold_duration: 0.3
 timeout_duration: 8.0

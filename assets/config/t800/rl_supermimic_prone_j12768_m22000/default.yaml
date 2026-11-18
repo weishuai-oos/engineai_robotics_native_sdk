@@ -9,6 +9,7 @@ reference_file: trajectories/supermimic_reference.npz
 control_dt: 0.02
 physics_dt: 0.002
 hold_seconds: 0.0
+skip_terminal_hold_frames: 12
 # Match the current supine entry: PD to frame zero, then measured-joint settling.
 # These checks prepare the policy; they do not certify the robot has stood up.
 entry_transition_enabled: true

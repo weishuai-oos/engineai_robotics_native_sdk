@@ -61,7 +61,6 @@ class RlGetupExampleRunner : public MotionRunner {
   Eigen::Vector3d imu_install_bias_ = Eigen::Vector3d::Zero();
   Eigen::Vector3d last_projected_gravity_ = Eigen::Vector3d::Zero();
   double last_base_ang_vel_norm_ = 0.0;
-  double success_hold_time_ = 0.0;
   bool completed_by_posture_ = false;
   bool timed_out_ = false;
   bool exit_status_reported_ = false;

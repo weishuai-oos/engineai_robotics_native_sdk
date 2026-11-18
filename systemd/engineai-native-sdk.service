@@ -1,0 +1,26 @@
+[Unit]
+Description=EngineAI Native SDK Robot Controller
+After=network-online.target ethercat.target
+Wants=network-online.target
+RequiresMountsFor=/home/user/projects/engineai_robotics
+Conflicts=robotics.service
+Before=robotics.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/user/projects/engineai_robotics
+Environment=ENGINEAI_ROBOTICS_RUNTIME_ENV=robot
+Environment=HOME=/root
+ExecStartPre=/usr/bin/test -x /home/user/projects/engineai_robotics/_install/bin/src_executor
+ExecStartPre=/usr/bin/test -f /home/user/projects/engineai_robotics/assets/config/t800/mode.yaml
+ExecStart=/bin/bash /home/user/projects/engineai_robotics/run_robot.sh t800
+StandardOutput=journal
+StandardError=journal
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

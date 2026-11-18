@@ -15,7 +15,7 @@ already running:
 ./tools/safety_monitor/start_real_recording.sh --duration 300
 ```
 
-The wrapper starts or reuses `engineai_robotics_env`, sets the real-robot ROS 2
+The wrapper starts or reuses `engineai_robotics_env_1116`, sets the real-robot ROS 2
 domain and Fast DDS implementation, disables the container's localhost-only
 setting, checks `/hardware/joint_state` and `/hardware/rc02_diagnostics`, and
 starts the recorder with `assets/config/t800/lcm/robot.yaml`. The default run

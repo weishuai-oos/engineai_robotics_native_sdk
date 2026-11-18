@@ -91,7 +91,7 @@ native_sdk/
   Docker Compose version v2.27.0
   ```
 
-- **Generate the container development environment.** Upon completion, a shortcut entry `engineai_robotics_env` will be created:
+- **Generate the container development environment.** Upon completion, a shortcut entry `engineai_robotics_env_1116` will be created:
 
 ```bash
 cd native_sdk
@@ -104,7 +104,7 @@ This command creates a container and mounts the current repository into it, so y
 Open a new terminal and enter the development environment using the shortcut command:
 
 ```bash
-engineai_robotics_env
+engineai_robotics_env_1116
 ```
 ![Inside the container development environment](docs/inside_docker.png)
 
@@ -112,7 +112,7 @@ engineai_robotics_env
 
 ```bash
 # Enter the container
-engineai_robotics_env
+engineai_robotics_env_1116
 
 # Build (native x86_64, ROS 2 Humble by default)
 ./build.sh
@@ -133,7 +133,7 @@ Common `build.sh` options:
 
 #### 1.2.1 Cross Compilation (aarch64)
 
-Some robots use an **aarch64** onboard computer. You can cross-compile binaries for the real robot on an x86_64 host. When `-a aarch64` is specified, `./build.sh` automatically launches the cross-compile Docker image via `scripts/cross_compile_env.sh` — run this from the **host machine** (not inside `engineai_robotics_env`).
+Some robots use an **aarch64** onboard computer. You can cross-compile binaries for the real robot on an x86_64 host. When `-a aarch64` is specified, `./build.sh` automatically launches the cross-compile Docker image via `scripts/cross_compile_env.sh` — run this from the **host machine** (not inside `engineai_robotics_env_1116`).
 
 **Supported ROS 2 + architecture combinations:**
 
@@ -178,7 +178,7 @@ Interactive cross-compile environment (optional):
 
 ```bash
 # Enter the container
-engineai_robotics_env
+engineai_robotics_env_1116
 
 # Run with default robot model
 ./run.sh
@@ -244,32 +244,39 @@ State transition logic varies by robot model. Refer to the per-model sections be
 | passive | Damping state. The controller applies passive damping torque; the robot can be moved manually. |
 | pd_stand | PD posture preparation task. It smoothly drives measured joints toward the configured target posture for motion recovery preparation. |
 | walk | Walking task. The robot executes gait locomotion. |
+| walk_leo | ImpactV2 DR 171000 main walking task, LB + A. |
+| walk_v2_dr_194500 | ImpactV2 DR 194500 walking task, LB + d-pad up. |
+| walk_v2_dr_191500 | ImpactV2 DR 191500 walking task, LB + d-pad right. |
+| walk_plus_origin_180000 | ImpactV2Plus 180000 walking task, LB + d-pad down. |
+| walk_plus_dr_189000 | ImpactV2Plus DR 189000 walking task, LB + d-pad left. |
+| leo_taunt | Walking taunt on the main gait model, LB + Y. It is available from `walk_leo` and returns there automatically. |
 | supine_to_stance | Stand-up task using the local `rl_dance_example_runner` with a 50 Hz, 134-observation/25-action policy. Trigger: START + d-pad up; `walk_leo` can also be selected manually before the trajectory ends. |
 | prone_to_stance | Prone get-up using `rl_supermimic_runner` at 50 Hz, with 1520 inputs and 25 outputs. Trigger: START + d-pad right. |
-| supermimic_action_06 | 06 High left flick punch, 32000 iterations, LB + d-pad up. |
-| supermimic_action_08 | 08 Left hook, 32000 iterations, LB + d-pad down. |
-| supermimic_action_09 | 09 Left hook, 20000 iterations, LB + d-pad left. |
-| supermimic_action_11 | 11 Left pull-down hammer, 18000 iterations, LB + d-pad right. |
-| supermimic_action_12 | 12 Low left flick punch, 32000 iterations, RB + d-pad up. |
-| supermimic_action_13 | 13 Mid left flick punch, 32000 iterations, RB + d-pad down. |
-| supermimic_action_14 | 14 Left front kick, 18000 iterations, RB + d-pad left. |
-| supermimic_action_15 | 15 Lead-leg side stomp, 18000 iterations, RB + d-pad right. |
+| getup | HoST get-up. Trigger: START + d-pad left; upright detection hands off directly to the main gait. |
+| getup2 | Second HoST get-up policy. Trigger: LB + START; LB + BACK is unassigned. |
+| supermimic_action_06 | 06 High left flick punch, 32000 iterations, RB + d-pad up. |
+| supermimic_action_09 | 09 Left hook, 20000 iterations, RB + d-pad down. |
+| supermimic_action_11 | 11 Left pull-down hammer, 18000 iterations, RB + d-pad left. |
+| supermimic_action_13 | 13 Mid left flick punch, 32000 iterations, RB + d-pad right. |
+| supermimic_action_14 | 14 Left front kick, 18000 iterations, RB + B. |
+| supermimic_action_15 | 15 Lead-leg side stomp, 18000 iterations, RB + A. |
 | supermimic_action_16 | 16 Low left snap kick, 26000 iterations, RT + d-pad left. |
 | supermimic_action_17 | 17 High left snap kick, 18000 iterations, RT + d-pad right. |
-| supermimic_action_18 | 18 High right snap kick, 18000 iterations, RB + B. |
 | supermimic_action_19 | 19 Low left roundhouse, 18000 iterations, RB + Y. |
 | supermimic_action_20 | 20 Mid left roundhouse, 18000 iterations, RB + X. |
 | stance_to_supine | Lie-down task. The robot transitions from standing posture to a supine (lying on back) posture. |
 
 **State Machine Configuration:** `assets/config/t800/task_motion/default.yaml`
 
-`LB+A` enters `walk_leo`, whose `rl_walking_leolab_example` tag now selects `assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/default.yaml`. This is the final AnkleCombinedV2 `ckpt_140000` export. Its four ankle joints (indices 4, 5, 10, and 11) use Kd 2.0; the remaining joint order, Kp, default pose, action scale, recurrent contract, and terrain-style remote-command settings are unchanged. The previous `rl_walking_leolab_example` configuration and its referenced model remain under `assets/config/t800/old/rl_walking_leolab_example` for rollback. The old top-level compatibility symlink has been removed. `LB+X` still selects `walk_leo_terrain` and its Kd remains 0.3.
+`LB+A` enters `walk_leo`, whose `rl_walking_leolab_example` tag now selects the former `LB + d-pad right` model at `assets/config/t800/rl_walking_leolab_impact_v2_dr_171000/default.yaml`. This DR 171000 policy is now the main walking model. The previous AnkleCombinedV2 140000 and ImpactV2 154500 walking packages were removed.
 
-The 13 formal SuperMimic motions use `rl_supermimic_runner` with the exported 1520-input / 25-output contract. They can be entered from any of the three PD postures or four walking states and automatically return to `walk_leo` after the reference clip. Their packages are shared with virtual tests 06, 08, 09, 11–20 under `assets/config/t800/numbered_actions/`; these IDs are preserved from the ds computer. The imported settings use `hold_seconds: 0.0` and `skip_terminal_hold_frames: 0`, with no appended 100-frame static tail. The nine replaced motions and former catalog 01–05 are archived under `assets/config/t800/old/11.14/`; the earlier five WBT packages remain under `old/上次比赛/`.
+Four additional Leo walking policies remain as independent states. `LB` + d-pad up selects `walk_v2_dr_194500`, d-pad right selects `walk_v2_dr_191500`, d-pad down selects `walk_plus_origin_180000`, and d-pad left selects `walk_plus_dr_189000`. They use the same recurrent Leo runner and 84-observation / 25-action contract as the main gait.
 
-`RT` + d-pad up/down and `RB+A` are unassigned. The current input encoding uses simultaneous d-pad up/down as the RT marker, so RT+up and RT+down cannot select distinct actions. Physical controls use `supermimic_action_NN` states; numbered virtual tests use separate `test_action_NN` states with the same policy assets.
+The 10 formal SuperMimic motions use `rl_supermimic_runner` with the exported 1520-input / 25-output contract. They can be entered from any of the three PD postures or the current walking states and automatically return to `walk_leo` after the reference clip. Their packages are shared with virtual tests 06, 09, 11, 13–17, and 19–20 under `assets/config/t800/numbered_actions/`.
 
-`prone_to_stance` uses `rl_supermimic_prone_j12768_m22000` and plays the complete 143-frame reference over 2.84 seconds, with `hold_seconds: 0.0` adding no terminal hold. The policy returns raw actions, and its history stores the previous raw action. It can be entered from `passive`, `pd_stand`, `pd_stand_x`, or `pd_stand_y`; during execution, manual transitions to `passive`, `pd_stand`, and `walk_leo` remain available. Completion automatically returns to `walk_leo`. The gait takes over directly after get-up, without the gait entry blend used after ordinary fighting motions. The earlier `rl_prone_to_stance_hybrid_9825_m29500` package is archived under `assets/config/t800/old`; START + d-pad up still selects WBT supine get-up, and the HoST get-up tasks are unchanged. The prone package contains only its runtime YAML, MNN policy, and reference NPZ.
+`RT` + d-pad up/down are unassigned. The current input encoding uses simultaneous d-pad up/down as the RT marker, so RT+up and RT+down cannot select distinct actions. Physical controls use `supermimic_action_NN` states. The default checkout does not provide a numbered virtual-test catalog; `test_action_NN` states are generated only for a custom catalog.
+
+`prone_to_stance` uses `rl_supermimic_prone_j12768_m22000`. The reference retains 143 rows, while runtime skips the last 12 rows for about 2.60 seconds of playback. `hold_seconds: 0.0` adds no terminal hold. Completion returns directly to `walk_leo`. `leo_taunt` now uses `LB+Y` and the new main gait model as its policy base. The old `walk_impact` and `walk_v2_dr_171000` states are removed. Punch references 06/09/11/13 trim their low-speed tails by 12/8/8/13 frames. Leg references remain unchanged.
 
 #### Global Safety Mechanism (Emergency Fallback)
 
@@ -287,7 +294,7 @@ This functions as a **Soft Emergency Stop**:
 
 ```bash
 # Enter the container
-engineai_robotics_env
+engineai_robotics_env_1116
 
 # Build the simulation module
 ./scripts/build_mujoco.sh
@@ -302,7 +309,7 @@ engineai_robotics_env
 
 ```bash
 # Enter the container
-engineai_robotics_env
+engineai_robotics_env_1116
 
 # Run simulation (default robot model)
 ./scripts/run_mujoco.sh

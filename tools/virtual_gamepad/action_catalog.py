@@ -9,7 +9,7 @@ import struct
 CAPACITY = 50
 READY_MOTIONS = frozenset({
     "pd_stand", "pd_stand_x", "pd_stand_y",
-    "walk", "walk_impact", "walk_leo", "walk_leo_terrain",
+    "walk", "walk_leo",
 })
 BUTTON_NAMES = ("LB", "RB", "A", "B", "X", "Y")
 MARKER_KEYS = ("CROSS_X_UP", "CROSS_X_DOWN", "CROSS_Y_LEFT", "CROSS_Y_RIGHT")

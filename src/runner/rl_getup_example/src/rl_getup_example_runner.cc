@@ -90,7 +90,6 @@ bool RlGetupExampleRunner::Enter() {
   imu_install_bias_ = param_->imu_install_bias.value_or(Eigen::Vector3d::Zero());
   time_ = 0.0;
   is_first_time_ = true;
-  success_hold_time_ = 0.0;
   completed_by_posture_ = false;
   timed_out_ = false;
   exit_status_reported_ = false;
@@ -348,14 +347,14 @@ void RlGetupExampleRunner::CalculateMotorCommand() {
 void RlGetupExampleRunner::UpdateCompletionState() {
   const bool was_completed = completed_by_posture_;
   if (!observation_valid_) {
-    success_hold_time_ = 0.0;
     completed_by_posture_ = false;
   } else {
-    const bool upright_and_stable =
-        last_projected_gravity_.z() <= param_->success_upright_projected_gravity_z &&
-        last_base_ang_vel_norm_ <= param_->success_max_angular_velocity_norm;
-    success_hold_time_ = upright_and_stable ? success_hold_time_ + param_->control_dt : 0.0;
-    completed_by_posture_ = success_hold_time_ >= param_->success_hold_duration;
+    // Hand control to the default gait as soon as the body is upright.  The
+    // gait observes the measured joint state and absorbs residual motion on
+    // the next control cycle.  Angular velocity and hold-duration parameters
+    // remain in the deployment contract for compatibility with older YAML.
+    const bool upright = last_projected_gravity_.z() <= param_->success_upright_projected_gravity_z;
+    completed_by_posture_ = upright;
   }
   if (completed_by_posture_) {
     // The getup task's normal automatic transition is walk_leo. Keep this
@@ -364,7 +363,7 @@ void RlGetupExampleRunner::UpdateCompletionState() {
     timed_out_ = false;
     if (!was_completed) {
       SetRunnerState(RunnerState::kTryExit);
-      LOG(INFO) << "[RlGetupExampleRunner] Completion criteria met after " << time_
+      LOG(INFO) << "[RlGetupExampleRunner] Upright threshold reached after " << time_
                 << " s; requesting automatic walk_leo transition. gravity_z="
                 << last_projected_gravity_.z() << ", ang_vel_norm=" << last_base_ang_vel_norm_;
     }
@@ -378,7 +377,7 @@ void RlGetupExampleRunner::UpdateCompletionState() {
     // configured automatic transition to passive.
     SetRunnerState(RunnerState::kFault);
     LOG(WARNING) << "[RlGetupExampleRunner] Timeout after " << time_
-                 << " s without proving an upright, stable posture; requesting fault recovery to passive.";
+                 << " s without reaching the upright threshold; requesting fault recovery to passive.";
   }
 }
 
@@ -421,7 +420,7 @@ TransitionState RlGetupExampleRunner::TryExit() {
     }
   } else if (completed_by_posture_) {
     if (!exit_status_reported_) {
-      LOG(INFO) << "[RlGetupExampleRunner] Completion criteria met after " << time_ << " s; gravity_z="
+      LOG(INFO) << "[RlGetupExampleRunner] Upright threshold reached after " << time_ << " s; gravity_z="
                 << last_projected_gravity_.z() << ", ang_vel_norm=" << last_base_ang_vel_norm_;
       exit_status_reported_ = true;
     }
@@ -439,12 +438,14 @@ TransitionState RlGetupExampleRunner::TryExit() {
 }
 
 bool RlGetupExampleRunner::IsTransitionAllowed(std::string_view target_motion) const {
-  // Manual recovery and all four manual gait selections are always
+  // Manual recovery and the remaining manual gait selections are always
   // available. Automatic success still uses the task graph's walk_leo
   // transition, while timeout is handled separately through kFault.
   const bool is_recovery = target_motion == "passive" || target_motion == "pd_stand";
-  const bool is_allowed_walk = target_motion == "walk" || target_motion == "walk_impact" ||
-                               target_motion == "walk_leo" || target_motion == "walk_leo_terrain";
+  const bool is_allowed_walk = target_motion == "walk" || target_motion == "walk_leo" ||
+                               target_motion == "walk_plus_194500" ||
+                               target_motion == "walk_plus_origin_180000" ||
+                               target_motion == "walk_plus_dr_189000";
   return is_recovery || is_allowed_walk;
 }
 

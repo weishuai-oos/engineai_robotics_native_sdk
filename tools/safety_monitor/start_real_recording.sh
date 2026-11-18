@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-container_name="${ENGINEAI_RECORDING_CONTAINER:-engineai_robotics_env}"
+container_name="${ENGINEAI_RECORDING_CONTAINER:-engineai_robotics_env_1116}"
 container_user="${ENGINEAI_RECORDING_CONTAINER_USER:-ds}"
 ros_domain="${ROS_DOMAIN_ID:-69}"
 rmw_implementation="${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}"
@@ -101,11 +101,11 @@ fi
 
 if [[ "$in_container" != true ]]; then
   command -v docker >/dev/null 2>&1 || {
-    echo "Docker is required. Run this command inside engineai_robotics_env or install Docker." >&2
+    echo "Docker is required. Run this command inside engineai_robotics_env_1116 or install Docker." >&2
     exit 2
   }
 
-  compose_dir="${repo_root}/docker/dockers/engineai_robotics_env"
+  compose_dir="${repo_root}/docker/dockers/engineai_robotics_env_1116"
   container_running="$(docker inspect -f '{{.State.Running}}' "$container_name" 2>/dev/null || true)"
   if [[ "$container_running" != true ]]; then
     if [[ ! -f "${compose_dir}/docker-compose.yml" ]]; then

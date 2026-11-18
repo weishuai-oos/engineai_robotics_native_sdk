@@ -4,8 +4,8 @@ EngineAI Native SDK（T800）操作说明
 
 下面仿真命令在 SDK 容器的仓库根目录执行。首次创建容器见 README_CN.md 的“容器环境”；已有容器从宿主机进入：
 
-  engineai_robotics_env
-  cd /home/xjh/workspace/zq/engineai_robotics_native_sdk
+  engineai_robotics_env_1116
+  cd /home/ds/robot/11.16/engineai_robotics_native_sdk
 
 其他电脑将路径改为本机仓库路径。确认 assets/config/t800/mode.yaml 中 active_mode: sim。
 首次使用或修改 C++ 后，在容器内编译；已有最新构建可跳过：
@@ -40,56 +40,58 @@ EngineAI Native SDK（T800）操作说明
   # A、B 各一个虚拟手柄
   ./scripts/run_duel.sh --virtual-gamepads
 
-双机默认无吊绳；双虚拟手柄分别控制 A、B，编号策略测试只在 A 启用。
+双机默认无吊绳；双虚拟手柄分别控制 A、B。当前项目未提供默认编号策略测试清单。
 
 四、开始控制与退出
 
 1. 虚拟手柄先勾选 Enable 或按 F5；双虚拟窗口分别启用。
 2. 按 LT+A 进入 PD 准备。双机窗口默认暂停：双方进入 PD 后释放按键，在 MuJoCo 窗口按空格开始物理仿真。
-3. 等机器人站稳后，按 LB+A 进入 CombinedV2 走路，使用摇杆控制前后、左右和转向。动作切换应在物理仿真运行时进行。
+3. 等机器人站稳后，按 LB+A 进入 DR 171000 主走路，使用摇杆控制前后、左右和转向。动作切换应在物理仿真运行时进行。
 4. 测试页从 PD 或走路状态点击编号动作，完成后自动回 LB+A 走路；下一项需要手动点击。
 5. 关闭仿真或虚拟手柄窗口，或在启动终端按 Ctrl+C，结束本次入口启动的全部进程。切换单机、双机前先正常退出上一会话。
 
 五、常用按键
 
   LB + RB                 passive（阻尼）
+  BACK + START            idle（初始化状态，确认电机实际使能后进入 passive）
   LT + A / X / Y          pd_stand / pd_stand_x / pd_stand_y
   LB + B                  walk（SDK 普通步态）
-  LB + Y                  walk_impact（ImpactV2，154500 轮）
-  LB + A                  walk_leo（CombinedV2，140000 轮）
-  LB + X                  walk_leo_terrain（地形步态）
-  LT + B                  leo_taunt（走路嘲讽，只能从 LB+A 进入）
-
-  125 电脑测试动作（保留原编号，13 号未迁移）：
-  LB+十字键上            01  左勾拳（二阶段），12000 轮
-  LB+十字键下            02  左勾拳（一阶段，踝 PD 40/2），10000 轮
-  LB+十字键左            03  左勾拳（不稳定，plateau），6000 轮
-  LB+十字键右            04  左勾拳（二阶段，踝 PD 40/2），8000 轮
-  RB+十字键上            05  左抖拳低（一阶段，踝 PD 40/2），10000 轮
-  RB+十字键下            06  左抖拳低（二阶段），6000 轮
-  RB+十字键左            07  左抖拳低（二阶段，踝 PD 40/2），8000 轮
-  RB+十字键右            08  左抖拳高（二阶段），6000 轮
-  RB+A               09  左手下拉捅锤（二阶段），12000 轮
-  RB+B               10  左低鞭（二阶段），16000 轮
-  RB+X               11  左中鞭（二阶段），16000 轮
-  RB+Y               12  左正蹬（不稳定，latest），26000 轮
-  RT+十字键上            14  嘲讽 01（含摇头），36000 轮
-  RT+十字键左            15  嘲讽 02（含摇头），36000 轮
-  RT+十字键右            16  嘲讽 03（含摇头），36000 轮
-
-  START + 十字键上        仰卧起身 supine_to_stance
-  START + 十字键右        俯卧起身 prone_to_stance
-  LB + START              getup（HoST 起身）
-  LB + BACK               getup2（HoST 起身第二版本）
+  LB + A                  walk_leo（ImpactV2 DR，171000 轮，主走路）
+  LB + 十字键上           walk_v2_dr_194500（ImpactV2 DR，194500 轮）
+  LB + 十字键右           walk_v2_dr_191500（ImpactV2 DR，191500 轮）
+  LB + 十字键下           walk_plus_origin_180000（ImpactV2Plus，180000 轮）
+  LB + 十字键左           walk_plus_dr_189000（ImpactV2Plus DR，189000 轮）
+  LB + Y                  leo_taunt（走路嘲讽，只能从 LB+A 进入）
+  START + 十字键左       getup（HoST 起身）
+  LB + START              getup2（HoST 起身第二版本）
+  LB + BACK               空闲
+  START + 十字键上        supine_to_stance（仰卧起身）
+  START + 十字键右        prone_to_stance（俯卧起身）
   START + 十字键下        stance_to_supine（主动躺下）
 
-上述 15 个策略来自 125 电脑 /home/kyx/engineai_robotics_native_sdk 的虚拟手柄测试页，保留编号 01～12、14～16，不迁移 13 号。实体按键与测试页共用 assets/config/t800/numbered_actions/ 中的同一份模型、配置和参考轨迹。正式状态名为 supermimic_action_NN，虚拟编号状态名为 test_action_NN。
+  上述按键覆盖当前 task_motion 的 27 个正式状态；名单二动作映射如下（保留 ds 电脑虚拟遥控器的原动作编号）：
 
-这 15 个动作使用 SuperMimic runner，可从三种 PD 或四种走路进入，完成后自动回 LB+A；hold_seconds 均为 0。01、03、04、06～12 的参考轨迹附加了 100 帧静态尾段，配置跳过这 100 帧；02、05、14～16 没有附加尾段，跳过帧数为 0。LT+B 的走路嘲讽仍保留。
+  拳法：
+  RB+十字键上            06  左抖拳（高），32000 轮（supermimic_action_06）
+  RB+十字键下            09  左勾拳，20000 轮（supermimic_action_09）
+  RB+十字键左            11  左手下拉捅锤，18000 轮（supermimic_action_11）
+  RB+十字键右            13  左抖拳（中），32000 轮（supermimic_action_13）
 
-RT+十字上已支持；更改输入组合识别后，需在相应环境重新编译控制器并重启仿真或重新部署真机程序。原来绑定到这些实体按键的动作及对应测试包已删除；更早的备选仍在 assets/config/t800/old/。
+  腿法：
+  RT+十字键左            16  左低弹踢，26000 轮（supermimic_action_16）
+  RT+十字键右            17  左高弹踢，18000 轮（supermimic_action_17）
+  RB+B                   14  左正蹬，18000 轮（supermimic_action_14）
+  RB+Y                   19  左低鞭，18000 轮（supermimic_action_19）
+  RB+X                   20  左中鞭，18000 轮（supermimic_action_20）
+  RB+A                   15  前腿侧踩，18000 轮（supermimic_action_15）
 
-按键仅在当前状态允许目标状态时生效；动作和状态关系以 assets/config/t800/task_motion/default.yaml 为准，策略目录由 mode.yaml 选择。仰卧、俯卧起身可从 passive 或三种 PD 姿态进入：两者都先 PD 过渡到参考首姿态，过渡结束后关节最大误差不超过 0.80 rad 连续 5 个 0.02 秒周期，才启动起身策略；当前不检查姿态、角速度或接触，也不设置等待超时。参考结束后直接交给 LB+A 走路，不另做站稳判定。状态分类与完整衔接见 docs/t800_runner_classification_and_transitions.md。
+  10 个动作均可从三种 PD 姿态或当前六种走路状态进入，完成后自动回到 LB+A 的 walk_leo。
+  拳法 06/09/11/13 的进入衔接已缩短为约 0.12 秒（范围 0.08～0.16 秒）；参考尾部早切为 06/09/11/13 跳过 12/8/8/13 帧。腿部动作 14/15/16/17/19/20 目前未改。
+  RT+十字键上、RT+十字键下仍未分配。输入编码使用十字键上、下同时置位表示 RT，因此这两个组合无法区分。
+
+  真机启动时 idle 会先同步一次失能反馈，再请求使能；只有 enabled_motor_state 与 motor_debug 的 enable/offline/error 反馈一致且健康时才进入 passive。反馈等待约 2 秒后进入安全故障路径，仿真环境跳过硬件等待。
+
+按键仅在当前状态允许目标状态时生效；动作和状态关系以 assets/config/t800/task_motion/default.yaml 为准，策略目录由 mode.yaml 选择。仰卧、俯卧起身可从 passive 或三种 PD 姿态进入：两者都先 PD 过渡到参考首姿态，过渡结束后关节最大误差不超过 0.80 rad 连续 5 个 0.02 秒周期，才启动起身策略。参考结束后直接交给 LB+A 主走路。HoST 起身进入后达到直立重力投影阈值即请求切入 LB+A，主走路对 getup/getup2 配置为硬接管，残余速度由走路策略接管。状态分类与完整衔接见 docs/t800_runner_classification_and_transitions.md。
 
 虚拟手柄键盘：LB=Q、RB=E、A=J、B=K、X=U、Y=I、BACK=F1、START=F2、十字键上=W/下=S/左=A/右=D；LT/RT 使用界面滑块。方向键控制前后左右，N/M 控制左转/右转。修改 YAML 后重新启动会话。
 
@@ -148,42 +150,19 @@ MuJoCo 的 `sim_control_diagnostics` 也默认按 100 Hz 发布；如果需要�
 
 详细数据字段与参数可通过 `./tools/safety_monitor/start_recording.sh --help` 查看。
 
-## 模型导出与替换（AnkleCombinedV2）
+## 主走路模型部署
 
-当前 `LB+A` 已使用最终 **`ckpt_140000.pt`** 导出的模型，日常启动无需导出。以下仅用于重新导出这一个 checkpoint，在**本机训练环境**执行，先退出正在使用该模型的 SDK。路径按实际环境修改：
+当前 `LB+A` 使用原 `LB+十字键右` 的 **ImpactV2 DR 171000** 模型，日常启动无需导出。新增的 DR 194500 和 DR 191500 分别占用 `LB+十字键上` 与 `LB+十字键右`。若重新生成 MNN，应使用对应训练仓库的导出流程，在本机训练环境执行，并先退出正在使用该模型的 SDK。
 
-```bash
-(
-set -e
-LEO_DIR=/srv/shared/home/xjh/workspace/zq_leo_final
-SDK_DIR=/srv/shared/home/xjh/workspace/zq/engineai_robotics_native_sdk
-LEO_PY=/srv/shared/home/xjh/app/miniconda3/envs/leo/bin/python
-MNN_PY=/srv/shared/home/xjh/app/miniconda3/envs/whole_body_tracking/bin/python
-CKPT_PATH="$LEO_DIR/logs/cusrl/T800_base-AnkleCombinedV2/2026-11-07-23-48-06:T800_base-AnkleCombinedV2_finetune_2gpu_seed42/ckpt/ckpt_140000.pt"
-DEPLOY_DIR="$SDK_DIR/assets/config/t800/rl_walking_leolab_ankle_combined_v2_140000/policies"
-OUT_DIR=$(mktemp -d /tmp/engineai-ankle-v2.XXXXXX)
-trap 'rm -rf -- "$OUT_DIR"' EXIT
-
-"$LEO_PY" "$LEO_DIR/scripts/cusrl/export_ankle_v2.py" \
-  --checkpoint "$CKPT_PATH" --expected-iteration 140000 --output-dir "$OUT_DIR"
-
-"$MNN_PY" -m MNN.tools.mnnconvert \
-  -f ONNX --modelFile "$OUT_DIR/actor.onnx" \
-  --MNNModel "$OUT_DIR/boxing_policy.mnn" --bizCode MNN --targetVersion 2.9
-
-cp "$OUT_DIR/boxing_policy.mnn" "$DEPLOY_DIR/boxing_policy.mnn"
-)
-```
-
-只把最终 MNN 放入部署目录，ONNX 和导出记录留在临时目录并在结束时自动清理。转换保持 FP32，`--targetVersion 2.9` 对应 SDK 容器的 MNN 2.9 推理库。
+重新导出时请使用训练仓库中与 ImpactV2 DR 171000 对应的导出命令，将最终 FP32 MNN 覆盖到上述 `policies/boxing_policy.mnn`，然后重启 SDK 会话。
 
 `assets/config/t800/mode.yaml` 的 `mode.sim`、`mode.robot` 均应包含以下选择，当前已配置：
 
 ```yaml
     - tag: rl_walking_leolab_example
-      scope: rl_walking_leolab_ankle_combined_v2_140000/default
+      scope: rl_walking_leolab_impact_v2_dr_171000/default
 ```
 
-运行只需该目录的 `default.yaml` 与 `policies/boxing_policy.mnn`；保持四踝 Kd=2.0。接口为 84 维观测、25 维动作及两组 `[2,1,256]` 循环状态。以上命令只更新 `SDK_DIR` 指定的仓库；在 109 测试时，需同步对应 MNN 后重启单机或双机会话。
+部署只需该目录的 `default.yaml` 与 `policies/boxing_policy.mnn`。接口为 84 维观测、25 维动作及两组 `[2,1,256]` 循环状态。更新 MNN 后需重启单机或双机会话。
 
-该导出脚本仅适用于 CombinedV2。`LB+Y` 的 ImpactV2 需要其带头部掩码的专用导出流程。
+`LB+Y` 现在由 `leo_taunt` 使用，走路嘲讽复用该主模型作为策略基座。当前六种走路状态共用 Leo runner。

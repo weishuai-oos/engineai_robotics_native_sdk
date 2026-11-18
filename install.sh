@@ -20,8 +20,9 @@ remote_dest="${remote_user}@${remote_host}"
 
 # Gets the source directory
 source_dir=$(cd $(dirname $0) && pwd)
-local_scripts=("$source_dir/scripts/run_robot.sh" "$source_dir/scripts/set_imu_tty.sh")
+local_scripts=("$source_dir/scripts/run_robot.sh" "$source_dir/scripts/set_imu_tty.sh" "$source_dir/scripts/configure_autostart.sh")
 local_assets_dir="$source_dir/assets"
+local_systemd_dir="$source_dir/systemd"
 
 usage() {
     echo "Usage: $0 <product_name> <mode> [arch]"
@@ -66,6 +67,9 @@ trap "ssh -o ControlPath=${ssh_control_path} -O exit ${remote_dest} 2>/dev/null 
 echo "temp_dir: ${temp_dir}"
 rsync -av "${local_install_dir}" "${temp_dir}"
 rsync -av "${local_scripts[@]}" "${temp_dir}"
+if [ -d "${local_systemd_dir}" ]; then
+    rsync -av "${local_systemd_dir}" "${temp_dir}/"
+fi
 
 # Copies assets for the given product
 if [ -d "${local_assets_dir}/config/$product_name" ]; then
@@ -89,8 +93,13 @@ else
     exit 1
 fi
 
-# Add git information if available (兼容普通仓库和 worktree)
-git_dir=$( [ -d "$source_dir/.git" ] && echo "$source_dir/.git" || ( [ -f "$source_dir/.git" ] && sed 's/gitdir: //' "$source_dir/.git" ) )
+# Add git information if available (兼容普通仓库、worktree 和普通源码目录)
+git_dir=""
+if [ -d "$source_dir/.git" ]; then
+    git_dir="$source_dir/.git"
+elif [ -f "$source_dir/.git" ]; then
+    git_dir=$(sed 's/gitdir: //' "$source_dir/.git")
+fi
 if [ -n "$git_dir" ]; then
     echo "release_note.txt" > "${temp_dir}/release_note.txt"
     git_commit_id=$(git rev-parse HEAD)
@@ -140,5 +149,14 @@ rsync -avz --delete -e "ssh -o ControlPath=${ssh_control_path}" "${temp_dir}/" "
 remote_mode_yaml="${remote_dir}/assets/config/${product_name}/mode.yaml"
 ssh -o ControlPath="${ssh_control_path}" "${remote_dest}" "sed -i 's/^active_mode:.*$/active_mode: $active_mode/' $remote_mode_yaml"
 echo "Updated active_mode to '$active_mode' in remote $remote_mode_yaml"
+
+# Configure the custom systemd service without starting it. The tty allows
+# sudo to prompt for the robot user's password while keeping the deployment
+# command usable for a first-time setup.
+remote_autostart_script="${remote_dir}/configure_autostart.sh"
+echo "Configuring automatic startup for the deployed SDK..."
+ssh -tt -o ControlPath="${ssh_control_path}" "${remote_dest}" \
+    "sudo -v && sudo ${remote_autostart_script}"
+echo "Automatic startup configured. The deployed SDK service was not started."
 
 echo "Congratulations! Installed to ${remote_user}@${remote_host}:${remote_dir}"

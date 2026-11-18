@@ -34,12 +34,24 @@ LCM_SIM_STATE_HASH = 0xADB53C89E035F05C
 LCM_DYNAMIC_VECTOR_DOUBLE_HASH = 0xD22DAF2A4F45DA70
 DEFAULT_LCM_URL = "udpm://239.255.76.67:7667?ttl=0"
 IMU_GRAVITY_MPS2 = 9.80665
-WALK_MOTIONS = frozenset({"walk", "walk_impact", "walk_leo", "walk_leo_terrain"})
+WALK_MOTIONS = frozenset(
+    {
+        "walk",
+        "walk_leo",
+        "walk_v2_dr_194500",
+        "walk_v2_dr_191500",
+        "walk_plus_origin_180000",
+        "walk_plus_dr_189000",
+        "leo_taunt",
+    }
+)
 LEO_MOTION_PARAM_TAGS = {
-    "walk_impact": "rl_walking_leolab_impact_v2",
     "walk_leo": "rl_walking_leolab_example",
+    "walk_v2_dr_194500": "rl_walking_leolab_impact_v2_dr_194500",
+    "walk_v2_dr_191500": "rl_walking_leolab_impact_v2_dr_191500",
+    "walk_plus_origin_180000": "rl_walking_leolab_impact_v2_plus_origin_180000",
+    "walk_plus_dr_189000": "rl_walking_leolab_impact_v2_plus_dr_189000",
     "leo_taunt": "rl_walking_leolab_taunt",
-    "walk_leo_terrain": "rl_walking_leolab_terrain_example",
 }
 POSTURE_EVENT_TYPES = frozenset(
     {

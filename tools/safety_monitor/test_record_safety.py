@@ -48,19 +48,6 @@ class LeoDiagnosticsTest(unittest.TestCase):
         freshness = record_safety.leo_command_diagnostics_freshness(record, 151_000_000, motion="walk_leo")
         self.assertFalse(freshness["fresh"])
 
-    def test_impact_gait_keeps_posture_and_its_own_command_provenance(self):
-        recorder = record_safety.SafetyRecorder.__new__(record_safety.SafetyRecorder)
-        evidence = {}
-        recorder.add_posture_evidence(evidence, {"motion": "walk_impact"})
-        self.assertEqual(evidence["posture_context"]["reason"], "imu_info_unavailable")
-        message = self.message()
-        message.source_param_tag = "rl_walking_leolab_impact_v2"
-        record = record_safety.leo_command_diagnostics_record(message, 1_000_000, 0)
-        self.assertTrue(record_safety.leo_command_diagnostics_freshness(
-            record, 1_000_000, motion="walk_impact")["fresh"])
-        self.assertFalse(record_safety.leo_command_diagnostics_freshness(
-            record, 1_000_000, motion="walk_leo")["fresh"])
-
     def test_missing_diagnostics_is_non_fresh_and_non_fatal(self):
         self.assertEqual(
             record_safety.leo_command_diagnostics_freshness(None, 100),
@@ -76,7 +63,7 @@ class LeoDiagnosticsTest(unittest.TestCase):
 
     def test_inactive_or_wrong_motion_is_not_current_command(self):
         record = record_safety.leo_command_diagnostics_record(self.message(), 1_000_000, 0)
-        for motion in (None, "passive", "walk", "walk_leo_terrain"):
+        for motion in (None, "passive", "walk"):
             with self.subTest(motion=motion):
                 freshness = record_safety.leo_command_diagnostics_freshness(record, 1_000_000, motion=motion)
                 self.assertFalse(freshness["fresh"])
@@ -85,9 +72,6 @@ class LeoDiagnosticsTest(unittest.TestCase):
         self.assertFalse(record_safety.leo_command_diagnostics_freshness(
             record, 1_000_000, motion="walk_leo")["fresh"])
         record["active"] = True
-        record["source_param_tag"] = "rl_walking_leolab_terrain_example"
-        self.assertTrue(record_safety.leo_command_diagnostics_freshness(
-            record, 1_000_000, motion="walk_leo_terrain")["fresh"])
 
     def test_missing_negative_or_nonfinite_age_is_not_fresh(self):
         for key, value in (("source_age_ms", None), ("source_age_ms", -1),

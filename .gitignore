@@ -1,53 +1,51 @@
-# Omniverse
-**/*.dmp
-**/.thumbs
-
-# Python
+# Operating-system and IDE files
 .DS_Store
-**/*.egg-info/
-**/__pycache__/
-**/.pytest_cache/
-**/*.pyc
-**/*.pb
-
-# IDE
+**/.thumbs
 **/.idea/
 **/.vscode/
-# Don't ignore the top-level .vscode directory as it is
-# used to configure VS Code settings
 !.vscode
 
-# Outputs
-**/build/
-**/.cache/
-**/runs/*
-**/logs/*
-**/recordings/*
-**/output/*
-**/outputs/*
-**/videos/*
-**/wandb/*
-**/.neptune/*
-docker/artifacts/
-*.tmp
-/core/lib
-docs/
+# Python caches and local environments
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[cod]
+**/*.egg-info/
 
-# Isaac-Sim packman
+# Build and generated SDK outputs
+/build/
+/build*/
+**/build/
+/core/lib
+**/.cache/
+**/logs/
+**/recordings/
+**/records/
+**/output/
+**/outputs/
+**/videos/
+**/runs/
+**/wandb/
+**/.neptune/
+*.dmp
+*.tmp
+*.swp
+
+# Runtime and local tooling output
+safety_logs/
+records/safety_monitor/
+arr1.npy
+out.npz
+docker/artifacts/
+docker/dockers/
+
+# Keep repository documentation tracked while ignoring local notes.
+docs/local_notes.md
+docs/*.local.md
+
+# Isaac-Sim and other local package outputs
 _isaac_sim*
 _repo
 _build
 .lastformat
 .cache
-build
-.vscode
-safety_logs/
-records/safety_monitor/
-arr1.npy
-out.npz
-docs/
-
-# Share the current runner reference while keeping other local documents ignored.
-!/docs/
-/docs/*
-!/docs/t800_runner_classification_and_transitions.md
+*.pb

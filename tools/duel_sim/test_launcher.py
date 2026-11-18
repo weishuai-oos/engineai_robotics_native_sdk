@@ -85,12 +85,12 @@ class DuelLauncherTest(unittest.TestCase):
             name = "robot_a" if index == 0 else "robot_b"
             self.assertIn(f"/{name}/hardware/joint_state", (overlay / "config/t800/ros2_bridge/default.yaml").read_text())
             self.assertIn(str(self.root / "logs" / name), (overlay / "config/t800/google_logger/default.yaml").read_text())
-            combined = overlay / "config/t800/rl_walking_leolab_ankle_combined_v2_140000"
-            self.assertFalse(combined.is_symlink())
-            self.assertTrue((combined / "default.yaml").is_file())
-            self.assertTrue((combined / "policies/boxing_policy.mnn").is_file())
+            main_gait = overlay / "config/t800/rl_walking_leolab_impact_v2_dr_171000"
+            self.assertFalse(main_gait.is_symlink())
+            self.assertTrue((main_gait / "default.yaml").is_file())
+            self.assertTrue((main_gait / "policies/boxing_policy.mnn").is_file())
             policy = (overlay / "config/t800/numbered_actions" /
-                      "rl_supermimic_stage2_guard_09_zq_xjh_3_5_01_strike_10_i012000/policies/policy.mnn")
+                      "rl_supermimic_local_clip_zq_xjh_3_5_01_strike_10/policies/policy.mnn")
             self.assertTrue(policy.is_symlink())
             self.assertEqual(policy.resolve(), (config / policy.relative_to(overlay / "config/t800")).resolve())
             self.assertTrue((overlay / "resource").is_symlink())

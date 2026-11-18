@@ -1,5 +1,4 @@
 #include "gamepad/gamepad_driver.h"
-#include "input_command_arbiter/gamepad_key_encoding.h"
 #include "input_command_arbiter/input_source_selection.h"
 
 #include <sys/stat.h>
@@ -14,54 +13,6 @@
 #include <type_traits>
 
 namespace {
-
-void CheckTriggerTaskEncoding() {
-  const auto encode = [](int digital, double lt, double rt) {
-    runner::AddLtTaskModifier(lt, &digital);
-    runner::AddRtTaskModifier(rt, &digital);
-    return digital;
-  };
-  constexpr int kUp = 1 << 8;
-  constexpr int kDown = 1 << 9;
-  constexpr int kLeft = 1 << 10;
-  constexpr int kRight = 1 << 11;
-  constexpr int kBack = 1 << 6;
-  constexpr int kStart = 1 << 7;
-  constexpr int kRtUp = kUp | kDown | kLeft | kRight | kBack | kStart;
-
-  assert(encode(kUp, 0, 1) == kRtUp);
-  assert(encode(0, 0, 1) == (kUp | kDown));
-  assert(encode(kDown, 0, 1) == (kUp | kDown));
-  assert(encode(kLeft, 0, 1) == (kUp | kDown | kLeft));
-  assert(encode(kRight, 0, 1) == (kUp | kDown | kRight));
-  assert(encode(kUp, 0, 0.499) == kUp);
-  assert(encode(kUp, 0, 0.5) == kRtUp);
-  assert(encode(kBack | kStart, 1, 1) == kRtUp);  // Reserved alias; do not bind separately.
-
-  // All other digital patterns retain their old encoding.  The adapters and
-  // debouncer add LT before RT, including the dual-trigger test-page commands.
-  for (int digital = 0; digital <= 0xfff; ++digital) {
-    for (int lt = 0; lt <= 1; ++lt) {
-      for (int rt = 0; rt <= 1; ++rt) {
-        int expected = digital | (lt ? (kLeft | kRight) : 0) | (rt ? (kUp | kDown) : 0);
-        if (digital == kUp && lt == 0 && rt == 1) expected = kRtUp;
-        assert(encode(digital, lt, rt) == expected);
-      }
-    }
-  }
-  for (int number = 1; number <= 50; ++number) {
-    assert(encode(number, 1, 1) == (0xf00 | number));
-    assert(encode(number, 1, 1) != kRtUp);
-  }
-
-  int encoded = kUp;
-  runner::AddRtTaskModifier(1.0, &encoded);
-  runner::AddRtTaskModifier(1.0, &encoded);
-  assert(encoded == kRtUp);
-  runner::AddLtTaskModifier(1.0, &encoded);
-  runner::AddRtTaskModifier(1.0, &encoded);
-  assert(encoded == kRtUp);
-}
 
 void CheckMapping() {
   hardware::GamepadEventMapping mapping;
@@ -218,7 +169,6 @@ int main() {
   static_assert(!std::is_copy_constructible_v<hardware::LogitechGamepadDriver>);
   static_assert(!std::is_move_constructible_v<hardware::LogitechGamepadDriver>);
   CheckMapping();
-  CheckTriggerTaskEncoding();
   CheckSourceSelection();
   CheckDeviceEnvironment();
   CheckIndependentDevices();

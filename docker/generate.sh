@@ -12,7 +12,7 @@ USER_HOME="$HOME"
 # --- Config constants ---
 NVIDIA_GPU_AVAILABLE="n"
 WORKSPACE_DIR="${SCRIPT_DIR}/../"
-PROJECT_NAME="engineai_robotics_env"
+PROJECT_NAME="engineai_robotics_env_1116"
 SOURCE_IMAGE="ghcr.io/engineai-robotics/engineai_robotics_env:latest"
 LOCAL_IMAGE_TAG="humble-desktop-local"
 
@@ -21,6 +21,10 @@ CONTAINER_NAME="${PROJECT_NAME}"
 PROJECT_DIR="${SCRIPT_DIR}/dockers/${PROJECT_NAME}"
 DOCKERFILES_DIR="${SCRIPT_DIR}/dockerfiles"
 mkdir -p "${PROJECT_DIR}"
+# Compose always mounts the X11 auth path. Create an empty regular file so
+# headless terminals can start the container before the GUI helper populates it.
+touch "${PROJECT_DIR}/.docker.xauth"
+chmod 600 "${PROJECT_DIR}/.docker.xauth"
 
 # --- Generate .env file for docker compose ---
 cat > "${PROJECT_DIR}/.env" <<EOF
